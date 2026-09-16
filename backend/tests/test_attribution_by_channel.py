@@ -134,6 +134,53 @@ class TestAttributionByChannel:
         assert data[0]["spend"] is None
         assert data[0]["roas"] is None
 
+    def test_guest_order_with_no_resolved_customer_is_excluded(self, client, auth_header, test_store):
+        """A guest checkout (no email/phone) never resolves to a
+        `customers` row, so — like CAC-by-channel — it's invisible here
+        even though /metrics/summary still counts its revenue. See the
+        README's "Multi-touch attribution" section for why this is
+        intentional, not a bug."""
+        self._seed_orders(
+            client,
+            auth_header,
+            test_store.id,
+            [
+                {
+                    "order_id": "order-guest",
+                    "time": "2026-12-05T00:00:00Z",
+                    "gross_amount": 80.0,
+                    "currency": "USD",
+                    "attribution_utm_source": "meta",
+                },
+                {
+                    "order_id": "order-identified",
+                    "time": "2026-12-06T00:00:00Z",
+                    "gross_amount": 20.0,
+                    "currency": "USD",
+                    "customer_email": "identified@example.com",
+                    "attribution_utm_source": "meta",
+                },
+            ],
+        )
+
+        attribution_response = client.get(
+            f"/stores/{test_store.id}/metrics/attribution-by-channel"
+            "?start=2026-12-01T00:00:00Z&end=2026-12-31T00:00:00Z",
+            headers=auth_header,
+        )
+        attribution_data = attribution_response.json()
+        assert len(attribution_data) == 1
+        assert attribution_data[0]["channel"] == "meta"
+        assert attribution_data[0]["orders"] == 1
+        assert attribution_data[0]["revenue"] == 20.0
+
+        summary_response = client.get(
+            f"/stores/{test_store.id}/metrics/summary"
+            "?start=2026-12-01T00:00:00Z&end=2026-12-31T00:00:00Z",
+            headers=auth_header,
+        )
+        assert summary_response.json()["revenue"] == 100.0
+
     def test_roas_computed_from_spend_and_attributed_revenue(self, client, auth_header, test_store):
         self._seed_orders(
             client,

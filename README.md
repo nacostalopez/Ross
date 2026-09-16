@@ -288,6 +288,14 @@ other channel (or itself) made the first sale." The dashboard's "Atribución
 multi-touch por canal" widget (add it via "Personalizar") renders this as
 a grid.
 
+Like CAC by channel, this only counts orders that resolved to a
+`customers` row (see "Customer identity") — a guest checkout with no email
+or phone never gets a `customer_id`, so it's invisible to this endpoint
+even though it's counted in `/metrics/summary`'s revenue. For a store with
+real guest-checkout volume, this table's total revenue will be lower than
+the dashboard's headline revenue for the same range — that gap is exactly
+the guest-order total, not a bug.
+
 This is "purchase-sequence" multi-touch, not weighted pre-purchase
 touchpoint attribution (ad click → landing page → purchase, split with a
 linear/time-decay/position-based model) — that would need `pixel_events`

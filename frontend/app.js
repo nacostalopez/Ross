@@ -1152,7 +1152,7 @@ function renderAttributionByChannelTable(rows) {
   const container = document.getElementById("attribution-by-channel-table");
   if (!container) return;
 
-  const info = '<p class="widget-info">Cada compra suma al canal que la generó, no solo la primera — así una recompra ganada por otro canal no desaparece del todo. "Repetidas" son compras que no fueron la primera de ese cliente.</p>';
+  const info = '<p class="widget-info">Cada compra suma al canal que la generó, no solo la primera — así una recompra ganada por otro canal no desaparece del todo. "Repetidas" son compras que no fueron la primera de ese cliente. Las compras de invitado (sin email/teléfono) no tienen cliente asociado y no aparecen acá, aunque sí cuentan en el revenue total del dashboard.</p>';
 
   if (!rows.length) {
     container.innerHTML = info + '<div class="chart-empty">Todavía no hay compras en este rango.</div>';
