@@ -245,9 +245,9 @@ Analytics scoping out ad-level attribution:
   parameter on this one (splitting *this* grid by channel would multiply
   its cohort × month-offset shape by channel too, a different enough view
   to warrant its own).
-- No multi-touch attribution — a customer's channel (used by "CAC by
-  channel") is whichever one gets credit for their first order, not a
-  blend across every touchpoint before it.
+- CAC by channel is deliberately still first-touch — see "Multi-touch
+  attribution (revenue by channel)" below for the purchase-sequence view
+  that credits every order, not just the first.
 - LTV is `net_profit` (contribution margin), not gross revenue.
 - No product-journey or repeat-purchase-interval data yet, just the
   cohort/CAC-payback pair.
@@ -268,6 +268,35 @@ meaningful — before that migration, everything falls into `other`. The
 dashboard's "CAC por canal" widget (add it via "Personalizar") renders
 this as a grid, same cohort semantics as "LTV by cohort" above (`start`/
 `end` filter cohorts by `first_order_at`, not orders).
+
+### Multi-touch attribution (revenue by channel)
+
+`GET /stores/{id}/metrics/attribution-by-channel?start=&end=` is the
+multi-touch counterpart to "CAC by channel" above: instead of crediting a
+customer's *entire* history to whichever channel drove their first order,
+it credits *every order* in the date range to that order's own
+`attribution_utm_source` channel. One row per channel with its order count,
+`repeat_orders` (orders that weren't that customer's first order ever,
+regardless of whether the first one falls in this date range), revenue,
+net profit, `ad_spend`, and ROAS. This is deliberately period-based (order
+`time` in `start`/`end`), not cohort-based like CAC-by-channel/LTV-cohorts
+— revenue happens continuously, it isn't tied to an acquisition month.
+It answers a different question than CAC by channel: not "which channel
+should get credit for acquiring this customer" but "how much revenue did
+each channel actually drive, including customers it won back after some
+other channel (or itself) made the first sale." The dashboard's "Atribución
+multi-touch por canal" widget (add it via "Personalizar") renders this as
+a grid.
+
+This is "purchase-sequence" multi-touch, not weighted pre-purchase
+touchpoint attribution (ad click → landing page → purchase, split with a
+linear/time-decay/position-based model) — that would need `pixel_events`
+(currently an orphaned table: no `click_id`, no link from `anonymous_id` to
+a `customers` row) built out into a real touchpoint pipeline, which is a
+much bigger project blocked on the same kind of real-traffic verification
+as the Connect flow below. This endpoint only needed `orders`' existing
+per-order attribution snapshot, already captured since
+`db/init/019_order_attribution.sql`.
 
 ### Forecast (simple linear projection)
 
@@ -496,6 +525,10 @@ one now — there's no shared middleware doing this generically.
 - `GET /stores/{id}/metrics/cac-by-channel?start=&end=` — the same cohorts,
   CAC split per acquisition channel instead of blended (see "CAC by channel"
   above)
+- `GET /stores/{id}/metrics/attribution-by-channel?start=&end=` — revenue/
+  profit/ROAS per channel across every order in range, not just each
+  customer's first (see "Multi-touch attribution (revenue by channel)"
+  above)
 - `GET /stores/{id}/metrics/forecast?history_days=&forecast_days=` —
   simple linear projection of revenue/profit/ad-spend/true-ROAS (see
   "Forecast (simple linear projection)" above)
@@ -529,9 +562,11 @@ frontend token refresh, hash-only customer identity resolution (every
 order-ingestion path links to a deduplicated, PII-free `customers` row —
 see "Customer identity"), LTV-by-cohort + blended CAC payback (see
 "LTV by cohort + CAC payback"), CAC split by acquisition channel (see
-"CAC by channel"), a simple 30-day linear forecast (see "Forecast (simple
-linear projection)"), proactive CAC/ROAS email alerts (see "Proactive
-alerts"), a weekly email summary report (see "Weekly reports"), per-store
+"CAC by channel"), multi-touch/purchase-sequence revenue attribution by
+channel (see "Multi-touch attribution (revenue by channel)"), a simple
+30-day linear forecast (see "Forecast (simple linear projection)"),
+proactive CAC/ROAS email alerts (see "Proactive alerts"), a weekly email
+summary report (see "Weekly reports"), per-store
 role overrides (see "Per-store roles"), a customer-data access log (see
 "Customer data access log"), the Meta/Google CAPI feedback loop (see
 "CAPI feedback loop"), and a working Connect flow for Shopify/Meta/Google
@@ -542,8 +577,9 @@ well past "just enough to see real numbers": ARAMAL brand system with light/
 dark mode, a Spanish (`vos`-register, es-AR-formatted) UI throughout, a
 user-configurable summary board (add/remove/reorder widgets, pick which stat
 is the 2x2 hero, plus opt-in creative-analytics, LTV-by-cohort,
-CAC-by-channel, and 30-day forecast widgets — see "Dashboard layout",
-"Creative analytics", "LTV by cohort + CAC payback", "CAC by channel", and
+CAC-by-channel, multi-touch attribution, and 30-day forecast widgets — see
+"Dashboard layout", "Creative analytics", "LTV by cohort + CAC payback",
+"CAC by channel", "Multi-touch attribution (revenue by channel)", and
 "Forecast (simple linear projection)" below) with real
 period-over-period deltas, hover tooltips on the daily revenue-vs-spend
 chart, a full Equipo (team) screen for the invite/role/remove routes above
@@ -575,10 +611,16 @@ built:
   be verified in this dev environment (no real ad accounts connected yet).
 - No thumbnail images in the creative-performance table (see "Creative
   analytics" below for why).
-- No multi-touch attribution or product-journey/repeat-purchase-interval
-  endpoints/UI yet — "CAC by channel" credits a customer's *first* order's
-  channel only; a real purchase-sequence/multi-touch model is a bigger next
-  step on top of the same `customers` foundation.
+- Multi-touch attribution is now built at the purchase-sequence level (see
+  "Multi-touch attribution (revenue by channel)" above) — every order's own
+  channel gets credit, not just each customer's first. What's still not
+  built is *weighted pre-purchase* touchpoint attribution (ad click →
+  landing page → purchase, split with a linear/time-decay/position-based
+  model): `pixel_events` is currently an orphaned table (no `click_id`, no
+  code linking `anonymous_id` to a `customers` row), so there's no
+  touchpoint sequence to credit yet — a bigger project blocked on the same
+  kind of real-traffic verification as the Connect flow below. Also no
+  product-journey/repeat-purchase-interval endpoints/UI yet.
 - The Google side of the CAPI feedback loop (`GoogleAdsConnector.send_purchase_conversion`)
   is built against Google's documented Enhanced Conversions for Leads
   request shape but has never been exercised against a real Google Ads

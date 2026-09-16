@@ -8,6 +8,7 @@ from app.database import get_db
 from app.dependencies import get_owned_store
 from app.models import Store
 from app.schemas.metrics import (
+    ChannelAttributionOut,
     ChannelCacOut,
     CohortLtvOut,
     CreativeMetricOut,
@@ -240,6 +241,81 @@ CAC_BY_CHANNEL_SQL = text(
 )
 
 
+# Multi-touch counterpart to CAC_BY_CHANNEL_SQL above: that query credits a
+# customer's *entire* acquisition to whichever channel drove their first
+# order, and stops there. This one credits *every* order to its own order's
+# channel, so a channel that wins a customer back for a second or third
+# purchase gets counted for that revenue too, instead of it silently
+# disappearing into whichever channel happened to land the first sale.
+# Consequently this is period-based (order time within :start/:end), not
+# cohort-based (customer's first_order_at) like CAC-by-channel/LTV-cohorts
+# above — revenue happens continuously, it isn't tied to an acquisition
+# month. repeat_orders (orders that aren't a customer's first order ever,
+# regardless of whether that first order falls inside this date range) is
+# what actually makes this "multi-touch": it's the count CAC-by-channel's
+# first-touch-only credit silently drops for each channel.
+ATTRIBUTION_BY_CHANNEL_SQL = text(
+    """
+    WITH first_orders AS (
+        SELECT customer_id, MIN(time) AS first_order_time
+        FROM orders
+        WHERE store_id = :store_id
+          AND customer_id IS NOT NULL
+        GROUP BY customer_id
+    ),
+    attributed_orders AS (
+        SELECT
+            o.gross_amount,
+            o.net_profit,
+            (o.time > fo.first_order_time) AS is_repeat_order,
+            CASE lower(coalesce(o.attribution_utm_source, ''))
+                WHEN 'meta' THEN 'meta'
+                WHEN 'facebook' THEN 'meta'
+                WHEN 'fb' THEN 'meta'
+                WHEN 'instagram' THEN 'meta'
+                WHEN 'google' THEN 'google'
+                WHEN 'adwords' THEN 'google'
+                WHEN 'google ads' THEN 'google'
+                ELSE 'other'
+            END AS channel
+        FROM orders o
+        JOIN first_orders fo ON fo.customer_id = o.customer_id
+        WHERE o.store_id = :store_id
+          AND o.customer_id IS NOT NULL
+          AND o.time BETWEEN :start AND :end
+    ),
+    by_channel AS (
+        SELECT
+            channel,
+            COUNT(*) AS orders,
+            COUNT(*) FILTER (WHERE is_repeat_order) AS repeat_orders,
+            SUM(gross_amount) AS revenue,
+            SUM(net_profit) AS net_profit
+        FROM attributed_orders
+        GROUP BY channel
+    ),
+    spend AS (
+        SELECT platform AS channel, SUM(spend) AS spend
+        FROM ad_spend
+        WHERE store_id = :store_id
+          AND time BETWEEN :start AND :end
+        GROUP BY platform
+    )
+    SELECT
+        bc.channel,
+        bc.orders,
+        bc.repeat_orders,
+        bc.revenue,
+        bc.net_profit,
+        sp.spend,
+        CASE WHEN sp.spend > 0 THEN bc.revenue / sp.spend ELSE NULL END AS roas
+    FROM by_channel bc
+    LEFT JOIN spend sp ON sp.channel = bc.channel
+    ORDER BY bc.channel
+    """
+)
+
+
 # Backing query for /forecast. Deliberately reads straight from
 # orders/ad_spend (like SUMMARY_SQL above) rather than the
 # daily_financial_summary continuous aggregate, which only refreshes on an
@@ -381,6 +457,21 @@ def metrics_cac_by_channel(
 ):
     rows = (
         db.execute(CAC_BY_CHANNEL_SQL, {"store_id": str(store.id), "start": start, "end": end}).mappings().all()
+    )
+    return rows
+
+
+@router.get("/attribution-by-channel", response_model=list[ChannelAttributionOut])
+def metrics_attribution_by_channel(
+    start: datetime = Query(...),
+    end: datetime = Query(...),
+    store: Store = Depends(get_owned_store),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.execute(ATTRIBUTION_BY_CHANNEL_SQL, {"store_id": str(store.id), "start": start, "end": end})
+        .mappings()
+        .all()
     )
     return rows
 

@@ -60,6 +60,24 @@ class ChannelCacOut(BaseModel):
     cac: float | None
 
 
+class ChannelAttributionOut(BaseModel):
+    # Normalized channel ("meta", "google", or "other"), same mapping as
+    # ChannelCacOut — but here every order in the period counts toward its
+    # own channel, not just each customer's first ever order.
+    channel: str
+    orders: int
+    # Orders that aren't the customer's first order ever (regardless of
+    # whether that first order falls in this date range) — the revenue
+    # CAC-by-channel's first-touch-only credit doesn't attribute to this
+    # channel today.
+    repeat_orders: int
+    revenue: float
+    net_profit: float
+    # Null when there's no ad_spend for this channel in the period.
+    spend: float | None
+    roas: float | None
+
+
 class ForecastDayOut(BaseModel):
     day: date
     # revenue/ad_spend are clamped to >= 0 (can't be negative); net_profit

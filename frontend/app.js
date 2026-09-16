@@ -32,6 +32,7 @@ const WIDGET_LABELS = {
   creative_performance: "Performance por creativo",
   ltv_cohorts: "LTV por cohorte y CAC payback",
   cac_by_channel: "CAC por canal",
+  attribution_by_channel: "Atribución multi-touch por canal",
   forecast: "Proyección a 30 días",
 };
 const STAT_WIDGET_TYPES = ["stat_roas", "stat_revenue", "stat_net_profit", "stat_ad_spend", "stat_real_profit"];
@@ -514,6 +515,7 @@ const PANEL_WIDGET_BODY = {
   creative_performance: { id: "creative-performance-table", class: "creative-table-wrap" },
   ltv_cohorts: { id: "ltv-cohorts-table", class: "ltv-cohorts-table-wrap" },
   cac_by_channel: { id: "cac-by-channel-table", class: "cac-by-channel-table-wrap" },
+  attribution_by_channel: { id: "attribution-by-channel-table", class: "attribution-by-channel-table-wrap" },
   forecast: { id: "forecast-widget", class: "forecast-widget" },
 };
 
@@ -620,6 +622,7 @@ async function persistAndRerenderLayout() {
   await refreshCreativePerformance();
   await refreshLtvCohorts();
   await refreshCacByChannel();
+  await refreshAttributionByChannel();
   await refreshForecast();
   try {
     await api("/dashboard/layout", { method: "PUT", body: { widgets: state.dashboardLayout } });
@@ -635,6 +638,7 @@ function applyCachedMetrics() {
   if (state.lastCreatives) renderCreativeTable(state.lastCreatives);
   if (state.lastCohorts) renderLtvCohortsTable(state.lastCohorts);
   if (state.lastCac) renderCacByChannelTable(state.lastCac);
+  if (state.lastAttribution) renderAttributionByChannelTable(state.lastAttribution);
   if (state.lastForecast) renderForecastWidget(state.lastForecast);
 }
 
@@ -647,6 +651,7 @@ document.getElementById("range-select").addEventListener("change", () => {
   refreshCreativePerformance();
   refreshLtvCohorts();
   refreshCacByChannel();
+  refreshAttributionByChannel();
 });
 
 function dateRange() {
@@ -1116,6 +1121,70 @@ function renderCacByChannelTable(rows) {
                 <td>${r.new_customers.toLocaleString("es-AR")}</td>
                 <td>${r.spend === null ? "—" : fmtMoney(r.spend, state.activeStoreCurrency)}</td>
                 <td>${r.cac === null ? "—" : fmtMoney(r.cac, state.activeStoreCurrency)}</td>
+              </tr>
+            `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+// ---------------------------------------------------------------------------
+// Attribution by channel — multi-touch counterpart to CAC by channel above.
+// That widget only credits a customer's *first* order's channel; this one
+// credits every order in the range to its own channel, so a channel that
+// wins repeat purchases (not just the initial sale) shows up in the
+// revenue/profit/ROAS it actually drove. Period-based (orders in
+// start/end), not cohort-based.
+// ---------------------------------------------------------------------------
+
+async function refreshAttributionByChannel() {
+  if (!document.getElementById("attribution-by-channel-table")) return;
+  const { start, end } = dateRange();
+  const qs = `start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+  const rows = await api(`/stores/${state.activeStoreId}/metrics/attribution-by-channel?${qs}`);
+  state.lastAttribution = rows;
+  renderAttributionByChannelTable(rows);
+}
+
+function renderAttributionByChannelTable(rows) {
+  const container = document.getElementById("attribution-by-channel-table");
+  if (!container) return;
+
+  const info = '<p class="widget-info">Cada compra suma al canal que la generó, no solo la primera — así una recompra ganada por otro canal no desaparece del todo. "Repetidas" son compras que no fueron la primera de ese cliente.</p>';
+
+  if (!rows.length) {
+    container.innerHTML = info + '<div class="chart-empty">Todavía no hay compras en este rango.</div>';
+    return;
+  }
+
+  container.innerHTML = `
+    ${info}
+    <table class="attribution-by-channel-table">
+      <thead>
+        <tr>
+          <th>Canal</th>
+          <th>Compras</th>
+          <th>Repetidas</th>
+          <th>Revenue</th>
+          <th>Profit neto</th>
+          <th>Gasto</th>
+          <th>ROAS</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows
+          .map(
+            (r) => `
+              <tr>
+                <td>${CHANNEL_LABELS[r.channel] || r.channel}</td>
+                <td>${r.orders.toLocaleString("es-AR")}</td>
+                <td>${r.repeat_orders.toLocaleString("es-AR")}</td>
+                <td>${fmtMoney(r.revenue, state.activeStoreCurrency)}</td>
+                <td>${fmtMoney(r.net_profit, state.activeStoreCurrency)}</td>
+                <td>${r.spend === null ? "—" : fmtMoney(r.spend, state.activeStoreCurrency)}</td>
+                <td>${r.roas === null ? "—" : r.roas.toFixed(2) + "x"}</td>
               </tr>
             `
           )

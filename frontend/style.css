@@ -602,6 +602,22 @@ a:hover { text-decoration: underline; }
 .cac-by-channel-table th:not(:first-child), .cac-by-channel-table td:not(:first-child) { text-align: right; }
 .cac-by-channel-table th:nth-child(2), .cac-by-channel-table td:nth-child(2) { text-align: left; }
 
+.attribution-by-channel-table-wrap { overflow-x: auto; }
+.attribution-by-channel-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+.attribution-by-channel-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0 12px 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.attribution-by-channel-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--border); }
+.attribution-by-channel-table tr:last-child td { border-bottom: none; }
+.attribution-by-channel-table th:not(:first-child), .attribution-by-channel-table td:not(:first-child) { text-align: right; }
+
 .audit-log-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .audit-log-table th {
   text-align: left;

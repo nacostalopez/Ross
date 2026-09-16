@@ -16,6 +16,7 @@ WidgetType = Literal[
     "creative_performance",
     "ltv_cohorts",
     "cac_by_channel",
+    "attribution_by_channel",
     "forecast",
 ]
 
