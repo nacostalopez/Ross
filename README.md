@@ -545,24 +545,35 @@ Push keys), upserted on `(user_id, endpoint)` so a browser that rotates its
 subscription doesn't accumulate dead rows; a 404/410 from the push service
 on send (subscription revoked/expired) prunes the row automatically.
 
-Verified for real, not just mocked: a live Chrome instance (Playwright
-can't drive real Web Push from its bundled Chromium — it has no Google API
-key, so `pushManager.subscribe()` fails with "push service not available";
-this needed `channel: "chrome"` against the real, already-installed
-browser) subscribed for real, the backend's `pywebpush` call signed and
-posted to Google's actual FCM endpoint (`201` back from Google), and the
-notification arrived and rendered in that browser's service worker with
-the real weekly-summary body — triggered via the existing "Enviar ahora"
-button, end to end. One thing that could *not* be automated: clicking the
-bell icon itself via Playwright's dispatched click reliably hung inside
-`pushManager.subscribe()` — reproduced even with zero `await`s ahead of
-the call, and only from within a real dispatched-click handler (the exact
-same call from a plain `page.evaluate()`, no click involved, resolves
-instantly with a real endpoint). Reads as a Chrome/CDP automation quirk
-around user-activation for this specific API, not an app bug — subscribing
-was instead verified by calling `pushManager.subscribe()` directly and
-registering the result with the backend the same way the click handler
-does, which is otherwise identical code.
+Verified for real, not just mocked, by `e2e/push-notifications.js`
+(`npm install && npm run test:push` from `e2e/`, see that file's own doc
+comment for full prerequisites — not wired into CI, since it needs a real
+Chrome binary, real outbound internet to Google's FCM, and real VAPID
+secrets in the runner): a live Chrome instance (Playwright's own bundled
+Chromium has no Google API key, so `pushManager.subscribe()` fails
+outright with "push service not available" — this needed `channel:
+"chrome"` against a real, separately-installed browser) registers a fresh
+account, clicks the real bell icon, creates a store, and clicks the
+existing "Enviar ahora" button — and the backend's `pywebpush` call
+actually signs and posts to Google's live FCM endpoint (`201` back from
+Google), with the real weekly-summary notification arriving and rendering
+in that browser's service worker end to end.
+
+That test's retry loop around the bell-icon click isn't defensive
+boilerplate — it's the fix for a real finding from building it: clicking
+the icon via Playwright's synthetic click sometimes leaves
+`pushManager.subscribe()` hanging forever (never resolves or rejects). A
+`setTimeout`-triggered subscribe with no user gesture at all hangs every
+time; a real dispatched click succeeds most but not all of the time (the
+click handler in `app.js` was also trimmed to the minimum awaits before
+calling `subscribe()` as part of chasing this down — cached
+`ServiceWorkerRegistration`/subscription state instead of re-awaiting them
+on every click — which measurably helped but didn't eliminate the
+raciness). Reads as a Chrome/CDP race around synthetic-click user
+activation for this specific API, not an app bug: a real person clicking
+with a real mouse isn't expected to hit it. The test retries the click (up
+to 6 times, it has never needed more than 3 across repeated local runs)
+rather than asserting the first click always works.
 
 **Mobile UX pass:** verified end-to-end with Playwright (mobile viewport,
 against the live docker-composed stack, seeded demo data, real login) —

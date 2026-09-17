@@ -1,0 +1,11 @@
+{
+  "name": "escal-e2e",
+  "private": true,
+  "description": "Real-browser E2E checks that don't fit the Postman/pytest suites — see push-notifications.js.",
+  "scripts": {
+    "test:push": "node push-notifications.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

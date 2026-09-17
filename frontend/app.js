@@ -95,6 +95,16 @@ document.getElementById("sidebar-backdrop").addEventListener("click", () => setS
 
 const pushToggleBtn = document.getElementById("push-toggle");
 
+// Cached so the click handler below can reach pushManager.subscribe() with
+// as few awaits as possible — Chrome's subscribe() needs live transient
+// user-activation from the click, and re-awaiting serviceWorker.ready /
+// getSubscription() inside the handler burns enough of that activation
+// window to make subscribe() hang instead of resolving (observed directly:
+// a handler with 3 awaits ahead of subscribe() hung every time, one with a
+// single await ahead of it resolved instantly — same call, same browser).
+let cachedSwRegistration = null;
+let cachedSubscription = null;
+
 // The backend hands back the VAPID public key as URL-safe base64; the Push
 // API wants it as the raw bytes of an uncompressed EC point instead.
 function urlBase64ToUint8Array(base64String) {
@@ -119,32 +129,33 @@ async function initPushToggle() {
   if (!vapidPublicKey) return; // server-side push isn't configured — nothing to offer
 
   pushToggleBtn.dataset.vapidKey = vapidPublicKey;
+  cachedSwRegistration = await navigator.serviceWorker.ready;
+  cachedSubscription = await cachedSwRegistration.pushManager.getSubscription();
   pushToggleBtn.hidden = false;
-  const reg = await navigator.serviceWorker.ready;
-  const sub = await reg.pushManager.getSubscription();
-  pushToggleBtn.classList.toggle("subscribed", !!sub);
+  pushToggleBtn.classList.toggle("subscribed", !!cachedSubscription);
 }
 
 pushToggleBtn.addEventListener("click", async () => {
-  const reg = await navigator.serviceWorker.ready;
-  const existing = await reg.pushManager.getSubscription();
-
-  if (existing) {
-    const endpoint = existing.endpoint;
-    await existing.unsubscribe();
+  if (cachedSubscription) {
+    const endpoint = cachedSubscription.endpoint;
+    await cachedSubscription.unsubscribe();
+    cachedSubscription = null;
     pushToggleBtn.classList.remove("subscribed");
     await api(`/push/subscribe?endpoint=${encodeURIComponent(endpoint)}`, { method: "DELETE" }).catch(() => {});
     return;
   }
 
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") return;
+  if (Notification.permission === "denied") return; // user blocked it — only they can undo that, from browser settings
+  if (Notification.permission === "default") {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return;
+  }
 
-  const sub = await reg.pushManager.subscribe({
+  cachedSubscription = await cachedSwRegistration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(pushToggleBtn.dataset.vapidKey),
   });
-  await api("/push/subscribe", { method: "POST", body: sub.toJSON() });
+  await api("/push/subscribe", { method: "POST", body: cachedSubscription.toJSON() });
   pushToggleBtn.classList.add("subscribed");
 });
 
