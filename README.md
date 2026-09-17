@@ -608,6 +608,65 @@ this caught a real bug (see below), not just a static CSS review.
   device-farm/cross-browser sweep (only Chromium/iPhone-12-sized
   viewport), and no tablet-specific pass between 860px and desktop.
 
+### P&L completo (full profit-and-loss breakdown)
+
+`orders` already sums `discounts`/`shipping_fee`/`payment_gateway_fee`/
+`cogs_total` into its `net_profit` generated column (see
+`db/init/003_hypertables.sql`) — `GET /stores/{id}/metrics/pnl` just
+surfaces each line item individually instead of collapsing them into one
+number the way `/metrics/summary` does, and the "P&L completo" dashboard
+widget renders it as a simple line-item table (revenue down to real
+profit after ads). No schema changes; this was already computable from
+data every connector was already writing.
+
+Deliberately not built: margin by SKU. Unlike the P&L above, `orders` has
+no per-line-item detail — the Shopify connector already iterates
+`line_items` to compute `cogs_total` (`app/connectors/shopify.py`) but
+discards the per-product breakdown once it's summed. A real per-SKU
+margin ranking would need a new `order_items` table (product_id,
+quantity, unit cogs) and matching changes to both the Shopify and
+Tiendanube connectors — feasible (no new external API calls, just
+persisting data the connectors already touch), but a real feature, not a
+quick win.
+
+### Perfil (notification channels, devices, quick alerts)
+
+A new sidebar view, personal to the logged-in user (not store- or
+account-scoped), holding three things:
+
+- **Per-channel notification preferences** — a new
+  `notification_channel_preferences` table (`user_id`, `event_type` one of
+  `cac_alert`/`roas_alert`/`weekly_report`, `email_enabled`,
+  `push_enabled`). `app/services/notifications.py::send_to_store` checks
+  this per recipient before sending each channel; no saved row means both
+  channels stay on, so nobody's notifications change unless they actually
+  open Perfil and flip something. This closes the gap flagged during this
+  session's UX review: turning on a store's alerts never told a user they
+  also needed to enable push on their own device — now that's one matrix
+  in one place, covering both.
+- **Dispositivos y sesiones** — `GET /push/subscriptions` lists every
+  device a user has subscribed, with a friendly label
+  (`app/routes/push.py::_label_from_user_agent`) derived from the
+  User-Agent captured at subscribe time (`push_subscriptions.user_agent`,
+  new column) — the Push API itself exposes no device name. `DELETE
+  /push/subscriptions/{id}` revokes a *different* device than the one
+  making the request; the existing `DELETE /push/subscribe?endpoint=`
+  only ever unsubscribed the calling browser's own subscription, so
+  there was previously no way to revoke a lost or old device remotely.
+- **Constructor de alertas rápido** — an inline threshold editor
+  directly on the True ROAS stat card (fetches/saves through the
+  existing `PUT /stores/{id}/alert-preferences`, no new endpoint) so
+  setting a threshold doesn't require opening the full "Alertas" modal.
+
+Verified end-to-end against the live stack: toggling a channel off in the
+matrix and reloading confirms it persisted and that `send_to_store` skips
+exactly that channel for that event type (not others); a real subscribed
+device shows up with its derived label and disappears on revoke; the
+quick-alert save round-trips through the same preferences a "Alertas"
+modal open reflects. No regressions on the mobile layout (checked at
+390px: topbar, the notification matrix, and the quick-alert row all still
+fit).
+
 ## API overview
 
 - `POST /auth/register`, `POST /auth/login`, `GET /auth/me`
@@ -722,7 +781,10 @@ app shell — and has been through a real mobile UX pass (off-canvas
 sidebar drawer, a fixed topbar-overflow bug, responsive modals/inputs —
 see "Mobile UX pass" below). Proactive alerts and weekly reports now also
 send as **push notifications**, opt-in per device (see "Push
-notifications"), on top of email. Not yet built:
+notifications"), on top of email, and a full **P&L breakdown** widget and
+a personal **Perfil** page (unified notification channels, device
+management, an inline quick-alert builder) round out the dashboard and
+account settings (see "P&L completo" and "Perfil" below). Not yet built:
 
 - No revenue/ROAS attribution down to the individual ad — creative
   analytics currently shows each platform's own metrics (spend, CTR, CPC,
@@ -779,8 +841,13 @@ notifications"), on top of email. Not yet built:
   would need its own explicit logging call.
 - Push notifications (see "Push notifications" below) only cover the two
   events that already existed as email — proactive alerts and weekly
-  reports. There's no push-only notification type, and no per-notification
-  granularity (a device that's subscribed gets both, same as email today).
+  reports. Per-channel opt-out now exists (see "Perfil"), but there's no
+  push-only notification type — a device can only opt out of push for an
+  event that also has email, not receive something push-exclusive.
+- No margin-by-SKU (see "P&L completo" below) — `orders` has no
+  per-line-item detail today, only the already-summed `cogs_total`. Needs
+  a new `order_items` table and matching Shopify/Tiendanube connector
+  changes; feasible (no new external API calls), just not built yet.
 
 Note for `docker compose` users: `FRONTEND_URL`, `SMTP_*`, and `VAPID_*`
 must be set in a root-level `.env` (not `backend/.env`) — `docker-compose.yml`'s `backend`
