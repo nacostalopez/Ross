@@ -16,6 +16,7 @@ from app.schemas.metrics import (
     ForecastDayOut,
     ForecastOut,
     MetricsSummaryOut,
+    PnlOut,
 )
 from app.services.forecasting import linear_forecast
 
@@ -51,6 +52,43 @@ SUMMARY_SQL = text(
         -- it answers "how much profit per ad dollar", not "how much
         -- revenue per ad dollar".
         ROUND((o.net_profit / NULLIF(a.total_ad_spend, 0))::numeric, 2) AS true_roas
+    FROM metrics_orders o, metrics_ads a
+    """
+)
+
+# Full P&L, unlike SUMMARY_SQL above which only exposes the net figures —
+# every line item here is already summed into orders.net_profit's generated
+# column (db/init/003_hypertables.sql), just never surfaced individually
+# until now.
+PNL_SQL = text(
+    """
+    WITH metrics_orders AS (
+        SELECT
+            COALESCE(SUM(gross_amount), 0) AS revenue,
+            COALESCE(SUM(discounts), 0) AS discounts,
+            COALESCE(SUM(shipping_fee), 0) AS shipping_fee,
+            COALESCE(SUM(payment_gateway_fee), 0) AS payment_gateway_fee,
+            COALESCE(SUM(cogs_total), 0) AS cogs_total,
+            COALESCE(SUM(net_profit), 0) AS net_profit
+        FROM orders
+        WHERE store_id = :store_id
+          AND time BETWEEN :start AND :end
+    ),
+    metrics_ads AS (
+        SELECT COALESCE(SUM(spend), 0) AS total_ad_spend
+        FROM ad_spend
+        WHERE store_id = :store_id
+          AND time BETWEEN :start AND :end
+    )
+    SELECT
+        o.revenue,
+        o.discounts,
+        o.shipping_fee,
+        o.payment_gateway_fee,
+        o.cogs_total,
+        o.net_profit,
+        a.total_ad_spend,
+        (o.net_profit - a.total_ad_spend) AS real_profit_after_ads
     FROM metrics_orders o, metrics_ads a
     """
 )
@@ -363,6 +401,17 @@ def metrics_summary(
     db: Session = Depends(get_db),
 ):
     row = db.execute(SUMMARY_SQL, {"store_id": str(store.id), "start": start, "end": end}).mappings().one()
+    return row
+
+
+@router.get("/pnl", response_model=PnlOut)
+def metrics_pnl(
+    start: datetime = Query(...),
+    end: datetime = Query(...),
+    store: Store = Depends(get_owned_store),
+    db: Session = Depends(get_db),
+):
+    row = db.execute(PNL_SQL, {"store_id": str(store.id), "start": start, "end": end}).mappings().one()
     return row
 
 

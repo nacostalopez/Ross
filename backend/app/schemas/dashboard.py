@@ -18,6 +18,7 @@ WidgetType = Literal[
     "cac_by_channel",
     "attribution_by_channel",
     "forecast",
+    "pnl",
 ]
 
 DEFAULT_WIDGETS = [

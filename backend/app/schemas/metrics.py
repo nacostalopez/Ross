@@ -11,6 +11,21 @@ class MetricsSummaryOut(BaseModel):
     true_roas: float | None
 
 
+class PnlOut(BaseModel):
+    # Full P&L breakdown, unlike MetricsSummaryOut which only surfaces the
+    # net figures — every line item orders/net_profit's own generated-column
+    # formula already subtracts (see db/init/003_hypertables.sql), just
+    # never exposed individually until now.
+    revenue: float
+    discounts: float
+    shipping_fee: float
+    payment_gateway_fee: float
+    cogs_total: float
+    net_profit: float
+    total_ad_spend: float
+    real_profit_after_ads: float
+
+
 class DailyMetricOut(BaseModel):
     day: date
     total_orders: int
