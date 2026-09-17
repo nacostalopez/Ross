@@ -521,6 +521,39 @@ no service-worker push subscription flow, and standing one up needs a
 push backend (web-push/VAPID keys, or a provider) plus a subscription
 table — nothing in this codebase does that yet.
 
+**Mobile UX pass:** verified end-to-end with Playwright (mobile viewport,
+against the live docker-composed stack, seeded demo data, real login) —
+this caught a real bug (see below), not just a static CSS review.
+
+- The dashboard sidebar (`.sidebar`, previously a fixed 220px column with
+  no media query at all) is now an off-canvas drawer below 860px: a
+  hamburger button (`#sidebar-toggle`, topbar) slides it in over a dimmed
+  backdrop (`#sidebar-backdrop`); it closes on backdrop tap or on
+  navigating (`setSidebarOpen(false)` in `switchDashboardView`, `app.js`).
+- Found and fixed: the topbar itself broke below ~430px — brand, theme
+  toggle, account name, and "Cerrar sesión" all fought for one row and
+  the account name/button text wrapped mid-word into a garbled two-line
+  mess. Now wraps cleanly to a second row, and `#account-name` truncates
+  with an ellipsis instead of wrapping.
+- `.store-panel-actions` (6 buttons + a range select) now wraps instead of
+  overflowing off-screen.
+- Fixed-width `.auth-card`/`.modal-card` now cap at `calc(100vw - 32px)`;
+  `.modal-card` also caps its height and scrolls internally so a tall
+  modal (e.g. "Miembros de la tienda") can't get clipped off a short
+  mobile viewport.
+- Form inputs bump to 16px on mobile (`.auth-form`, `.modal-card`,
+  `.store-panel-actions select`) — below that, iOS Safari auto-zooms the
+  whole page on focus, which is jarring and easy to miss without testing
+  on an actual small viewport.
+- `.widget-ctrl`/`.theme-toggle` and the drawer's nav rows got slightly
+  bigger tap targets on mobile; desktop sizing is untouched.
+- Tables (creative performance, LTV cohorts, CAC-by-channel, attribution,
+  audit log) were already `overflow-x: auto`-wrapped — left as-is, that's
+  an acceptable mobile pattern and nothing broke there.
+- Not covered: this pass was the dashboard shell and its modals: no
+  device-farm/cross-browser sweep (only Chromium/iPhone-12-sized
+  viewport), and no tablet-specific pass between 860px and desktop.
+
 ## API overview
 
 - `POST /auth/register`, `POST /auth/login`, `GET /auth/me`
@@ -631,7 +664,9 @@ both the Shopify and Tiendanube connectors) — this was also the missing
 piece for per-channel CAC (see "CAC by channel"), now shipped. The
 frontend is also now an installable PWA (see "PWA (mobile install +
 offline shell)") — home-screen install on iOS/Android with an offline
-app shell. Not yet built:
+app shell — and has been through a real mobile UX pass (off-canvas
+sidebar drawer, a fixed topbar-overflow bug, responsive modals/inputs —
+see "Mobile UX pass" below). Not yet built:
 
 - No revenue/ROAS attribution down to the individual ad — creative
   analytics currently shows each platform's own metrics (spend, CTR, CPC,

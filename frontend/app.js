@@ -77,6 +77,19 @@ document.getElementById("theme-toggle").addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Mobile sidebar drawer (sidebar becomes off-canvas below 860px, see CSS)
+// ---------------------------------------------------------------------------
+
+function setSidebarOpen(open) {
+  const view = document.getElementById("dashboard-view");
+  view.classList.toggle("sidebar-open", open);
+  document.getElementById("sidebar-toggle").setAttribute("aria-expanded", String(open));
+}
+
+document.getElementById("sidebar-toggle").addEventListener("click", () => setSidebarOpen(true));
+document.getElementById("sidebar-backdrop").addEventListener("click", () => setSidebarOpen(false));
+
+// ---------------------------------------------------------------------------
 // API helper
 // ---------------------------------------------------------------------------
 
@@ -402,6 +415,7 @@ document.getElementById("nav-dashboard").addEventListener("click", () => switchD
 document.getElementById("nav-members").addEventListener("click", () => switchDashboardView("members"));
 
 function switchDashboardView(view) {
+  setSidebarOpen(false);
   const isDashboard = view === "dashboard";
   document.getElementById("nav-dashboard").classList.toggle("active", isDashboard);
   document.getElementById("nav-members").classList.toggle("active", !isDashboard);
