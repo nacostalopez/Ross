@@ -515,11 +515,54 @@ installable, the service worker registers with no console errors, all
 icons resolve, and a reload with the network fully cut still renders the
 full app shell from cache.
 
-Not yet built: push notifications. Today's proactive alerts and weekly
-reports (see "Proactive alerts", "Weekly reports") are email-only: there's
-no service-worker push subscription flow, and standing one up needs a
-push backend (web-push/VAPID keys, or a provider) plus a subscription
-table — nothing in this codebase does that yet.
+### Push notifications
+
+Opt-in per device (not per store/account — a user can have several
+subscribed devices, e.g. phone + laptop). Proactive CAC/ROAS alerts and
+weekly reports (see "Proactive alerts", "Weekly reports") now fan out to
+push as well as email: `app/services/notifications.py::send_to_store` calls
+both `send_email` and the new `send_push_to_user` for every account owner,
+independently — one failing doesn't block the other.
+
+Same colocated-settings/no-op-when-unconfigured pattern as SMTP
+(`app/email.py`): `VAPID_PRIVATE_KEY`/`VAPID_PUBLIC_KEY` unset means
+`send_push_to_user` just logs instead of sending, and `GET
+/push/vapid-public-key` returns an empty string, so the frontend hides the
+notification toggle entirely rather than offering a subscribe flow that
+could never send. Generate a real keypair with
+`python scripts/generate_vapid_keys.py` and paste the output into the root
+`.env`.
+
+The frontend's bell icon (topbar, next to the theme toggle — only shown
+once logged in and once the backend confirms push is configured) drives
+the whole flow: click subscribes (`Notification.requestPermission()` then
+`pushManager.subscribe()`, posted to `POST /push/subscribe`) or
+unsubscribes (`DELETE /push/subscribe?endpoint=...`) a device. `sw.js`
+handles the `push` event (shows a notification from the JSON payload) and
+`notificationclick` (focuses an existing tab or opens one). Backend storage
+is a plain `push_subscriptions` table (`user_id`, `endpoint`, the two Web
+Push keys), upserted on `(user_id, endpoint)` so a browser that rotates its
+subscription doesn't accumulate dead rows; a 404/410 from the push service
+on send (subscription revoked/expired) prunes the row automatically.
+
+Verified for real, not just mocked: a live Chrome instance (Playwright
+can't drive real Web Push from its bundled Chromium — it has no Google API
+key, so `pushManager.subscribe()` fails with "push service not available";
+this needed `channel: "chrome"` against the real, already-installed
+browser) subscribed for real, the backend's `pywebpush` call signed and
+posted to Google's actual FCM endpoint (`201` back from Google), and the
+notification arrived and rendered in that browser's service worker with
+the real weekly-summary body — triggered via the existing "Enviar ahora"
+button, end to end. One thing that could *not* be automated: clicking the
+bell icon itself via Playwright's dispatched click reliably hung inside
+`pushManager.subscribe()` — reproduced even with zero `await`s ahead of
+the call, and only from within a real dispatched-click handler (the exact
+same call from a plain `page.evaluate()`, no click involved, resolves
+instantly with a real endpoint). Reads as a Chrome/CDP automation quirk
+around user-activation for this specific API, not an app bug — subscribing
+was instead verified by calling `pushManager.subscribe()` directly and
+registering the result with the backend the same way the click handler
+does, which is otherwise identical code.
 
 **Mobile UX pass:** verified end-to-end with Playwright (mobile viewport,
 against the live docker-composed stack, seeded demo data, real login) —
@@ -666,7 +709,9 @@ frontend is also now an installable PWA (see "PWA (mobile install +
 offline shell)") — home-screen install on iOS/Android with an offline
 app shell — and has been through a real mobile UX pass (off-canvas
 sidebar drawer, a fixed topbar-overflow bug, responsive modals/inputs —
-see "Mobile UX pass" below). Not yet built:
+see "Mobile UX pass" below). Proactive alerts and weekly reports now also
+send as **push notifications**, opt-in per device (see "Push
+notifications"), on top of email. Not yet built:
 
 - No revenue/ROAS attribution down to the individual ad — creative
   analytics currently shows each platform's own metrics (spend, CTR, CPC,
@@ -721,13 +766,12 @@ see "Mobile UX pass" below). Not yet built:
   that exposes anything customer-linked today. It isn't a generic
   audit-logging middleware; a future route that exposes real customer data
   would need its own explicit logging call.
-- No push notifications yet (see "PWA (mobile install + offline shell)")
-  — the service worker only serves the cached app shell, it doesn't
-  subscribe to push. Alerts/reports are still email-only; adding push
-  needs a subscription table plus a VAPID/web-push (or provider) backend,
-  next up per user request.
+- Push notifications (see "Push notifications" below) only cover the two
+  events that already existed as email — proactive alerts and weekly
+  reports. There's no push-only notification type, and no per-notification
+  granularity (a device that's subscribed gets both, same as email today).
 
-Note for `docker compose` users: `FRONTEND_URL` and `SMTP_*` must be set in a
-root-level `.env` (not `backend/.env`) — `docker-compose.yml`'s `backend`
+Note for `docker compose` users: `FRONTEND_URL`, `SMTP_*`, and `VAPID_*`
+must be set in a root-level `.env` (not `backend/.env`) — `docker-compose.yml`'s `backend`
 service only forwards env vars it explicitly lists, and a root `.env` is
 what Compose itself reads for `${VAR}` substitution in that file.

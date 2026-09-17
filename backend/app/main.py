@@ -23,6 +23,7 @@ from app.routes import (
     orders,
     pixel_events,
     products,
+    push,
     reports,
     stores,
 )
@@ -80,6 +81,7 @@ app.include_router(connectors.health_router)
 app.include_router(dashboard.router)
 app.include_router(alerts.router)
 app.include_router(reports.router)
+app.include_router(push.router)
 
 
 @app.get("/health")

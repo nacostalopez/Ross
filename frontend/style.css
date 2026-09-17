@@ -54,6 +54,11 @@
 :root[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
 :root[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
 
+.push-toggle { display: flex; align-items: center; justify-content: center; padding: 8px; flex: none; }
+.push-toggle .icon-bell-active { display: none; color: var(--primary); }
+.push-toggle.subscribed .icon-bell { display: none; }
+.push-toggle.subscribed .icon-bell-active { display: block; }
+
 * { box-sizing: border-box; }
 
 /* Several elements below set their own `display` (flex/grid) for when they're

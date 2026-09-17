@@ -69,3 +69,39 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
+// ---------------------------------------------------------------------------
+// Web Push — see app/services/push.py on the backend for who sends these
+// (proactive CAC/ROAS alerts and weekly reports, opt-in, fanned out to
+// every device subscribed via the topbar's notification toggle).
+// ---------------------------------------------------------------------------
+
+self.addEventListener("push", (event) => {
+  let payload = { title: "ARAMAL", body: "" };
+  try {
+    if (event.data) payload = event.data.json();
+  } catch (err) {
+    // Not JSON (shouldn't happen — the backend always sends JSON) — fall
+    // back to the default title/empty body rather than dropping the push.
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title || "ARAMAL", {
+      body: payload.body || "",
+      icon: "icons/icon-192.png",
+      badge: "icons/icon-192.png",
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if (client.url.includes("index.html") && "focus" in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow("index.html");
+    })
+  );
+});

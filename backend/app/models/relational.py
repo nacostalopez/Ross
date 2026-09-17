@@ -212,6 +212,25 @@ class Customer(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class PushSubscription(Base):
+    """A Web Push subscription for one (user, browser) pair — a user can
+    have several (phone + laptop). This only tracks *who can receive* a
+    push; *what* triggers one is still the existing per-store alert/report
+    opt-in (StoreAlertPreference/StoreReportPreference) — see
+    app/services/push.py and app/services/notifications.py::send_to_store,
+    which fans out to both email and push for the same event."""
+
+    __tablename__ = "push_subscriptions"
+    __table_args__ = (UniqueConstraint("user_id", "endpoint", name="uq_push_subscriptions_user_endpoint"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    endpoint = Column(Text, nullable=False)
+    p256dh_key = Column(Text, nullable=False)
+    auth_key = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class CapiEvent(Base):
     """One row per (store, order, provider) CAPI send attempt — both the
     idempotency check (never re-send a purchase already marked "sent") and

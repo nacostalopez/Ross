@@ -90,6 +90,65 @@ document.getElementById("sidebar-toggle").addEventListener("click", () => setSid
 document.getElementById("sidebar-backdrop").addEventListener("click", () => setSidebarOpen(false));
 
 // ---------------------------------------------------------------------------
+// Push notifications (opt-in per device — see backend app/services/push.py)
+// ---------------------------------------------------------------------------
+
+const pushToggleBtn = document.getElementById("push-toggle");
+
+// The backend hands back the VAPID public key as URL-safe base64; the Push
+// API wants it as the raw bytes of an uncompressed EC point instead.
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
+// Called once per dashboard entry — just reflects current subscription
+// state in the button, never prompts (the permission prompt only happens
+// on click, a real user gesture, per the Notifications API's own rules).
+async function initPushToggle() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+  let vapidPublicKey = "";
+  try {
+    vapidPublicKey = (await api("/push/vapid-public-key")).public_key;
+  } catch (err) {
+    return;
+  }
+  if (!vapidPublicKey) return; // server-side push isn't configured — nothing to offer
+
+  pushToggleBtn.dataset.vapidKey = vapidPublicKey;
+  pushToggleBtn.hidden = false;
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.getSubscription();
+  pushToggleBtn.classList.toggle("subscribed", !!sub);
+}
+
+pushToggleBtn.addEventListener("click", async () => {
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+
+  if (existing) {
+    const endpoint = existing.endpoint;
+    await existing.unsubscribe();
+    pushToggleBtn.classList.remove("subscribed");
+    await api(`/push/subscribe?endpoint=${encodeURIComponent(endpoint)}`, { method: "DELETE" }).catch(() => {});
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") return;
+
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(pushToggleBtn.dataset.vapidKey),
+  });
+  await api("/push/subscribe", { method: "POST", body: sub.toJSON() });
+  pushToggleBtn.classList.add("subscribed");
+});
+
+// ---------------------------------------------------------------------------
 // API helper
 // ---------------------------------------------------------------------------
 
@@ -363,6 +422,7 @@ function showLoggedOut() {
   authView.hidden = false;
   dashboardView.hidden = true;
   topbarAccount.hidden = true;
+  pushToggleBtn.hidden = true;
   // Always land back on login, not whatever single-purpose mode (register,
   // forgot, reset, invite) was showing before — those tokens are spent or
   // irrelevant after a session, and register/forgot/etc. shouldn't linger.
@@ -405,6 +465,7 @@ async function enterDashboard() {
   state.dashboardLayout = layoutResponse.widgets;
 
   await loadStores();
+  initPushToggle();
 }
 
 // ---------------------------------------------------------------------------
