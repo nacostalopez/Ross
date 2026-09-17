@@ -1,0 +1,71 @@
+const CACHE_NAME = "aramal-shell-v1";
+
+const SHELL_ASSETS = [
+  "index.html",
+  "landing.html",
+  "style.css",
+  "app.js",
+  "manifest.json",
+  "icons/icon-192.png",
+  "icons/icon-512.png",
+  "icons/icon-maskable-512.png",
+  "icons/apple-touch-icon.png",
+  "icons/favicon-32.png",
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(SHELL_ASSETS))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((names) => Promise.all(
+        names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))
+      ))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+
+  // Only ever handle same-origin GETs — the API lives on a different
+  // origin/port and must always go straight to the network untouched.
+  if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) {
+    return;
+  }
+
+  if (request.mode === "navigate") {
+    // Network-first: an online user always gets the latest shell; offline
+    // falls back to whatever was last cached.
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          return response;
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match("index.html")))
+    );
+    return;
+  }
+
+  // Static assets: stale-while-revalidate.
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      const network = fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          return response;
+        })
+        .catch(() => cached);
+      return cached || network;
+    })
+  );
+});

@@ -491,6 +491,36 @@ trail. If a future feature exposes real customer data more directly, that
 call site would need its own logging call the same way `list_orders` has
 one now — there's no shared middleware doing this generically.
 
+### PWA (mobile install + offline shell)
+
+`frontend/` is now an installable Progressive Web App — "Agregar a
+pantalla de inicio" on iOS/Android puts ARAMAL on the home screen with its
+own icon, no app-store listing required. `frontend/manifest.json` declares
+name/colors/icons (`frontend/icons/`, generated at brand primary `#2263A2`
+— `icon-192.png`/`icon-512.png` for `purpose: any`, plus a padded
+`icon-maskable-512.png` for Android's adaptive-icon safe zone) and is
+linked from both `index.html` and `landing.html`, alongside the
+`apple-touch-icon`/`apple-mobile-web-app-*` tags Safari needs since it
+ignores the manifest for its own icon.
+
+`frontend/sw.js` (registered from the bottom of `app.js`) gives the app
+shell offline resilience: navigations are network-first (so an online user
+always gets the latest deploy) falling back to cache when offline; other
+static assets (`style.css`, `app.js`, icons) are stale-while-revalidate.
+It only ever intercepts same-origin `GET`s — API calls go to a different
+origin/port (`API_BASE` in `app.js`) and are never touched, so live data
+is never served stale from the service-worker cache. Verified with
+Playwright against the static frontend: manifest parses and is
+installable, the service worker registers with no console errors, all
+icons resolve, and a reload with the network fully cut still renders the
+full app shell from cache.
+
+Not yet built: push notifications. Today's proactive alerts and weekly
+reports (see "Proactive alerts", "Weekly reports") are email-only: there's
+no service-worker push subscription flow, and standing one up needs a
+push backend (web-push/VAPID keys, or a provider) plus a subscription
+table — nothing in this codebase does that yet.
+
 ## API overview
 
 - `POST /auth/register`, `POST /auth/login`, `GET /auth/me`
@@ -598,8 +628,10 @@ the register/reset/accept-invite forms. `orders` now also captures
 `utm_medium`, `utm_content`, a normalized `click_id` (`fb:<fbclid>` /
 `g:<gclid>`), and `landing_url` at ingestion time (`db/init/019_*.sql`,
 both the Shopify and Tiendanube connectors) — this was also the missing
-piece for per-channel CAC (see "CAC by channel"), now shipped. Not yet
-built:
+piece for per-channel CAC (see "CAC by channel"), now shipped. The
+frontend is also now an installable PWA (see "PWA (mobile install +
+offline shell)") — home-screen install on iOS/Android with an offline
+app shell. Not yet built:
 
 - No revenue/ROAS attribution down to the individual ad — creative
   analytics currently shows each platform's own metrics (spend, CTR, CPC,
@@ -654,6 +686,11 @@ built:
   that exposes anything customer-linked today. It isn't a generic
   audit-logging middleware; a future route that exposes real customer data
   would need its own explicit logging call.
+- No push notifications yet (see "PWA (mobile install + offline shell)")
+  — the service worker only serves the cached app shell, it doesn't
+  subscribe to push. Alerts/reports are still email-only; adding push
+  needs a subscription table plus a VAPID/web-push (or provider) backend,
+  next up per user request.
 
 Note for `docker compose` users: `FRONTEND_URL` and `SMTP_*` must be set in a
 root-level `.env` (not `backend/.env`) — `docker-compose.yml`'s `backend`
