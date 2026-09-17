@@ -228,7 +228,32 @@ class PushSubscription(Base):
     endpoint = Column(Text, nullable=False)
     p256dh_key = Column(Text, nullable=False)
     auth_key = Column(Text, nullable=False)
+    # Captured at subscribe time so "Dispositivos y sesiones" can show a
+    # friendly label instead of a raw endpoint URL — see
+    # app/routes/push.py::_label_from_user_agent.
+    user_agent = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class NotificationChannelPreference(Base):
+    """Per-user, per-event-type channel opt-out — see
+    app/services/notifications.py::send_to_store, which checks this before
+    sending each channel. No saved row for a (user, event_type) pair means
+    both channels are on, matching the behavior before this table existed."""
+
+    __tablename__ = "notification_channel_preferences"
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ('cac_alert', 'roas_alert', 'weekly_report')",
+            name="ck_notification_channel_preferences_event_type",
+        ),
+    )
+
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    event_type = Column(String(30), primary_key=True)
+    email_enabled = Column(Boolean, nullable=False, default=True)
+    push_enabled = Column(Boolean, nullable=False, default=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class CapiEvent(Base):

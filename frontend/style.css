@@ -491,6 +491,26 @@ a:hover { text-decoration: underline; }
 .panel .widget-card-header { margin-bottom: 14px; }
 .panel .widget-card-header h3 { margin: 0; }
 
+.stat-header-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.quick-alert-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border: none; background: transparent;
+  border-radius: 4px; color: var(--muted); cursor: pointer; padding: 0;
+}
+.quick-alert-btn:hover { background: var(--panel); color: var(--primary); }
+.quick-alert-row {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--muted);
+}
+.quick-alert-row input {
+  width: 50px; padding: 5px 7px; border: 1px solid var(--border);
+  border-radius: 6px; font-size: 12px; text-align: center;
+  background: var(--panel); color: var(--text);
+}
+.quick-alert-row .btn { padding: 5px 10px; font-size: 11.5px; }
+.quick-alert-status { font-size: 11px; color: var(--positive); }
+
 .widget-controls {
   display: flex;
   flex: none;
@@ -576,6 +596,13 @@ a:hover { text-decoration: underline; }
 .member-email { font-size: 13.5px; font-weight: 600; }
 .member-meta { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
 .you-tag { font-weight: 400; color: var(--muted); }
+
+.notification-matrix { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.notification-matrix th { text-align: center; font-size: 11px; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 0 8px 10px; }
+.notification-matrix th:first-child { text-align: left; }
+.notification-matrix td { padding: 10px 8px; border-top: 1px solid var(--border); }
+.notification-matrix tr:first-child td { border-top: none; }
+.notification-matrix input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
 
 .role-badge {
   font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
@@ -689,6 +716,14 @@ a:hover { text-decoration: underline; }
 .attribution-by-channel-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--border); }
 .attribution-by-channel-table tr:last-child td { border-bottom: none; }
 .attribution-by-channel-table th:not(:first-child), .attribution-by-channel-table td:not(:first-child) { text-align: right; }
+
+.pnl-table-wrap { max-width: 360px; }
+.pnl-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.pnl-table td { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.pnl-table td:last-child { text-align: right; font-weight: 600; }
+.pnl-table td.negative { color: var(--danger); }
+.pnl-table td.positive { color: var(--positive); }
+.pnl-table tr.pnl-total td { border-top: 2px solid var(--border); border-bottom: none; padding-top: 12px; font-weight: 700; font-size: 15px; }
 
 .audit-log-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .audit-log-table th {

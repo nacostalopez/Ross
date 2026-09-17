@@ -76,6 +76,7 @@ def check_cac_alerts(db: Session, store: Store, prefs: StoreAlertPreference, now
                 f"${float(row['cac']):.2f}, por encima del umbral configurado "
                 f"(${threshold:.2f}). Nuevos clientes este mes: {row['new_customers']}."
             ),
+            event_type="cac_alert",
         )
         _log_alert(db, store.id, "cac", dedupe_key, now=now)
         fired.append(message)
@@ -117,6 +118,7 @@ def check_roas_alert(db: Session, store: Store, prefs: StoreAlertPreference, now
             f"{store.name} lleva {days_n} días con true ROAS por debajo de "
             f"{float(prefs.roas_threshold):.2f}x. Revisá el desglose de gasto por canal en el dashboard."
         ),
+        event_type="roas_alert",
     )
     _log_alert(db, store.id, "roas", "roas", now=now)
     return True

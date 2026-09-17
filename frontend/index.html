@@ -243,6 +243,10 @@
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1"/><circle cx="10" cy="7" r="4"/><path d="M22 20v-1a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Equipo
           </button>
+          <button type="button" class="nav-item" id="nav-profile" data-view="profile">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+            Perfil
+          </button>
         </nav>
         <div class="sidebar-section">
           <h3>Tiendas</h3>
@@ -310,6 +314,30 @@
           <div id="invites-panel" class="panel" hidden>
             <h3>Invitaciones pendientes</h3>
             <div id="invites-list"></div>
+          </div>
+        </div>
+
+        <div id="profile-panel" class="members-panel" hidden>
+          <div class="store-panel-header">
+            <div>
+              <h2>Perfil</h2>
+              <span class="muted">Es personal — no afecta a otros miembros de la cuenta.</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Notificaciones</h3>
+            <p class="widget-info">Elegí por qué canal querés recibir cada aviso. Sin guardar nada, las dos columnas quedan activadas por defecto.</p>
+            <table class="notification-matrix">
+              <thead><tr><th></th><th>Email</th><th>Push</th></tr></thead>
+              <tbody id="notification-matrix-body"></tbody>
+            </table>
+          </div>
+
+          <div class="panel">
+            <h3>Dispositivos y sesiones</h3>
+            <p id="push-devices-empty" class="muted" hidden>Todavía no activaste notificaciones push en ningún dispositivo.</p>
+            <div id="push-devices-list"></div>
           </div>
         </div>
       </div>

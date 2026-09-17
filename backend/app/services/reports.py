@@ -51,7 +51,9 @@ def build_weekly_summary(db: Session, store: Store, now: datetime) -> str:
 
 def send_weekly_report(db: Session, store: Store, now: datetime) -> str:
     body = build_weekly_summary(db, store, now)
-    send_to_store(db, store, subject=f"[ARAMAL] Resumen semanal — {store.name}", body=body)
+    send_to_store(
+        db, store, subject=f"[ARAMAL] Resumen semanal — {store.name}", body=body, event_type="weekly_report"
+    )
     return body
 
 

@@ -34,6 +34,7 @@ const WIDGET_LABELS = {
   cac_by_channel: "CAC por canal",
   attribution_by_channel: "Atribución multi-touch por canal",
   forecast: "Proyección a 30 días",
+  pnl: "P&L completo",
 };
 const STAT_WIDGET_TYPES = ["stat_roas", "stat_revenue", "stat_net_profit", "stat_ad_spend", "stat_real_profit"];
 const ALL_WIDGET_TYPES = Object.keys(WIDGET_LABELS);
@@ -485,15 +486,18 @@ async function enterDashboard() {
 
 document.getElementById("nav-dashboard").addEventListener("click", () => switchDashboardView("dashboard"));
 document.getElementById("nav-members").addEventListener("click", () => switchDashboardView("members"));
+document.getElementById("nav-profile").addEventListener("click", () => switchDashboardView("profile"));
 
 function switchDashboardView(view) {
   setSidebarOpen(false);
-  const isDashboard = view === "dashboard";
-  document.getElementById("nav-dashboard").classList.toggle("active", isDashboard);
-  document.getElementById("nav-members").classList.toggle("active", !isDashboard);
-  document.getElementById("dashboard-panels").hidden = !isDashboard;
-  document.getElementById("members-panel").hidden = isDashboard;
-  if (!isDashboard) loadMembers();
+  document.getElementById("nav-dashboard").classList.toggle("active", view === "dashboard");
+  document.getElementById("nav-members").classList.toggle("active", view === "members");
+  document.getElementById("nav-profile").classList.toggle("active", view === "profile");
+  document.getElementById("dashboard-panels").hidden = view !== "dashboard";
+  document.getElementById("members-panel").hidden = view !== "members";
+  document.getElementById("profile-panel").hidden = view !== "profile";
+  if (view === "members") loadMembers();
+  if (view === "profile") loadProfilePanel();
 }
 
 async function loadStores() {
@@ -582,17 +586,73 @@ function widgetControlsHtml(type, { isStat, hero }) {
   `;
 }
 
+// Only True ROAS gets the quick-alert affordance — it's the one stat with a
+// single, direct threshold (StoreAlertPreference.roas_threshold); CAC alerts
+// are per-channel, so there's no one number a single stat card could edit.
 function renderStatWidgetShell(w) {
+  const quickAlertBtn = w.type === "stat_roas"
+    ? `<button type="button" class="quick-alert-btn" id="quick-alert-toggle" title="Alerta rápida" aria-label="Configurar alerta rápida">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      </button>`
+    : "";
+  const quickAlertRow = w.type === "stat_roas"
+    ? `<div class="quick-alert-row" id="quick-alert-row" hidden>
+        <span>Avisarme si baja de</span>
+        <input type="text" id="quick-alert-threshold" placeholder="1.0">
+        <span>x</span>
+        <button type="button" class="btn btn-primary" id="quick-alert-save">Guardar</button>
+        <span id="quick-alert-status" class="quick-alert-status"></span>
+      </div>`
+    : "";
   return `
     <div class="stat-card ${w.hero ? "stat-hero" : ""}">
       <div class="widget-card-header">
         <span class="stat-label">${WIDGET_LABELS[w.type]}</span>
-        ${state.dashboardEditMode ? widgetControlsHtml(w.type, { isStat: true, hero: w.hero }) : ""}
+        <div class="stat-header-actions">
+          ${quickAlertBtn}
+          ${state.dashboardEditMode ? widgetControlsHtml(w.type, { isStat: true, hero: w.hero }) : ""}
+        </div>
       </div>
       <span class="stat-value ${w.hero ? "stat-hero-value" : ""}" id="stat-value-${w.type}">—</span>
       <span class="stat-delta" id="stat-delta-${w.type}"></span>
+      ${quickAlertRow}
     </div>
   `;
+}
+
+async function toggleQuickAlertRow() {
+  const row = document.getElementById("quick-alert-row");
+  if (!row.hidden) {
+    row.hidden = true;
+    return;
+  }
+  const prefs = await api(`/stores/${state.activeStoreId}/alert-preferences`);
+  document.getElementById("quick-alert-threshold").value = prefs.roas_threshold;
+  document.getElementById("quick-alert-status").textContent = prefs.enabled ? "Alertas activadas" : "";
+  row.hidden = false;
+}
+
+async function saveQuickAlertThreshold() {
+  const statusEl = document.getElementById("quick-alert-status");
+  const thresholdRaw = document.getElementById("quick-alert-threshold").value;
+  const threshold = Number(thresholdRaw);
+  if (!thresholdRaw || Number.isNaN(threshold) || threshold <= 0) {
+    statusEl.textContent = "Ingresá un número válido.";
+    return;
+  }
+  // A quick save only ever touches roas_threshold — cac_threshold/roas_days_n
+  // keep whatever the full "Alertas" modal last set (or the schema defaults).
+  const current = await api(`/stores/${state.activeStoreId}/alert-preferences`);
+  await api(`/stores/${state.activeStoreId}/alert-preferences`, {
+    method: "PUT",
+    body: {
+      enabled: true,
+      cac_threshold: current.cac_threshold,
+      roas_threshold: threshold,
+      roas_days_n: current.roas_days_n,
+    },
+  });
+  statusEl.textContent = "Guardado — alertas activadas.";
 }
 
 const PANEL_WIDGET_BODY = {
@@ -603,6 +663,7 @@ const PANEL_WIDGET_BODY = {
   cac_by_channel: { id: "cac-by-channel-table", class: "cac-by-channel-table-wrap" },
   attribution_by_channel: { id: "attribution-by-channel-table", class: "attribution-by-channel-table-wrap" },
   forecast: { id: "forecast-widget", class: "forecast-widget" },
+  pnl: { id: "pnl-table", class: "pnl-table-wrap" },
 };
 
 function renderPanelWidgetShell(w) {
@@ -651,6 +712,11 @@ function attachWidgetControlListeners() {
   document.querySelectorAll("[data-remove-widget]").forEach((btn) => {
     btn.addEventListener("click", () => removeWidget(btn.dataset.removeWidget));
   });
+  const quickAlertToggle = document.getElementById("quick-alert-toggle");
+  if (quickAlertToggle) {
+    quickAlertToggle.addEventListener("click", toggleQuickAlertRow);
+    document.getElementById("quick-alert-save").addEventListener("click", saveQuickAlertThreshold);
+  }
 }
 
 function moveWidget(type, direction) {
@@ -710,6 +776,7 @@ async function persistAndRerenderLayout() {
   await refreshCacByChannel();
   await refreshAttributionByChannel();
   await refreshForecast();
+  await refreshPnl();
   try {
     await api("/dashboard/layout", { method: "PUT", body: { widgets: state.dashboardLayout } });
   } catch (err) {
@@ -726,6 +793,7 @@ function applyCachedMetrics() {
   if (state.lastCac) renderCacByChannelTable(state.lastCac);
   if (state.lastAttribution) renderAttributionByChannelTable(state.lastAttribution);
   if (state.lastForecast) renderForecastWidget(state.lastForecast);
+  if (state.lastPnl) renderPnlTable(state.lastPnl);
 }
 
 // ---------------------------------------------------------------------------
@@ -738,6 +806,7 @@ document.getElementById("range-select").addEventListener("change", () => {
   refreshLtvCohorts();
   refreshCacByChannel();
   refreshAttributionByChannel();
+  refreshPnl();
 });
 
 function dateRange() {
@@ -1331,6 +1400,57 @@ function renderForecastWidget(data) {
 }
 
 // ---------------------------------------------------------------------------
+// P&L completo — every line item orders/net_profit's own generated column
+// already nets out (see db/init/003_hypertables.sql), just surfaced
+// individually instead of collapsed into one number like the stat widgets.
+// ---------------------------------------------------------------------------
+
+function renderPnlTable(data) {
+  const container = document.getElementById("pnl-table");
+  if (!container) return;
+
+  const cur = state.activeStoreCurrency;
+  const rows = [
+    { label: "Revenue", value: data.revenue },
+    { label: "Descuentos", value: -data.discounts },
+    { label: "Envío", value: -data.shipping_fee },
+    { label: "Fees de plataforma", value: -data.payment_gateway_fee },
+    { label: "COGS", value: -data.cogs_total },
+    { label: "Gasto en ads", value: -data.total_ad_spend },
+  ];
+
+  container.innerHTML = `
+    <table class="pnl-table">
+      <tbody>
+        ${rows
+          .map(
+            (r) => `
+          <tr>
+            <td>${r.label}</td>
+            <td class="${r.value < 0 ? "negative" : ""}">${r.value < 0 ? "-" : ""}${fmtMoney(Math.abs(r.value), cur)}</td>
+          </tr>
+        `
+          )
+          .join("")}
+        <tr class="pnl-total">
+          <td>Profit real (post-ads)</td>
+          <td class="${data.real_profit_after_ads < 0 ? "negative" : "positive"}">${fmtMoney(data.real_profit_after_ads, cur)}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+}
+
+async function refreshPnl() {
+  if (!document.getElementById("pnl-table")) return;
+  const { start, end } = dateRange();
+  const qs = `start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+  const data = await api(`/stores/${state.activeStoreId}/metrics/pnl?${qs}`);
+  state.lastPnl = data;
+  renderPnlTable(data);
+}
+
+// ---------------------------------------------------------------------------
 // Creative performance (ad-level: spend/CTR/CPC/CPM per creative, ranked)
 // ---------------------------------------------------------------------------
 
@@ -1656,6 +1776,79 @@ async function loadMembers() {
     const invites = await api("/accounts/invites");
     renderInvites(invites);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Profile panel — personal notification channel prefs + push devices, both
+// scoped to the current user (not the account/store), see
+// backend/app/routes/notification_preferences.py and .../push.py.
+// ---------------------------------------------------------------------------
+
+const EVENT_TYPE_LABELS = {
+  cac_alert: "CAC alto",
+  roas_alert: "True ROAS bajo",
+  weekly_report: "Reporte semanal",
+};
+
+function renderNotificationMatrix(preferences) {
+  const tbody = document.getElementById("notification-matrix-body");
+  tbody.innerHTML = preferences
+    .map(
+      (p) => `
+    <tr>
+      <td>${EVENT_TYPE_LABELS[p.event_type]}</td>
+      <td style="text-align:center;"><input type="checkbox" data-notif-event="${p.event_type}" data-notif-channel="email" ${p.email_enabled ? "checked" : ""}></td>
+      <td style="text-align:center;"><input type="checkbox" data-notif-event="${p.event_type}" data-notif-channel="push" ${p.push_enabled ? "checked" : ""}></td>
+    </tr>
+  `
+    )
+    .join("");
+  tbody.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+    cb.addEventListener("change", saveNotificationPreferences);
+  });
+}
+
+async function saveNotificationPreferences() {
+  const rows = [...document.querySelectorAll("#notification-matrix-body tr")];
+  const preferences = rows.map((tr) => {
+    const emailCb = tr.querySelector('input[data-notif-channel="email"]');
+    const pushCb = tr.querySelector('input[data-notif-channel="push"]');
+    return { event_type: emailCb.dataset.notifEvent, email_enabled: emailCb.checked, push_enabled: pushCb.checked };
+  });
+  await api("/notification-preferences", { method: "PUT", body: { preferences } });
+}
+
+function renderPushDevices(devices) {
+  const list = document.getElementById("push-devices-list");
+  document.getElementById("push-devices-empty").hidden = devices.length > 0;
+  list.innerHTML = devices
+    .map(
+      (d) => `
+    <div class="member-row">
+      <div>
+        <div class="member-email">${d.label}</div>
+        <div class="member-meta">Agregado el ${fmtDate(d.created_at)}</div>
+      </div>
+      <button type="button" class="link-danger" data-revoke-device="${d.id}" style="margin-left:auto;">Revocar</button>
+    </div>
+  `
+    )
+    .join("");
+  list.querySelectorAll("[data-revoke-device]").forEach((btn) => {
+    btn.addEventListener("click", () => revokePushDevice(btn.dataset.revokeDevice));
+  });
+}
+
+async function revokePushDevice(id) {
+  await api(`/push/subscriptions/${id}`, { method: "DELETE" });
+  await loadProfilePanel();
+}
+
+async function loadProfilePanel() {
+  const { preferences } = await api("/notification-preferences");
+  renderNotificationMatrix(preferences);
+  const devices = await api("/push/subscriptions");
+  renderPushDevices(devices);
 }
 
 function fmtDate(iso) {

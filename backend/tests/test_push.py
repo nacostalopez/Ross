@@ -112,3 +112,64 @@ class TestPushRoutes:
         response = client.request("DELETE", "/push/subscribe", headers=auth_header, params={"endpoint": endpoint})
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert test_db_session.query(PushSubscription).filter_by(user_id=test_user.id, endpoint=endpoint).first() is None
+
+    def test_subscribe_captures_user_agent(self, client, auth_header, test_db_session, test_user):
+        client.post(
+            "/push/subscribe",
+            headers={**auth_header, "User-Agent": "Mozilla/5.0 (iPhone) Safari/604.1"},
+            json={"endpoint": "https://push.example.com/ua", "keys": {"p256dh": "p", "auth": "a"}},
+        )
+        row = test_db_session.query(PushSubscription).filter_by(user_id=test_user.id, endpoint="https://push.example.com/ua").one()
+        assert "iPhone" in row.user_agent
+
+
+@pytest.mark.db
+class TestListAndRevokeSubscriptions:
+    def test_list_returns_a_friendly_label_and_no_other_users_devices(
+        self, client, auth_header, admin_auth_header, test_db_session
+    ):
+        client.post(
+            "/push/subscribe",
+            headers={**auth_header, "User-Agent": "Mozilla/5.0 (Windows NT 10.0) Chrome/120.0 Safari/537.36"},
+            json={"endpoint": "https://push.example.com/mine", "keys": {"p256dh": "p", "auth": "a"}},
+        )
+        client.post(
+            "/push/subscribe",
+            headers=admin_auth_header,
+            json={"endpoint": "https://push.example.com/not-mine", "keys": {"p256dh": "p", "auth": "a"}},
+        )
+
+        response = client.get("/push/subscriptions", headers=auth_header)
+        assert response.status_code == status.HTTP_200_OK
+        subs = response.json()
+        assert len(subs) == 1
+        assert subs[0]["label"] == "Windows · Chrome"
+
+    def test_revoke_by_id_removes_a_different_devices_row(self, client, auth_header, test_db_session, test_user):
+        client.post(
+            "/push/subscribe",
+            headers=auth_header,
+            json={"endpoint": "https://push.example.com/other-device", "keys": {"p256dh": "p", "auth": "a"}},
+        )
+        sub_id = (
+            test_db_session.query(PushSubscription)
+            .filter_by(user_id=test_user.id, endpoint="https://push.example.com/other-device")
+            .one()
+            .id
+        )
+
+        response = client.delete(f"/push/subscriptions/{sub_id}", headers=auth_header)
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert test_db_session.get(PushSubscription, sub_id) is None
+
+    def test_cannot_revoke_another_users_subscription(self, client, auth_header, admin_auth_header, test_db_session):
+        client.post(
+            "/push/subscribe",
+            headers=admin_auth_header,
+            json={"endpoint": "https://push.example.com/admins", "keys": {"p256dh": "p", "auth": "a"}},
+        )
+        sub_id = test_db_session.query(PushSubscription).filter_by(endpoint="https://push.example.com/admins").one().id
+
+        response = client.delete(f"/push/subscriptions/{sub_id}", headers=auth_header)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert test_db_session.get(PushSubscription, sub_id) is not None

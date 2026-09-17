@@ -1,3 +1,6 @@
+from datetime import datetime
+from uuid import UUID
+
 from pydantic import BaseModel
 
 
@@ -19,3 +22,12 @@ class VapidPublicKeyOut(BaseModel):
     # set) — the frontend uses that to hide the notification toggle
     # instead of offering a subscribe flow that can never actually send.
     public_key: str
+
+
+class PushSubscriptionOut(BaseModel):
+    id: UUID
+    # Derived server-side from the User-Agent captured at subscribe time
+    # (see app/routes/push.py::_label_from_user_agent) — the Push API
+    # itself exposes no device name.
+    label: str
+    created_at: datetime

@@ -20,6 +20,7 @@ from app.routes import (
     creative_performance,
     dashboard,
     metrics,
+    notification_preferences,
     orders,
     pixel_events,
     products,
@@ -82,6 +83,7 @@ app.include_router(dashboard.router)
 app.include_router(alerts.router)
 app.include_router(reports.router)
 app.include_router(push.router)
+app.include_router(notification_preferences.router)
 
 
 @app.get("/health")
