@@ -5,7 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Store, StoreMembership, User
+from app.models import Plan, Store, StoreMembership, Subscription, User
 from app.security import decode_access_token
 
 bearer_scheme = HTTPBearer()
@@ -78,5 +78,37 @@ def require_store_role(*allowed_roles: str):
         role = _effective_role_for_store(db, current_user, store_id)
         if role not in allowed_roles:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        return current_user
+    return _check
+
+
+def _plan_for_account(db: Session, account_id: UUID) -> Plan:
+    """No Subscription row = "scale" (every feature) — every account gets
+    one at registration (see app/routes/auth.py::register) and existing
+    accounts were grandfathered onto it by db/init/028_billing.sql, so this
+    fallback is really just belt-and-suspenders, not the normal path. See
+    that migration / app/models/billing.py for why "scale" (not "starter")
+    is the safe default: there's no paid checkout flow yet, so gating
+    anyone down to Starter today would strand them with no way to upgrade.
+    """
+    sub = db.query(Subscription).filter_by(account_id=account_id).first()
+    plan_id = sub.plan_id if sub else "scale"
+    return db.get(Plan, plan_id)
+
+
+def require_plan_feature(feature: str):
+    """Gate a route behind a plan's feature list, e.g.
+    Depends(require_plan_feature("forecast")). A feature key not present
+    in ANY plan's `features` column is a bug in how this was called, not a
+    valid "nobody has it" state — every gated feature must be listed on at
+    least "scale" (db/init/028_billing.sql) or no account could ever use it.
+    """
+    def _check(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
+        plan = _plan_for_account(db, current_user.account_id)
+        if feature not in plan.features:
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail=f"Esta funcionalidad requiere un plan superior a {plan.name}",
+            )
         return current_user
     return _check

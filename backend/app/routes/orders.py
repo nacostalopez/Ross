@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user, get_owned_store, require_store_role
+from app.dependencies import get_current_user, get_owned_store, require_plan_feature, require_store_role
 from app.models import CustomerDataAccessLog, Store, User
 from app.models import orders as orders_table
 from app.schemas.orders import CustomerDataAccessLogOut, OrderCreate, OrderOut
@@ -88,6 +88,7 @@ def list_audit_log(
     limit: int = Query(default=50, ge=1, le=500),
     store: Store = Depends(get_owned_store),
     _: User = Depends(require_store_role("owner", "admin")),
+    __: User = Depends(require_plan_feature("audit_log")),
     db: Session = Depends(get_db),
 ):
     """Who fetched customer-linked order data, most recent first — a

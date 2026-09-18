@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user, get_owned_store, require_role, require_store_role
+from app.dependencies import get_current_user, get_owned_store, require_plan_feature, require_role, require_store_role
 from app.models import Store, StoreCredential, StoreMembership, User
 from app.schemas.stores import (
     StoreCreate,
@@ -109,7 +109,7 @@ def set_store_member_role(
     user_id: UUID,
     payload: StoreMemberRoleIn,
     store: Store = Depends(get_owned_store),
-    _: User = Depends(require_role("owner")),
+    current_user: User = Depends(require_role("owner")),
     db: Session = Depends(get_db),
 ):
     """Gated to the account-wide owner role (require_role, not
@@ -123,10 +123,13 @@ def set_store_member_role(
 
     existing = db.get(StoreMembership, (store.id, user_id))
     if payload.role is None:
+        # Clearing an override only ever *reduces* access — never gated.
         if existing:
             db.delete(existing)
             db.commit()
         return _store_member_out(member, None)
+
+    require_plan_feature("store_role_overrides")(current_user, db)
 
     if existing:
         existing.role = payload.role

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_owned_store, require_store_role
+from app.dependencies import get_owned_store, require_plan_feature, require_store_role
 from app.models import Store, StoreReportPreference, User
 from app.schemas.reports import ReportPreferencesIn, ReportPreferencesOut, SendReportNowOut
 from app.services.activity_log import log_activity
@@ -26,6 +26,11 @@ def set_report_preferences(
     current_user: User = Depends(require_store_role("owner", "admin")),
     db: Session = Depends(get_db),
 ):
+    # Only gated when *enabling* — a plan downgrade must never strand
+    # someone unable to turn OFF a feature they already had on.
+    if payload.enabled:
+        require_plan_feature("weekly_report")(current_user, db)
+
     row = db.get(StoreReportPreference, store.id)
     if row:
         row.enabled = payload.enabled

@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base, get_db
 from app.main import app
+from app.models.billing import Plan
 from app.models.relational import Account, Store, StoreCredential, User
 from app.rate_limit import limiter
 from app.security import encrypt_secret, hash_password
@@ -36,7 +37,40 @@ def test_db_engine():
     
     # Create all tables
     Base.metadata.create_all(bind=engine)
-    
+
+    # Reference data db/init/028_billing.sql seeds in real Postgres — the
+    # test DB's schema comes from these models, not that SQL file, so it
+    # needs seeding here instead. Same 3 plans, same feature lists.
+    with sessionmaker(bind=engine)() as seed_session:
+        seed_session.add_all(
+            [
+                Plan(id="starter", name="Starter", max_stores=1, max_orders_per_month=500, max_users=2, features=[]),
+                Plan(
+                    id="growth",
+                    name="Growth",
+                    max_stores=5,
+                    max_orders_per_month=5000,
+                    max_users=5,
+                    features=["weekly_report", "ltv_cohorts", "cac_by_channel", "attribution_by_channel", "forecast"],
+                ),
+                Plan(
+                    id="scale",
+                    name="Scale",
+                    features=[
+                        "weekly_report",
+                        "ltv_cohorts",
+                        "cac_by_channel",
+                        "attribution_by_channel",
+                        "forecast",
+                        "creative_performance",
+                        "store_role_overrides",
+                        "audit_log",
+                    ],
+                ),
+            ]
+        )
+        seed_session.commit()
+
     yield engine
     
     # Cleanup

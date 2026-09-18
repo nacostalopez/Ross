@@ -5,8 +5,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_owned_store
-from app.models import Store
+from app.dependencies import get_owned_store, require_plan_feature
+from app.models import Store, User
 from app.schemas.metrics import (
     ChannelAttributionOut,
     ChannelCacOut,
@@ -431,6 +431,7 @@ def metrics_creatives(
     start: datetime = Query(...),
     end: datetime = Query(...),
     store: Store = Depends(get_owned_store),
+    _: User = Depends(require_plan_feature("creative_performance")),
     db: Session = Depends(get_db),
 ):
     rows = db.execute(CREATIVES_SQL, {"store_id": str(store.id), "start": start, "end": end}).mappings().all()
@@ -443,6 +444,7 @@ def metrics_ltv_cohorts(
     end: datetime = Query(...),
     months: int = Query(6, ge=1, le=12),
     store: Store = Depends(get_owned_store),
+    _: User = Depends(require_plan_feature("ltv_cohorts")),
     db: Session = Depends(get_db),
 ):
     rows = (
@@ -502,6 +504,7 @@ def metrics_cac_by_channel(
     start: datetime = Query(...),
     end: datetime = Query(...),
     store: Store = Depends(get_owned_store),
+    _: User = Depends(require_plan_feature("cac_by_channel")),
     db: Session = Depends(get_db),
 ):
     rows = (
@@ -515,6 +518,7 @@ def metrics_attribution_by_channel(
     start: datetime = Query(...),
     end: datetime = Query(...),
     store: Store = Depends(get_owned_store),
+    _: User = Depends(require_plan_feature("attribution_by_channel")),
     db: Session = Depends(get_db),
 ):
     rows = (
@@ -536,6 +540,7 @@ def metrics_forecast(
     history_days: int = Query(60, ge=MIN_FORECAST_HISTORY_DAYS, le=365),
     forecast_days: int = Query(30, ge=1, le=90),
     store: Store = Depends(get_owned_store),
+    _: User = Depends(require_plan_feature("forecast")),
     db: Session = Depends(get_db),
 ):
     end = datetime.now(timezone.utc)

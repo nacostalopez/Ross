@@ -8,7 +8,7 @@ from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.email import send_email
-from app.models import Account, PasswordResetToken, RefreshToken, User
+from app.models import Account, PasswordResetToken, RefreshToken, Subscription, User
 from app.rate_limit import limiter
 from app.schemas.auth import (
     ForgotPasswordIn,
@@ -63,6 +63,12 @@ def register(request: Request, payload: RegisterIn, db: Session = Depends(get_db
     account = Account(name=payload.account_name)
     db.add(account)
     db.flush()
+
+    # "scale" (every feature), not "starter" — there's no paid checkout
+    # flow yet (see app/dependencies.py::_plan_for_account), so gating a
+    # brand-new signup down to Starter today would strand them with no way
+    # to upgrade. Flip this once Phase 2 of the billing proposal ships.
+    db.add(Subscription(account_id=account.id, plan_id="scale", status="active"))
 
     user = User(
         account_id=account.id,

@@ -8,6 +8,7 @@ from app.models.audit import (
     TiendanubeWebhookLog,
     TokenRefreshAudit,
 )
+from app.models.billing import Invoice, Plan, Subscription
 from app.models.hypertables import ad_spend, creative_performance, orders, pixel_events
 from app.models.relational import (
     Account,
@@ -35,7 +36,10 @@ __all__ = [
     "CapiEvent",
     "Customer",
     "DashboardLayout",
+    "Invoice",
     "NotificationChannelPreference",
+    "Plan",
+    "Subscription",
     "PasswordResetToken",
     "PushSubscription",
     "RefreshToken",
