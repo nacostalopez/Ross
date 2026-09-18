@@ -667,6 +667,30 @@ modal open reflects. No regressions on the mobile layout (checked at
 390px: topbar, the notification matrix, and the quick-alert row all still
 fit).
 
+### Actividad reciente + Tu equipo (Perfil)
+
+Two more Perfil panels, rounding it out:
+
+- **Actividad reciente** — a new `account_activity_log` table logs a
+  deliberately narrow set of high-signal actions (store created, invite
+  sent, alerts/weekly-report turned on — see
+  `app/services/activity_log.py` for the exact list), same scoping
+  philosophy as `customer_data_access_log`: not a generic audit
+  middleware, just the handful of call sites that matter. `GET
+  /accounts/activity` is personal (filtered to the calling user), not a
+  shared account-wide audit trail.
+- **Tu equipo** — a one-line summary (avatars, role counts, a link into
+  the full "Equipo" screen) reusing the existing `GET /accounts/members`
+  — hidden for viewers since that endpoint already requires owner/admin.
+
+Found and fixed while building this: `created_at` on the new table
+defaulted to `now()`, which Postgres fixes for the whole transaction —
+several activities logged within one request/session (or, as this
+feature's own ordering test caught, several requests sharing one
+wrapping test transaction) tied on timestamp and sorted arbitrarily
+instead of newest-first. Switched to `clock_timestamp()`, which reflects
+real wall-clock time per statement.
+
 ## API overview
 
 - `POST /auth/register`, `POST /auth/login`, `GET /auth/me`
@@ -848,6 +872,18 @@ account settings (see "P&L completo" and "Perfil" below). Not yet built:
   per-line-item detail today, only the already-summed `cogs_total`. Needs
   a new `order_items` table and matching Shopify/Tiendanube connector
   changes; feasible (no new external API calls), just not built yet.
+- "Actividad reciente" (see "Actividad reciente + Tu equipo" below) only
+  covers 4 action types — same narrow-by-design scoping as the
+  customer-data access log above, not a generic audit trail. A future
+  mutating route doesn't get logged automatically; it needs its own
+  explicit `log_activity()` call the same way the 4 existing ones do.
+- **No billing/monetization of any kind** — there's no `Plan`/
+  `Subscription`/`Invoice` model, no usage limits, no trial, no payment
+  integration for charging an ARAMAL customer (MercadoPago exists only as
+  a connector reading a *merchant's own* sales data). Every account
+  created via `POST /auth/register` has full, permanent, unmetered
+  access. This is the one gap flagged as blocking self-serve growth,
+  not just a missing feature — see the separate billing proposal.
 
 Note for `docker compose` users: `FRONTEND_URL`, `SMTP_*`, and `VAPID_*`
 must be set in a root-level `.env` (not `backend/.env`) — `docker-compose.yml`'s `backend`
