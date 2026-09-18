@@ -691,6 +691,22 @@ wrapping test transaction) tied on timestamp and sorted arbitrarily
 instead of newest-first. Switched to `clock_timestamp()`, which reflects
 real wall-clock time per statement.
 
+### Billing scaffolding (no real prices yet)
+
+`Plan`/`Subscription`/`Invoice` models exist (see the "Estrategia de
+Billing" proposal doc for the full design) and `require_plan_feature()`
+is wired onto 8 routes (forecast, ltv-cohorts, cac-by-channel,
+attribution-by-channel, creative performance, weekly reports, per-store
+role overrides, audit log). Every account — the 124 that existed before
+this and every new registration — is pinned to the `scale` plan, which
+has every gated feature, so **nothing is actually restricted today**;
+`Plan.monthly_price` and the volume limits are placeholders. Gating a
+feature only ever applies to *enabling* it, never to turning it off — a
+future downgrade must not strand someone unable to disable something
+they already had on. This is Phase 1 only: no checkout, no Stripe
+integration, no way for a real account to end up on a plan other than
+Scale yet.
+
 ## API overview
 
 - `POST /auth/register`, `POST /auth/login`, `GET /auth/me`
