@@ -707,6 +707,21 @@ they already had on. This is Phase 1 only: no checkout, no Stripe
 integration, no way for a real account to end up on a plan other than
 Scale yet.
 
+### Pricing page (`frontend/pricing.html`)
+
+A public, unauthenticated marketing page — linked from the landing
+page nav — that helps a visitor self-select a plan by monthly order
+volume instead of reading a static feature table. A 4-stop slider
+(under 500 / 500–2.000 / 2.000–5.000 / more than 5.000 orders per
+month) drives which of the three plan cards is highlighted as
+recommended, the explanation line above the cards, and a capacity bar
+showing roughly how much of that plan's headroom the volume uses
+(Scale has no bar since it has no order ceiling). All prices show as a
+`[Precio]` placeholder — intentional, since real values aren't decided
+yet (see "Billing scaffolding" above); the "Solicitar demo" CTA is how
+someone gets on the list to hear when pricing lands. Plain HTML/CSS/JS,
+no framework, mirroring `landing.html`'s conventions.
+
 ## API overview
 
 - `POST /auth/register`, `POST /auth/login`, `GET /auth/me`

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ARAMAL — Precios</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#2263A2" />
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="l-nav">
+    <span class="auth-hero-brand" style="color:var(--text);">ARAMAL</span>
+    <nav class="l-nav-links">
+      <a href="landing.html">Inicio</a>
+      <a href="index.html">Iniciar sesión</a>
+      <a href="mailto:hola@aramal.com" class="btn btn-primary l-nav-cta">Solicitar demo</a>
+    </nav>
+  </header>
+
+  <section class="pricing-hero">
+    <h1>¿Cuántos pedidos hacés por mes?</h1>
+    <p>Movete por la escala y te marcamos el plan que te conviene, con margen para crecer. Cambiás de plan cuando quieras.</p>
+  </section>
+
+  <section class="pricing-slider-section">
+    <div class="pricing-slider-track">
+      <div class="pricing-slider-line"></div>
+      <div class="pricing-slider-fill" id="pricing-slider-fill"></div>
+      <button type="button" class="pricing-slider-stop" data-bucket="low">
+        <span class="pricing-slider-dot"></span>
+        <span class="pricing-slider-label">Menos de 500</span>
+      </button>
+      <button type="button" class="pricing-slider-stop" data-bucket="mid">
+        <span class="pricing-slider-dot"></span>
+        <span class="pricing-slider-label">500 – 2.000</span>
+      </button>
+      <button type="button" class="pricing-slider-stop" data-bucket="high">
+        <span class="pricing-slider-dot"></span>
+        <span class="pricing-slider-label">2.000 – 5.000</span>
+      </button>
+      <button type="button" class="pricing-slider-stop" data-bucket="top">
+        <span class="pricing-slider-dot"></span>
+        <span class="pricing-slider-label">Más de 5.000</span>
+      </button>
+    </div>
+  </section>
+
+  <p class="pricing-explain" id="pricing-explain"></p>
+
+  <section class="pricing-plans">
+    <div class="pricing-card" id="pricing-card-starter">
+      <div class="pricing-recommended-tag" hidden>✓ Te conviene este</div>
+      <div class="pricing-card-name">Starter</div>
+      <div><span class="pricing-price-placeholder">[Precio]</span></div>
+      <div class="pricing-feature">✓ 1 tienda</div>
+      <div class="pricing-feature">✓ Hasta 500 pedidos/mes</div>
+      <div class="pricing-feature">✓ Stats esenciales + P&amp;L completo</div>
+      <div class="pricing-feature">✓ Alertas por email</div>
+      <div class="pricing-capacity-box" hidden>
+        <div class="pricing-capacity-label"></div>
+        <div class="pricing-capacity-track"><div class="pricing-capacity-fill"></div></div>
+      </div>
+      <a href="index.html" class="btn" style="text-align:center; margin-top:auto;">Empezar</a>
+    </div>
+
+    <div class="pricing-card" id="pricing-card-growth">
+      <div class="pricing-recommended-tag" hidden>✓ Te conviene este</div>
+      <div class="pricing-card-name">Growth</div>
+      <div><span class="pricing-price-placeholder">[Precio]</span></div>
+      <div class="pricing-feature">✓ Hasta 5 tiendas</div>
+      <div class="pricing-feature">✓ Hasta 5.000 pedidos/mes</div>
+      <div class="pricing-feature">✓ LTV por cohorte + CAC por canal</div>
+      <div class="pricing-feature">✓ Atribución multi-touch + Forecast</div>
+      <div class="pricing-feature">✓ Alertas por email + push</div>
+      <div class="pricing-capacity-box" hidden>
+        <div class="pricing-capacity-label"></div>
+        <div class="pricing-capacity-track"><div class="pricing-capacity-fill"></div></div>
+      </div>
+      <a href="index.html" class="btn" style="text-align:center; margin-top:auto;">Probar 14 días gratis</a>
+    </div>
+
+    <div class="pricing-card" id="pricing-card-scale">
+      <div class="pricing-recommended-tag" hidden>✓ Te conviene este</div>
+      <div class="pricing-card-name">Scale</div>
+      <div><span class="pricing-price-placeholder">[Precio]</span></div>
+      <div class="pricing-feature">✓ Tiendas y pedidos ilimitados</div>
+      <div class="pricing-feature">✓ Performance por creativo</div>
+      <div class="pricing-feature">✓ Roles por tienda + Auditoría</div>
+      <div class="pricing-feature">✓ Soporte prioritario</div>
+      <div class="pricing-capacity-box" hidden>
+        <div class="pricing-capacity-label"></div>
+      </div>
+      <a href="mailto:hola@aramal.com" class="btn" style="text-align:center; margin-top:auto;">Hablar con ventas</a>
+    </div>
+  </section>
+
+  <p class="pricing-reassurance">Los precios de esta página todavía se están definiendo — dejanos tu email desde "Solicitar demo" y te avisamos apenas estén listos.</p>
+
+  <footer class="l-footer">
+    <span>ARAMAL</span>
+    <span>Conexión en flujo.</span>
+  </footer>
+
+  <script>
+    const PRICING_BUCKETS = [
+      { id: "low", tier: "starter", capacityPct: 50, capacityLabel: "~50% de tu límite mensual en Starter" },
+      { id: "mid", tier: "growth", capacityPct: 25, capacityLabel: "~25% de tu límite mensual en Growth" },
+      { id: "high", tier: "growth", capacityPct: 70, capacityLabel: "~70% de tu límite mensual en Growth" },
+      { id: "top", tier: "scale", capacityPct: null, capacityLabel: "Sin límite de pedidos — no hay techo que gestionar" },
+    ];
+    const PRICING_EXPLAIN = {
+      low: { prefix: "Con menos de 500 pedidos por mes,", plan: "Starter", suffix: " te alcanza de sobra para ver tus números reales." },
+      mid: { prefix: "Con 500 a 2.000 pedidos por mes,", plan: "Growth", suffix: " te da margen para escalar sin pasarte del límite todavía." },
+      high: { prefix: "Con 2.000 a 5.000 pedidos por mes,", plan: "Growth", suffix: " sigue siendo tu plan, pero ya vas acercándote al techo — bueno tenerlo en el radar." },
+      top: { prefix: "Con más de 5.000 pedidos por mes,", plan: "Scale", suffix: " es el único que no te pone un techo de volumen." },
+    };
+
+    let activeBucketId = "mid";
+
+    function renderPricing() {
+      const activeIndex = PRICING_BUCKETS.findIndex((b) => b.id === activeBucketId);
+      const active = PRICING_BUCKETS[activeIndex];
+
+      document.querySelectorAll(".pricing-slider-stop").forEach((stop, i) => {
+        const on = PRICING_BUCKETS[i].id === activeBucketId;
+        stop.querySelector(".pricing-slider-dot").classList.toggle("active", on);
+        stop.querySelector(".pricing-slider-label").classList.toggle("active", on);
+      });
+      document.getElementById("pricing-slider-fill").style.width = `${(activeIndex / (PRICING_BUCKETS.length - 1)) * 100}%`;
+
+      const explain = PRICING_EXPLAIN[activeBucketId];
+      document.getElementById("pricing-explain").innerHTML = `${explain.prefix} <b>${explain.plan}</b>${explain.suffix}`;
+
+      ["starter", "growth", "scale"].forEach((tier) => {
+        const card = document.getElementById(`pricing-card-${tier}`);
+        const on = active.tier === tier;
+        card.classList.toggle("recommended", on);
+        card.classList.toggle("dimmed", !on);
+        card.querySelector(".pricing-recommended-tag").hidden = !on;
+
+        const capacityBox = card.querySelector(".pricing-capacity-box");
+        capacityBox.hidden = !on;
+        if (on) {
+          capacityBox.querySelector(".pricing-capacity-label").textContent = active.capacityLabel;
+          const fill = capacityBox.querySelector(".pricing-capacity-fill");
+          if (fill) fill.style.width = `${active.capacityPct || 0}%`;
+        }
+
+        const cta = card.querySelector(".btn");
+        cta.classList.toggle("btn-primary", on);
+        cta.classList.toggle("btn-ghost", !on);
+      });
+    }
+
+    document.querySelectorAll("[data-bucket]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        activeBucketId = btn.dataset.bucket;
+        renderPricing();
+      });
+    });
+
+    renderPricing();
+  </script>
+</body>
+</html>
