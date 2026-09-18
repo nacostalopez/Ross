@@ -1,4 +1,5 @@
 from app.models.audit import (
+    AccountActivityLog,
     AlertLog,
     ConnectorStatus,
     CustomerDataAccessLog,
@@ -29,6 +30,7 @@ from app.models.relational import (
 
 __all__ = [
     "Account",
+    "AccountActivityLog",
     "AccountInvite",
     "CapiEvent",
     "Customer",

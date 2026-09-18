@@ -16,6 +16,7 @@ from app.schemas.stores import (
     StoreOut,
 )
 from app.security import encrypt_secret
+from app.services.activity_log import log_activity
 
 router = APIRouter(prefix="/stores", tags=["stores"])
 
@@ -30,6 +31,7 @@ def create_store(
     db.add(store)
     db.commit()
     db.refresh(store)
+    log_activity(db, current_user.account_id, current_user.id, "store_created", f"Creaste la tienda {store.name}")
     return store
 
 

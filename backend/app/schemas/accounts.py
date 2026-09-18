@@ -52,3 +52,11 @@ class InviteAcceptIn(BaseModel):
 
 class RoleUpdateIn(BaseModel):
     role: Role
+
+
+class ActivityLogEntryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    action: str
+    detail: str
+    created_at: datetime

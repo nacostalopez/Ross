@@ -85,6 +85,30 @@ class CustomerDataAccessLog(Base):
     accessed_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class AccountActivityLog(Base):
+    """A narrow, personal "what did I just do" feed for the Perfil page's
+    "Actividad reciente" — same deliberately-narrow philosophy as
+    CustomerDataAccessLog above: only a handful of high-signal actions get
+    logged (see app/services/activity_log.py for the full list), not every
+    mutating route. Always scoped to the acting user, not the whole
+    account, matching how it's surfaced (a personal feed, not a shared
+    admin audit trail)."""
+
+    __tablename__ = "account_activity_log"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    action = Column(String(50), nullable=False)
+    detail = Column(String(255), nullable=False)
+    # clock_timestamp(), not now() — now() is fixed for the whole
+    # transaction, so several activities logged in one request/session
+    # (or, as this table's own tests found, several requests sharing one
+    # wrapping transaction) would otherwise tie on created_at and sort
+    # arbitrarily instead of newest-first.
+    created_at = Column(DateTime(timezone=True), server_default=func.clock_timestamp())
+
+
 class OAuthState(Base):
     """CSRF state tokens for the OAuth handshake — issued by */auth-url,
     burned by the matching */callback. See db/init/013_oauth_states.sql."""

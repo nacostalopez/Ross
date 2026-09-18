@@ -5,6 +5,7 @@ from app.database import get_db
 from app.dependencies import get_owned_store, require_store_role
 from app.models import Store, StoreAlertPreference, User
 from app.schemas.alerts import AlertCheckResult, AlertPreferencesIn, AlertPreferencesOut
+from app.services.activity_log import log_activity
 from app.services.alerts import run_check_for_store
 
 router = APIRouter(prefix="/stores/{store_id}/alert-preferences", tags=["alerts"])
@@ -29,7 +30,7 @@ def get_alert_preferences(store: Store = Depends(get_owned_store), db: Session =
 def set_alert_preferences(
     payload: AlertPreferencesIn,
     store: Store = Depends(get_owned_store),
-    _: User = Depends(require_store_role("owner", "admin")),
+    current_user: User = Depends(require_store_role("owner", "admin")),
     db: Session = Depends(get_db),
 ):
     row = db.get(StoreAlertPreference, store.id)
@@ -42,6 +43,10 @@ def set_alert_preferences(
         row = StoreAlertPreference(store_id=store.id, **payload.model_dump())
         db.add(row)
     db.commit()
+    if payload.enabled:
+        log_activity(
+            db, current_user.account_id, current_user.id, "alert_preferences_updated", f"Activaste alertas en {store.name}"
+        )
     return payload
 
 

@@ -10,10 +10,11 @@ from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.email import send_email
-from app.models import AccountInvite, RefreshToken, User
+from app.models import AccountActivityLog, AccountInvite, RefreshToken, User
 from app.routes.auth import issue_tokens
 from app.schemas.accounts import (
     AccountOut,
+    ActivityLogEntryOut,
     InviteAcceptIn,
     InviteCreate,
     InviteOut,
@@ -22,6 +23,7 @@ from app.schemas.accounts import (
 )
 from app.schemas.auth import TokenOut
 from app.security import hash_password, hash_token
+from app.services.activity_log import log_activity
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 logger = logging.getLogger("escal.accounts")
@@ -54,6 +56,25 @@ def _send_invite_email(invite: AccountInvite, inviter: User, raw_token: str, *, 
 @router.get("/me", response_model=AccountOut)
 def get_my_account(current_user: User = Depends(get_current_user)):
     return current_user.account
+
+
+@router.get("/activity", response_model=list[ActivityLogEntryOut])
+def list_my_activity(
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Personal, cross-store feed — every role can see their own actions;
+    this is a "what did I just do" list, not an admin audit trail (see
+    AccountActivityLog's docstring for why it only covers a handful of
+    actions)."""
+    return (
+        db.query(AccountActivityLog)
+        .filter_by(user_id=current_user.id)
+        .order_by(AccountActivityLog.created_at.desc())
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("/members", response_model=list[MemberOut])
@@ -101,6 +122,9 @@ def create_invite(
     db.refresh(invite)
 
     _send_invite_email(invite, current_user, raw_token)
+    log_activity(
+        db, current_user.account_id, current_user.id, "invite_sent", f"Invitaste a {invite.email} como {invite.role}"
+    )
 
     result = InviteOut.model_validate(invite)
     result.token = raw_token

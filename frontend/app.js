@@ -1844,11 +1844,63 @@ async function revokePushDevice(id) {
   await loadProfilePanel();
 }
 
+function renderTeamSummary(members) {
+  const roleCounts = members.reduce((acc, m) => ((acc[m.role] = (acc[m.role] || 0) + 1), acc), {});
+  const roleSummary = Object.entries(roleCounts)
+    .map(([role, count]) => `${count} ${role}`)
+    .join(" · ");
+  const avatars = members
+    .slice(0, 4)
+    .map((m) => `<div class="team-avatar">${m.email[0].toUpperCase()}</div>`)
+    .join("");
+  const extra = members.length > 4 ? `<div class="team-avatar team-avatar-extra">+${members.length - 4}</div>` : "";
+
+  document.getElementById("profile-team-summary").innerHTML = `
+    <div class="team-summary-row">
+      <div class="team-avatars">${avatars}${extra}</div>
+      <div class="team-summary-text">
+        <div>${members.length} miembro${members.length === 1 ? "" : "s"}</div>
+        <div class="member-meta">${roleSummary}</div>
+      </div>
+      <button type="button" class="btn btn-ghost" id="profile-view-team-btn" style="margin-left:auto;">Ver equipo completo →</button>
+    </div>
+  `;
+  document.getElementById("profile-view-team-btn").addEventListener("click", () => switchDashboardView("members"));
+}
+
+function renderActivityLog(entries) {
+  const list = document.getElementById("activity-log-list");
+  document.getElementById("activity-log-empty").hidden = entries.length > 0;
+  list.innerHTML = entries
+    .map(
+      (e) => `
+    <div class="member-row">
+      <div>
+        <div class="member-email">${e.detail}</div>
+        <div class="member-meta">${fmtDate(e.created_at)}</div>
+      </div>
+    </div>
+  `
+    )
+    .join("");
+}
+
 async function loadProfilePanel() {
   const { preferences } = await api("/notification-preferences");
   renderNotificationMatrix(preferences);
   const devices = await api("/push/subscriptions");
   renderPushDevices(devices);
+  const activity = await api("/accounts/activity?limit=10");
+  renderActivityLog(activity);
+
+  // GET /accounts/members is owner/admin-only on the backend — same
+  // boundary as the "Equipo" nav item itself (hidden for viewers).
+  const teamPanel = document.getElementById("profile-team-panel");
+  teamPanel.hidden = state.currentUser.role === "viewer";
+  if (!teamPanel.hidden) {
+    const members = await api("/accounts/members");
+    renderTeamSummary(members);
+  }
 }
 
 function fmtDate(iso) {
