@@ -115,8 +115,33 @@ function setSidebarOpen(open) {
   document.getElementById("sidebar-toggle").setAttribute("aria-expanded", String(open));
 }
 
-document.getElementById("sidebar-toggle").addEventListener("click", () => setSidebarOpen(true));
-document.getElementById("sidebar-backdrop").addEventListener("click", () => setSidebarOpen(false));
+const sidebarToggle = document.getElementById("sidebar-toggle");
+const sidebarIsMobile = window.matchMedia("(max-width: 860px)");
+
+function openSidebar() {
+  setSidebarOpen(true);
+  // The drawer's nav is what a keyboard or screen-reader user needs next, so focus goes there.
+  const target = document.querySelector("#dashboard-sidebar .nav-item.active")
+    || document.querySelector("#dashboard-sidebar .nav-item");
+  if (target) target.focus();
+}
+
+// Closing from the backdrop or Escape hands focus back to the button that opened the drawer.
+function dismissSidebar() {
+  if (!document.getElementById("dashboard-view").classList.contains("sidebar-open")) return;
+  setSidebarOpen(false);
+  sidebarToggle.focus();
+}
+
+sidebarToggle.addEventListener("click", openSidebar);
+document.getElementById("sidebar-backdrop").addEventListener("click", dismissSidebar);
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") dismissSidebar();
+});
+// Past the breakpoint the sidebar is a permanent column: don't leave an "open" state behind.
+sidebarIsMobile.addEventListener("change", (event) => {
+  if (!event.matches) setSidebarOpen(false);
+});
 
 // ---------------------------------------------------------------------------
 // Push notifications (opt-in per device — see backend app/services/push.py)
@@ -462,6 +487,8 @@ function showLoggedOut() {
   authView.hidden = false;
   dashboardView.hidden = true;
   topbarAccount.hidden = true;
+  setSidebarOpen(false);
+  sidebarToggle.hidden = true;
   pushToggleBtn.hidden = true;
   // Always land back on login, not whatever single-purpose mode (register,
   // forgot, reset, invite) was showing before — those tokens are spent or
@@ -496,6 +523,7 @@ async function enterDashboard() {
   // Only owner/admin can list members (see require_role on GET /accounts/members).
   document.getElementById("nav-members").hidden = state.currentUser.role === "viewer";
   topbarAccount.hidden = false;
+  sidebarToggle.hidden = false;
   authView.hidden = true;
   dashboardView.hidden = false;
   switchDashboardView("dashboard");

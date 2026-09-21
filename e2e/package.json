@@ -4,7 +4,8 @@
   "description": "Real-browser E2E checks that don't fit the Postman/pytest suites — see push-notifications.js.",
   "scripts": {
     "test:push": "node push-notifications.js",
-    "test:agents": "node agents.js"
+    "test:agents": "node agents.js",
+    "test:sidebar": "node sidebar-drawer.js"
   },
   "devDependencies": {
     "playwright": "^1.63.0"

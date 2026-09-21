@@ -101,8 +101,9 @@ a:hover { text-decoration: underline; }
 }
 
 /* Hamburger: only meaningful once .sidebar becomes an off-canvas drawer
-   below, so it stays hidden above that breakpoint. */
-.sidebar-toggle { display: none; padding: 8px; }
+   below, so it stays hidden above that breakpoint. `.btn.` because `.btn` (declared
+   later, same specificity) would otherwise win and show it on desktop too. */
+.btn.sidebar-toggle { display: none; padding: 8px; }
 
 .topbar-right { display: flex; align-items: center; gap: 10px; }
 
@@ -355,7 +356,7 @@ a:hover { text-decoration: underline; }
 .sidebar-backdrop { display: none; }
 
 @media (max-width: 860px) {
-  .sidebar-toggle { display: flex; }
+  .btn.sidebar-toggle { display: flex; }
 
   .dashboard-view { position: relative; }
 
@@ -366,11 +367,14 @@ a:hover { text-decoration: underline; }
     width: 260px;
     max-width: calc(100vw - 48px);
     transform: translateX(-100%);
-    transition: transform 0.2s ease;
+    /* Closed = invisible too, so Tab cannot land on links nobody can see; visibility only
+       flips after the slide-out finishes, and immediately when opening. */
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
     overflow-y: auto;
     box-shadow: 0 0 24px rgba(12, 23, 48, 0.18);
   }
-  .dashboard-view.sidebar-open .sidebar { transform: translateX(0); }
+  .dashboard-view.sidebar-open .sidebar { transform: translateX(0); visibility: visible; transition-delay: 0s; }
 
   .sidebar-backdrop {
     display: block;
