@@ -13,7 +13,7 @@
  *
  * Prerequisites (all local/manual — this is NOT wired into CI, see below):
  *   - The docker-compose stack running (`docker compose up`) with the
- *     frontend on http://localhost:3000 and backend on :8000.
+ *     frontend on http://localhost:3100 and backend on :8100.
  *   - VAPID_PRIVATE_KEY / VAPID_PUBLIC_KEY set in the root .env (see
  *     `python scripts/generate_vapid_keys.py`) and the backend container
  *     recreated since (`docker compose up -d backend`) — plain `restart`
@@ -53,7 +53,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3100";
 const MAX_SUBSCRIBE_CLICKS = 6;
 const SUBSCRIBE_POLL_MS = 300;
 const SUBSCRIBE_POLL_ATTEMPTS = 10; // ~3s of polling per click before retrying

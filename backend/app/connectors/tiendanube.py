@@ -19,7 +19,7 @@ class TiendanubeSettings(BaseSettings):
 
     tiendanube_client_id: str = ""
     tiendanube_client_secret: str = ""
-    tiendanube_redirect_uri: str = "http://localhost:3000/auth/tiendanube/callback"
+    tiendanube_redirect_uri: str = "http://localhost:3100/auth/tiendanube/callback"
     tiendanube_scopes: str = "read_orders,read_products"
 
     class Config:

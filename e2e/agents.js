@@ -26,11 +26,11 @@
  *
  * Prerequisites (local/manual, NOT wired into CI):
  *   - the docker-compose stack running, frontend on FRONTEND_URL (default
- *     http://localhost:3000) and the API on the same host, port 8000 — that is where
+ *     http://localhost:3100) and the API on the same host, port 8100 — that is where
  *     frontend/app.js looks for it.
  *
  * Run: npm install && npm run test:agents   (from this e2e/ directory)
- *   FRONTEND_URL=http://172.x.x.x:3000 npm run test:agents   # e.g. the WSL2 address
+ *   FRONTEND_URL=http://172.x.x.x:3100 npm run test:agents   # e.g. the WSL2 address
  *   SHOTS_DIR=./shots npm run test:agents                    # also save screenshots
  *
  * Each run registers a throwaway account ("Agentes QA") and creates one store in it,
@@ -40,8 +40,8 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
-const API_URL = process.env.API_URL || `${new URL(FRONTEND_URL).protocol}//${new URL(FRONTEND_URL).hostname}:8000`;
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3100";
+const API_URL = process.env.API_URL || `${new URL(FRONTEND_URL).protocol}//${new URL(FRONTEND_URL).hostname}:8100`;
 const APP = `${FRONTEND_URL.replace(/\/$/, "")}/index.html`;
 const SHOTS_DIR = process.env.SHOTS_DIR ? path.resolve(process.env.SHOTS_DIR) : null;
 if (SHOTS_DIR) fs.mkdirSync(SHOTS_DIR, { recursive: true });

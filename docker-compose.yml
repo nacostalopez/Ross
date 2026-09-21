@@ -41,7 +41,7 @@ services:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-escal}:${POSTGRES_PASSWORD:-escal}@db:5432/${POSTGRES_DB:-escal}
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me}
       CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY:-Qxsu0Kb675R0dWY-WeAE-1hvcXLTQj74_pJrlsr_kG4=}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3100}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
@@ -52,7 +52,7 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_CLAIM_EMAIL: ${VAPID_CLAIM_EMAIL:-admin@escal.app}
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8100}:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -63,7 +63,7 @@ services:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "${WEB_PORT:-3100}:80"
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
     depends_on:

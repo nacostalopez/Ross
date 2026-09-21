@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
 
     # Used to build links in outgoing emails (e.g. invite links).
-    frontend_url: str = "http://localhost:3000"
+    frontend_url: str = "http://localhost:3100"
 
     # Fernet key for encrypting store_credentials at rest. Dev-only default —
     # generate a real one with:

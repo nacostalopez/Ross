@@ -61,7 +61,7 @@ jobs:
         CREDENTIALS_ENCRYPTION_KEY: Qxsu0Kb675R0dWY-WeAE-1hvcXLTQj74_pJrlsr_kG4=
       run: |
         cd backend
-        uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+        uvicorn app.main:app --host 127.0.0.1 --port 8100 &
         sleep 3  # Wait for server to start
     
     - name: Set up Node.js

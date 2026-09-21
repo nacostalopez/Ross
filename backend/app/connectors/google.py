@@ -17,7 +17,7 @@ class GoogleSettings(BaseSettings):
     # Lands back on the frontend's index.html (plain query params, no
     # dedicated route) — nginx here serves static files with no SPA
     # fallback, so a path like /auth/google/callback would 404.
-    google_redirect_uri: str = "http://localhost:3000/index.html?connector=google"
+    google_redirect_uri: str = "http://localhost:3100/index.html?connector=google"
     google_scopes: str = "https://www.googleapis.com/auth/adwords"
     google_developer_token: str = ""
 

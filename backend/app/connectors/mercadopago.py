@@ -15,7 +15,7 @@ class MercadoPagoSettings(BaseSettings):
     """MercadoPago-specific configuration."""
     mercadopago_client_id: str = ""
     mercadopago_client_secret: str = ""
-    mercadopago_redirect_uri: str = "http://localhost:3000/auth/mercadopago/callback"
+    mercadopago_redirect_uri: str = "http://localhost:3100/auth/mercadopago/callback"
     mercadopago_scopes: str = "offline_access read write"
 
     class Config:

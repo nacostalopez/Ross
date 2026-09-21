@@ -20,7 +20,7 @@ cd backend
 docker-compose up -d
 # Wait for: "db: healthy"
 uvicorn app.main:app --reload
-# Should see: "Uvicorn running on http://127.0.0.1:8000"
+# Should see: "Uvicorn running on http://127.0.0.1:8100"
 ```
 
 ---

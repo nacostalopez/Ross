@@ -1,4 +1,4 @@
-const CACHE_NAME = "aramal-shell-v5";
+const CACHE_NAME = "aramal-shell-v6";
 
 // Agent scenes (agentes/escenas/*.json) are not listed on purpose: they are fetched on
 // demand and cached by the stale-while-revalidate handler below on first use.

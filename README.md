@@ -25,11 +25,18 @@ docker compose up --build
 ```
 
 This starts Postgres/Timescale on `localhost:5432`, the API on
-`http://localhost:8000` (docs at `http://localhost:8000/docs`), and the
-frontend on `http://localhost:3000`. The schema is created automatically
+`http://localhost:8100` (docs at `http://localhost:8100/docs`), and the
+frontend on `http://localhost:3100`. The schema is created automatically
 from `db/init/*.sql` on first boot.
 
-Open `http://localhost:3000`, register an account, create a store, and click
+The API and frontend ports (8100 and 3100) are chosen so this stack does not
+clash with other projects on the same machine, which commonly use 8000 and
+3000. Change them with `API_PORT` and `WEB_PORT` (for example in `.env`); if you
+change the frontend's, also set `FRONTEND_URL` to match. The frontend finds the
+API on the same host as the page, on port 8100, so if you change `API_PORT` update
+`API_BASE` at the top of `frontend/app.js` too.
+
+Open `http://localhost:3100`, register an account, create a store, and click
 "Seed demo data" to see a real True ROAS number without touching the
 terminal — or do the same thing from the command line:
 
@@ -53,23 +60,23 @@ Registering creates a brand-new account with the registering user as its
 again (an email can only belong to one account):
 
 ```bash
-curl -X POST localhost:8000/auth/register \
+curl -X POST localhost:8100/auth/register \
   -H "Content-Type: application/json" \
   -d '{"account_name": "My Store", "email": "me@example.com", "password": "at-least-8-chars"}'
 # => {"access_token": "...", "refresh_token": "...", "token_type": "bearer"}
 
-curl localhost:8000/stores -H "Authorization: Bearer <access_token>"
+curl localhost:8100/stores -H "Authorization: Bearer <access_token>"
 
 # Owner invites a teammate — this also emails them an accept link (see
 # "Email" below; with no SMTP configured it just logs instead of sending):
-curl -X POST localhost:8000/accounts/invites \
+curl -X POST localhost:8100/accounts/invites \
   -H "Authorization: Bearer <owner_access_token>" \
   -H "Content-Type: application/json" \
   -d '{"email": "teammate@example.com", "role": "viewer"}'
 # => {"id": "...", "token": "...", ...}  — token is only ever shown here (fallback if email delivery fails)
 
 # Invitee accepts (no auth required — they have no account yet):
-curl -X POST localhost:8000/accounts/invites/accept \
+curl -X POST localhost:8100/accounts/invites/accept \
   -H "Content-Type: application/json" \
   -d '{"token": "<token from above>", "password": "at-least-8-chars"}'
 # => {"access_token": "...", "refresh_token": "...", "token_type": "bearer"}
@@ -81,12 +88,12 @@ curl -X POST localhost:8000/accounts/invites/accept \
 # Always returns the same generic message, whether or not the email is
 # registered, so the response can't be used to enumerate accounts. With no
 # SMTP configured, the reset link/token is logged instead of emailed.
-curl -X POST localhost:8000/auth/forgot-password \
+curl -X POST localhost:8100/auth/forgot-password \
   -H "Content-Type: application/json" \
   -d '{"email": "me@example.com"}'
 # => {"message": "If that email is registered, we've sent a password reset link."}
 
-curl -X POST localhost:8000/auth/reset-password \
+curl -X POST localhost:8100/auth/reset-password \
   -H "Content-Type: application/json" \
   -d '{"token": "<token from the email>", "password": "at-least-8-chars"}'
 # => {"access_token": "...", "refresh_token": "...", "token_type": "bearer"}
@@ -108,13 +115,13 @@ min); a separate opaque refresh token (`REFRESH_TOKEN_EXPIRE_DAYS`, default
 (hashed, like invite tokens) in `refresh_tokens`:
 
 ```bash
-curl -X POST localhost:8000/auth/refresh \
+curl -X POST localhost:8100/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{"refresh_token": "<refresh_token>"}'
 # => new {"access_token": "...", "refresh_token": "..."} — the old refresh
 #    token is revoked in the same request (rotation), so reusing it 401s
 
-curl -X POST localhost:8000/auth/logout \
+curl -X POST localhost:8100/auth/logout \
   -H "Authorization: Bearer <access_token>" -H "Content-Type: application/json" \
   -d '{"refresh_token": "<refresh_token>"}'
 # revokes just that one refresh token (this device/session)
@@ -145,10 +152,10 @@ sensible default (every widget, True ROAS as hero) rather than an empty
 board:
 
 ```bash
-curl localhost:8000/dashboard/layout -H "Authorization: Bearer <access_token>"
+curl localhost:8100/dashboard/layout -H "Authorization: Bearer <access_token>"
 # => {"widgets": [{"type": "stat_roas", "hero": true}, {"type": "stat_revenue", "hero": false}, ...]}
 
-curl -X PUT localhost:8000/dashboard/layout \
+curl -X PUT localhost:8100/dashboard/layout \
   -H "Authorization: Bearer <access_token>" -H "Content-Type: application/json" \
   -d '{"widgets": [{"type": "stat_roas", "hero": true}, {"type": "chart_daily", "hero": false}]}'
 # replaces the whole layout — the frontend always sends the full widget

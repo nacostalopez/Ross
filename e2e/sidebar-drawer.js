@@ -16,18 +16,18 @@
  *   - on desktop there is no hamburger and the sidebar is always visible.
  *
  * Prerequisites (local/manual, NOT wired into CI): the docker-compose stack running, frontend
- * on FRONTEND_URL (default http://localhost:3000) and the API on the same host, port 8000.
+ * on FRONTEND_URL (default http://localhost:3100) and the API on the same host, port 8100.
  *
  * Run: npm install && npm run test:sidebar   (from this e2e/ directory)
- *   FRONTEND_URL=http://172.x.x.x:3000 npm run test:sidebar   # e.g. the WSL2 address
+ *   FRONTEND_URL=http://172.x.x.x:3100 npm run test:sidebar   # e.g. the WSL2 address
  *
  * Each run registers a throwaway account ("Menu QA"), so it leaves that test data in the dev
  * database.
  */
 const { chromium } = require("playwright");
 
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
-const API_URL = process.env.API_URL || `${new URL(FRONTEND_URL).protocol}//${new URL(FRONTEND_URL).hostname}:8000`;
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3100";
+const API_URL = process.env.API_URL || `${new URL(FRONTEND_URL).protocol}//${new URL(FRONTEND_URL).hostname}:8100`;
 const APP = `${FRONTEND_URL.replace(/\/$/, "")}/index.html`;
 
 const PHONE = { width: 390, height: 780 };

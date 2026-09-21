@@ -1,4 +1,4 @@
-"""Populate a running Escal API (default http://localhost:8000) with demo
+"""Populate a running Escal API (default http://localhost:8100) with demo
 data so you can immediately see revenue, ad spend and True ROAS.
 
 Usage:
@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:8100"
 
 
 def main():

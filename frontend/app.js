@@ -1,6 +1,6 @@
 const API_BASE = window.location.hostname === "" || window.location.protocol === "file:"
-  ? "http://localhost:8000"
-  : `${window.location.protocol}//${window.location.hostname}:8000`;
+  ? "http://localhost:8100"
+  : `${window.location.protocol}//${window.location.hostname}:8100`;
 
 const state = {
   token: localStorage.getItem("escal_token") || null,

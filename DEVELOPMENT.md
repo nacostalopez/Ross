@@ -62,7 +62,7 @@ This document describes how to develop, test, and deploy the Escal backend.
    uvicorn app.main:app --reload
    ```
 
-The API will be available at `http://localhost:8000`.
+The API will be available at `http://localhost:8100`.
 
 ## Testing
 
@@ -186,13 +186,13 @@ Token stored encrypted in store_credentials table
 **Usage:**
 ```bash
 # Get OAuth URL
-curl -X POST http://localhost:8000/connectors/shopify/auth-url \
+curl -X POST http://localhost:8100/connectors/shopify/auth-url \
   -H "Authorization: Bearer {token}" \
   -H "Content-Type: application/json" \
   -d '{"store_id": "xxx", "shop_domain": "mystore.myshopify.com"}'
 
 # Shopify webhook (received from Shopify)
-curl -X POST http://localhost:8000/connectors/shopify/webhook/{store_id} \
+curl -X POST http://localhost:8100/connectors/shopify/webhook/{store_id} \
   -H "X-Shopify-Hmac-SHA256: ..." \
   -H "X-Shopify-Topic: orders/create" \
   -d '{...order data...}'
@@ -212,7 +212,7 @@ Token stored encrypted in store_credentials table
 **Ad Spend Sync:**
 ```bash
 # Sync ad spend for date range
-curl -X POST http://localhost:8000/connectors/meta/sync-ad-spend \
+curl -X POST http://localhost:8100/connectors/meta/sync-ad-spend \
   -H "Authorization: Bearer {token}" \
   -d '{"store_id": "xxx", "start_date": "2026-01-01", "end_date": "2026-01-31"}'
 ```
@@ -236,7 +236,7 @@ Token stored encrypted + refresh token (6-month rotation)
 **Ad Spend Sync:**
 ```bash
 # Sync ad spend (auto-refreshes token if expired)
-curl -X POST http://localhost:8000/connectors/google/sync-ad-spend \
+curl -X POST http://localhost:8100/connectors/google/sync-ad-spend \
   -H "Authorization: Bearer {token}" \
   -d '{"store_id": "xxx", "start_date": "2026-01-01", "end_date": "2026-01-31"}'
 ```
@@ -265,12 +265,12 @@ Token + Tiendanube's own store id (provider_account_id) stored in store_credenti
 **Usage:**
 ```bash
 # Get OAuth URL
-curl -X POST http://localhost:8000/connectors/tiendanube/auth-url \
+curl -X POST http://localhost:8100/connectors/tiendanube/auth-url \
   -H "Authorization: Bearer {token}" \
   -d '{"store_id": "xxx"}'
 
 # Tiendanube webhook (received from Tiendanube)
-curl -X POST http://localhost:8000/connectors/tiendanube/webhook/{store_id} \
+curl -X POST http://localhost:8100/connectors/tiendanube/webhook/{store_id} \
   -H "X-Linkedstore-Hmac-Sha256: ..." \
   -H "X-Linkedstore-Topic: order/created" \
   -d '{...order data...}'
@@ -293,7 +293,7 @@ webhook route is wired up (see the connector's module docstring).
 
 **Ad Spend Sync:**
 ```bash
-curl -X POST http://localhost:8000/connectors/mercadopago/sync-ad-spend \
+curl -X POST http://localhost:8100/connectors/mercadopago/sync-ad-spend \
   -H "Authorization: Bearer {token}" \
   -d '{"store_id": "xxx", "start_date": "2026-01-01", "end_date": "2026-01-31"}'
 ```

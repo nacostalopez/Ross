@@ -1118,7 +1118,7 @@
         "exec": [
           "// Set base URL",
           "if (!pm.environment.get('base_url')) {",
-          "    pm.environment.set('base_url', 'http://localhost:8000');",
+          "    pm.environment.set('base_url', 'http://localhost:8100');",
           "}",
           "",
           "// Set default date range (last 30 days)",

@@ -32,7 +32,7 @@ In Postman:
 1. Click "Environment" dropdown (top right)
 2. Select "Escal - Local Dev"
 3. Edit values:
-   - `base_url`: `http://localhost:8000` (your API URL)
+   - `base_url`: `http://localhost:8100` (your API URL)
    - `login_email`: Your test email
    - `login_password`: Your test password
 
@@ -163,7 +163,7 @@ Every request includes automatic tests:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `base_url` | `http://localhost:8000` | API endpoint |
+| `base_url` | `http://localhost:8100` | API endpoint |
 | `auth_token` | (empty) | JWT token (set by Register/Login) |
 | `store_id` | (empty) | Store UUID (set by Create Store) |
 | `login_email` | `test@example.com` | Test user email |
