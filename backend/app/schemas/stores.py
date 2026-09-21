@@ -38,6 +38,14 @@ class StoreOut(BaseModel):
     created_at: datetime | None = None
 
 
+class StoreWithRoleOut(StoreOut):
+    """A store as the requesting user sees it: `effective_role` is the role
+    they hold on it — their per-store override if they have one, else their
+    account-wide role (see app/dependencies.py::effective_roles_for_stores)."""
+
+    effective_role: str
+
+
 class StoreCredentialCreate(BaseModel):
     provider: str
     access_token: str

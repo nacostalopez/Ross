@@ -10,6 +10,7 @@ const state = {
   stores: [],
   activeStoreId: null,
   activeStoreCurrency: "USD",
+  currentView: null,
   dashboardLayout: null,
   dashboardEditMode: false,
 };
@@ -80,12 +81,21 @@ function paintAgents(root) {
   if (window.Agents) window.Agents.hydrate(root);
 }
 
-// Point a portrait placeholder at the current user's role; the same id always gets the
-// same skin/hair variant.
-function paintUserAgent(el, kind) {
-  el.dataset[kind] = state.currentUser.role;
+// Point a portrait placeholder at a role (the user's account role by default); the same
+// user id always gets the same skin/hair variant.
+function paintUserAgent(el, kind, role = state.currentUser.role) {
+  el.dataset[kind] = role;
   el.dataset.agentSeed = state.currentUser.id;
   paintAgents(el);
+}
+
+// The topbar chip shows the role the person holds where they are looking: on the Dashboard,
+// their role in the active store (a per-store override can differ from the account role);
+// in Equipo and Perfil, their account-wide role.
+function refreshTopbarChip() {
+  const store = state.stores.find((s) => s.id === state.activeStoreId);
+  const role = state.currentView === "dashboard" && store ? store.effective_role : state.currentUser.role;
+  paintUserAgent(document.getElementById("account-chip"), "agentChip", role || state.currentUser.role);
 }
 
 document.getElementById("theme-toggle").addEventListener("click", () => {
@@ -508,6 +518,8 @@ document.getElementById("nav-members").addEventListener("click", () => switchDas
 document.getElementById("nav-profile").addEventListener("click", () => switchDashboardView("profile"));
 
 function switchDashboardView(view) {
+  state.currentView = view;
+  refreshTopbarChip();
   setSidebarOpen(false);
   document.getElementById("nav-dashboard").classList.toggle("active", view === "dashboard");
   document.getElementById("nav-members").classList.toggle("active", view === "members");
@@ -553,6 +565,7 @@ function renderStoreList() {
 async function selectStore(storeId) {
   switchDashboardView("dashboard");
   state.activeStoreId = storeId;
+  refreshTopbarChip();
   renderStoreList();
   document.getElementById("store-panel").hidden = false;
 

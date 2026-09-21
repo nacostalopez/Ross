@@ -5,7 +5,14 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_current_user, get_owned_store, require_plan_feature, require_role, require_store_role
+from app.dependencies import (
+    effective_roles_for_stores,
+    get_current_user,
+    get_owned_store,
+    require_plan_feature,
+    require_role,
+    require_store_role,
+)
 from app.models import Store, StoreCredential, StoreMembership, User
 from app.schemas.stores import (
     StoreCreate,
@@ -14,6 +21,7 @@ from app.schemas.stores import (
     StoreMemberOut,
     StoreMemberRoleIn,
     StoreOut,
+    StoreWithRoleOut,
 )
 from app.security import encrypt_secret
 from app.services.activity_log import log_activity
@@ -35,19 +43,29 @@ def create_store(
     return store
 
 
-@router.get("", response_model=list[StoreOut])
+def _store_with_role(store: Store, effective_role: str) -> StoreWithRoleOut:
+    return StoreWithRoleOut(**StoreOut.model_validate(store).model_dump(), effective_role=effective_role)
+
+
+@router.get("", response_model=list[StoreWithRoleOut])
 def list_stores(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return (
+    stores = (
         db.query(Store)
         .filter(Store.account_id == current_user.account_id)
         .order_by(Store.created_at.desc())
         .all()
     )
+    roles = effective_roles_for_stores(db, current_user, [store.id for store in stores])
+    return [_store_with_role(store, roles[store.id]) for store in stores]
 
 
-@router.get("/{store_id}", response_model=StoreOut)
-def get_store(store: Store = Depends(get_owned_store)):
-    return store
+@router.get("/{store_id}", response_model=StoreWithRoleOut)
+def get_store(
+    store: Store = Depends(get_owned_store),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return _store_with_role(store, effective_roles_for_stores(db, current_user, [store.id])[store.id])
 
 
 @router.put("/{store_id}/credentials", response_model=StoreCredentialOut)

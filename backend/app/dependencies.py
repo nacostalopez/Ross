@@ -60,6 +60,22 @@ def _effective_role_for_store(db: Session, user: User, store_id: UUID) -> str:
     return override.role if override else user.role
 
 
+def effective_roles_for_stores(db: Session, user: User, store_ids: list[UUID]) -> dict[UUID, str]:
+    """The role `user` holds on each of `store_ids` — the same rule as
+    _effective_role_for_store, but one query for all of them instead of one
+    per store (GET /stores would otherwise be N+1). Also a live query, for
+    the same reason."""
+    if not store_ids:
+        return {}
+    overrides = {
+        membership.store_id: membership.role
+        for membership in db.query(StoreMembership)
+        .filter(StoreMembership.user_id == user.id, StoreMembership.store_id.in_(store_ids))
+        .all()
+    }
+    return {store_id: overrides.get(store_id, user.role) for store_id in store_ids}
+
+
 def require_store_role(*allowed_roles: str):
     """Like require_role, but checks the role effective *for this store*
     (store_id is a path param FastAPI injects the same way get_owned_store

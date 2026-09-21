@@ -746,14 +746,18 @@ one drawing serves both themes, `prefers-reduced-motion` stops every
 animation, a topbar button pauses them (remembered in `localStorage`), and
 the whole `frontend/agentes/` folder has a 25 KB gzip budget (4 KB per scene)
 that `tools/agentes/export.py` enforces. Phase 1 weighs 6.5 KB gzip in
-total against that budget, runtime included (the one scene is 0.8 KB). Check a change with `pytest tools/agentes` (output
-is current and within budget) and `npm run test:agents` in `e2e/` (real
-browser: both themes, 360 px, pause, reduced motion, every role; not in CI).
+total against that budget, runtime included (the one scene is 0.8 KB).
+Check a change with `pytest tools/agentes` (output is current and within
+budget) and `npm run test:agents` in `e2e/` (real browser: both themes,
+360 px, pause, reduced motion, every role; not in CI).
 
-Known gap: the Dashboard should show the role a person has *in the active
-store* (per-store overrides, see "Per-store roles"), but the API only exposes
-the account-wide role, so for now the topbar chip and Perfil bust use that.
-Showing the store role needs the effective role added to `GET /stores`.
+Which role the agents wear: the topbar chip shows the role the person holds
+*in the active store* while they are on the Dashboard (a per-store override
+can differ from the account role, see "Per-store roles"), and their
+account-wide role in Equipo and Perfil; the Perfil bust always uses the
+account role. The store role comes from `effective_role`, which `GET /stores`
+and `GET /stores/{id}` return for the requesting user (one query for the whole
+list, see `app/dependencies.py::effective_roles_for_stores`).
 
 ## API overview
 
@@ -769,7 +773,8 @@ Showing the store role needs the effective role added to `GET /stores`.
 - `GET /dashboard/layout`, `PUT /dashboard/layout` — per-user (any role) summary
   board customization: which widgets show, their order, and which stat is the
   2x2 hero tile
-- `POST /stores`, `GET /stores`, `GET /stores/{id}`,
+- `POST /stores`, `GET /stores`, `GET /stores/{id}` (both `GET`s include the
+  caller's `effective_role` on each store — see "Per-store roles"),
   `PUT /stores/{id}/credentials` (OAuth tokens per provider, encrypted at
   rest; also carries `capi_enabled`/`capi_destination_id` — see "CAPI
   feedback loop")

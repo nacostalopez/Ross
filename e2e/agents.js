@@ -194,6 +194,31 @@ async function shot(page, name, options = {}) {
     await context.close();
   }
 
+  // 6) Store role: GET /stores carries the effective role, and the topbar chip follows it on
+  // the Dashboard while Equipo/Perfil keep showing the account role. There is no second
+  // user to hold a real per-store override here, so the list response is rewritten.
+  {
+    const listed = await (await fetch(`${API_URL}/stores`, { headers: { Authorization: `Bearer ${tokens.access_token}` } })).json();
+    check("API: GET /stores includes effective_role", listed.length > 0 && listed.every((s) => s.effective_role === "owner"), JSON.stringify(listed.map((s) => s.effective_role)));
+
+    const { context, page, errors } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens });
+    await page.route("**/stores", async (route) => {
+      const res = await route.fetch();
+      await route.fulfill({ response: res, json: (await res.json()).map((s) => ({ ...s, effective_role: "viewer" })) });
+    });
+    const chipIs = (role) => page.waitForFunction(
+      (r) => (document.getElementById("account-chip").dataset.agentKey || "").startsWith(`chips:${r}:`), role, { timeout: 8000 },
+    ).then(() => true, () => false);
+    await page.goto(APP);
+    check("store role: chip on the Dashboard shows the store role", await chipIs("viewer"));
+    await page.click("#nav-profile");
+    check("store role: chip in Perfil shows the account role", await chipIs("owner"));
+    await page.click("#nav-dashboard");
+    check("store role: chip is back to the store role on the Dashboard", await chipIs("viewer"));
+    check("store role: no console errors", errors.length === 0, errors.join(" | "));
+    await context.close();
+  }
+
   await browser.close();
   console.log(`\n${total - problems.length}/${total} checks passed`);
   if (problems.length) {
