@@ -267,3 +267,36 @@ def _audit_frame(k):
 
 def audit():
     return scene_from_frames([_audit_frame(k) for k in range(AUDIT_FRAMES)], AUDIT_SECONDS)
+
+
+PROFILE_AGENT = {**ROLES["viewer"], **VARIANTS[2], "acc": []}
+PROFILE_FRAMES = 4
+PROFILE_SECONDS = 1.6
+
+
+def _profile_frame(k):
+    """A person holds up their ID card on a lanyard; it sways, then the last line turns into a
+    green check (verified)."""
+    g = _module_base()
+    x0 = 19 + (0, 1, 0, -1)[k]
+    g.rect(x0, 7, 18, 13, "K")
+    g.rect(x0 + 1, 8, 16, 11, "W")
+    g.rect(x0 + 1, 8, 16, 3, "B")
+    g.hl(x0 + 3, 9, 5, "K")
+    g.rect(x0 + 3, 12, 6, 6, "b")  # photo
+    g.rect(x0 + 5, 13, 2, 2, "a")
+    g.rect(x0 + 4, 16, 4, 2, "S")
+    g.hl(x0 + 10, 12, 6, "M")
+    g.hl(x0 + 10, 14, 4, "M")
+    g.hl(x0 + 10, 16, 6, "G" if k >= 2 else "M")
+    g.line(x0 + 5, 7, 27, 3, "M")  # lanyard
+    g.line(x0 + 12, 7, 28, 3, "M")
+    g.px(27, 3, "K")
+    g.px(28, 3, "K")
+    _, right = _module_agent(g, PROFILE_AGENT)
+    arm(g, right[0], right[1], 17, 13)
+    return g
+
+
+def profile():
+    return scene_from_frames([_profile_frame(k) for k in range(PROFILE_FRAMES)], PROFILE_SECONDS)

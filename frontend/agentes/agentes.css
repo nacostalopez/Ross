@@ -95,7 +95,8 @@ html[data-agents-paused] .pxa .pxa-st {
 /* Perfil header: the portrait beside the title. */
 .agents-heading { align-items: center; display: flex; gap: 16px; }
 /* A fixed width (not a percentage) so the heading is sized by its content, not by the scene. */
-.agents-heading .pxa-scene { flex: none; width: min(160px, 40vw); }
+.agents-heading .pxa-scene,
+.store-panel-header > .pxa-scene { flex: none; width: min(160px, 40vw); }
 
 /* Reduced motion: the first frame stays on screen, and the pause button has nothing to do.
    Kept last so it wins over the rules above. */
