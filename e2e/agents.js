@@ -15,7 +15,12 @@
  *   - every other module's scene (see MODULE_SURFACES) is only downloaded once its modal or
  *     view is shown, animates, sits inside its container, and fits at 360 px in both themes;
  *   - Equipo's member rows and Perfil's team summary show one role chip per person;
- *   - GET /stores carries the effective role and the topbar chip follows it.
+ *   - GET /stores carries the effective role and the topbar chip follows it;
+ *   - the login welcome agent: invites a first visit to register, covers its eyes on the password,
+ *     shakes its head on a failure, follows the password strength while registering, celebrates a
+ *     new account, and worries on an expired session;
+ *   - the app mascot: an error toast instead of alert(), a loading block while the numbers load,
+ *     and the True ROAS card mood against the minimum set in Alertas.
  *
  * Prerequisites (local/manual, NOT wired into CI):
  *   - the docker-compose stack running, frontend on FRONTEND_URL (default
@@ -90,6 +95,16 @@ async function post(url, body, token) {
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`POST ${url} -> ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+async function put(url, body, token) {
+  const res = await fetch(API_URL + url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`PUT ${url} -> ${res.status} ${await res.text()}`);
   return res.json();
 }
 
@@ -291,6 +306,239 @@ async function shot(page, name, options = {}) {
     check("store role: chip is back to the store role on the Dashboard", await chipIs("viewer"));
     check("store role: no console errors", errors.length === 0, errors.join(" | "));
     await context.close();
+  }
+
+
+  // 7) Login welcome agent (logged out).
+  {
+    const openLogin = async ({ viewport = VIEWPORTS.desktop, visited = false, theme = "light", reducedMotion = "no-preference", tokens: bad = null } = {}) => {
+      const context = await browser.newContext({ viewport, reducedMotion, serviceWorkers: "block" });
+      await context.addInitScript(({ visited, theme, bad }) => {
+        localStorage.setItem("aramal_theme", theme);
+        if (visited) localStorage.setItem("aramal_ya_ingreso", "1");
+        if (bad) { localStorage.setItem("escal_token", bad); localStorage.setItem("escal_refresh_token", bad); }
+      }, { visited, theme, bad });
+      const page = await context.newPage();
+      const errors = [];
+      page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
+      page.on("console", (m) => { if (m.type() === "error" && !/status of 40[13]|status of 429/.test(m.text())) errors.push(`console: ${m.text()}`); });
+      await page.goto(APP);
+      return { context, page, errors };
+    };
+    const sceneIs = (page, name) => page.waitForFunction((n) => document.getElementById("auth-mascot").dataset.agentScene === n, name, { timeout: 4000 }).then(() => true, () => false);
+    const painted = (page) => page.waitForSelector("#auth-mascot svg", { timeout: 8000 }).then(() => true, () => false);
+
+    // first visit
+    {
+      const { context, page, errors } = await openLogin();
+      check("[login agent] a first visit is drawn", await painted(page));
+      check("[login agent] a first visit gets the invitation (scene, bubble, ring on the tab)",
+        (await sceneIs(page, "login-invita")) && (await page.isVisible("#auth-invite")) &&
+        (await page.evaluate(() => document.getElementById("tab-register").classList.contains("agents-invite-hint"))));
+      check("[login agent] the invitation introduces Ross", /Soy Ross/.test(await page.textContent("#auth-invite")));
+      await page.click("#auth-invite");
+      check("[login agent] the invitation opens the registration tab", (await page.isVisible("#register-form")) && !(await page.isVisible("#auth-invite")));
+      check("[login agent] no console errors on a first visit", errors.length === 0, errors.join(" | "));
+      await context.close();
+    }
+    // returning visitor: password, failure, registration strength
+    {
+      const { context, page } = await openLogin({ visited: true });
+      await painted(page);
+      check("[login agent] a returning visitor sees it at rest, with no bubble", (await sceneIs(page, "login-reposo")) && !(await page.isVisible("#auth-invite")));
+      await page.focus("#login-password");
+      check("[login agent] focusing the password: it covers its eyes", await sceneIs(page, "login-clave"));
+      await page.evaluate(() => document.getElementById("login-password").blur());
+      check("[login agent] leaving the password: back to rest", await sceneIs(page, "login-reposo"));
+      await page.fill("#login-email", "nadie@example.com");
+      await page.fill("#login-password", "mala-clave-123");
+      await page.click('#login-form button[type="submit"]');
+      check("[login agent] a failed login: it shakes its head and the message shows", (await sceneIs(page, "login-error")) && (await page.isVisible("#auth-error")));
+      await page.fill("#login-email", "otro@example.com");
+      check("[login agent] editing after the failure: back to rest", await sceneIs(page, "login-reposo"));
+
+      await page.click("#tab-register");
+      check("[login agent] registration tab: at rest", await sceneIs(page, "login-reposo"));
+      const type = async (value) => { await page.fill("#register-password", ""); await page.locator("#register-password").pressSequentially(value); };
+      await type("abc123");
+      check("[login agent] a very weak password worries it", await sceneIs(page, "login-preocupada"));
+      await type("aramal12345");
+      check("[login agent] an acceptable password: it rests", await sceneIs(page, "login-reposo"));
+      await type("Aramal-2026-Xq!7");
+      check("[login agent] a strong password: thumbs up", await sceneIs(page, "login-aprueba"));
+      await page.fill("#register-password", "");
+      check("[login agent] an emptied password: back to rest", await sceneIs(page, "login-reposo"));
+      await context.close();
+    }
+    // registration success: the celebration is seen before the dashboard (and skipped with reduced motion)
+    const register = async (reducedMotion) => {
+      const { context, page } = await openLogin({ visited: true, reducedMotion });
+      await painted(page);
+      await page.click("#tab-register");
+      await page.fill("#register-account-name", "Bienvenida QA");
+      await page.fill("#register-email", `bienvenida-${reducedMotion}-${Date.now()}@example.com`);
+      await page.fill("#register-password", "Aramal-2026-Xq!7");
+      const start = Date.now();
+      await page.click('#register-form button[type="submit"]');
+      const celebrated = await sceneIs(page, "login-festeja");
+      await page.waitForSelector("#dashboard-view:not([hidden])", { timeout: 10000 });
+      const ms = Date.now() - start;
+      const remembered = await page.evaluate(() => localStorage.getItem("aramal_ya_ingreso") === "1");
+      await context.close();
+      return { celebrated, ms, remembered };
+    };
+    const normal = await register("no-preference");
+    check("[login agent] a new account: it celebrates", normal.celebrated);
+    check("[login agent] the celebration is seen before the dashboard", normal.ms >= 1150, `${normal.ms} ms`);
+    check("[login agent] the first ingress is remembered", normal.remembered);
+    const reduced = await register("reduce");
+    check("[login agent] with reduced motion the dashboard does not wait for the celebration", reduced.ms < normal.ms - 700, `${reduced.ms} ms vs ${normal.ms} ms`);
+
+    // an expired session
+    {
+      const { context, page } = await openLogin({ visited: true, tokens: "token-vencido" });
+      const message = await page.waitForSelector("#auth-error:not([hidden])", { timeout: 10000 }).then(() => page.textContent("#auth-error"), () => "");
+      check("[login agent] an expired session shows the message", /sesión expiró/.test(message), message);
+      check("[login agent] an expired session worries it (it does not shake its head)", await sceneIs(page, "login-preocupada"));
+      await context.close();
+    }
+    // phone: nothing clipped or overflowing, both themes drawn
+    for (const theme of ["light", "dark"]) {
+      const { context, page } = await openLogin({ viewport: VIEWPORTS.m360, theme });
+      await painted(page);
+      await sceneIs(page, "login-invita");
+      const m = await page.evaluate(() => {
+        const rect = (sel) => document.querySelector(sel).getBoundingClientRect();
+        const agent = rect("#auth-mascot"), bubble = rect("#auth-invite"), side = rect(".auth-formside");
+        return {
+          scrollW: document.documentElement.scrollWidth, innerW: window.innerWidth,
+          clipped: agent.top < side.top - 0.5,
+          bubbleInside: bubble.left >= 0 && bubble.right <= window.innerWidth,
+          outline: getComputedStyle(document.querySelector("#auth-mascot path.c75")).fill,
+        };
+      });
+      check(`[login agent/${theme}/m360] no horizontal scroll`, m.scrollW <= m.innerW, `${m.scrollW}/${m.innerW}`);
+      check(`[login agent/${theme}/m360] the agent is not clipped by the form side`, !m.clipped);
+      check(`[login agent/${theme}/m360] the bubble stays inside the screen`, m.bubbleInside);
+      check(`[login agent/${theme}/m360] theme colors applied`, m.outline === OUTLINE[theme], m.outline);
+      await shot(page, `login-agent-${theme}-m360.png`);
+      await context.close();
+    }
+  }
+
+  // 8) App mascot: True ROAS mood, loading block, error toast.
+  {
+    const seeded = await post("/auth/register", { account_name: "Mascota QA", email: `mascota-qa-${Date.now()}@example.com`, password: "Aramal-QA-2026!xQ7" });
+    const store = await post("/stores", { name: "Local QA", platform: "shopify", currency: "ARS" }, seeded.access_token);
+    {
+      const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens: seeded });
+      await page.goto(APP);
+      await page.waitForSelector("#store-panel:not([hidden])");
+      await page.click("#seed-btn");
+      await page.waitForFunction(() => document.getElementById("metrics-empty").hidden === true, null, { timeout: 30000 });
+      await context.close();
+    }
+    const alertPrefs = (roas) => put(`/stores/${store.id}/alert-preferences`, { enabled: false, cac_threshold: null, roas_threshold: roas, roas_days_n: 3 }, seeded.access_token);
+    const mood = (page) => page.evaluate(() => {
+      const art = document.querySelector(".stat-hero .mascot-mood-art"), note = document.querySelector(".stat-hero .mascot-mood-note");
+      return art && note ? { scene: art.dataset.agentScene, drawn: !!art.querySelector("svg"), text: note.textContent, low: note.classList.contains("low") } : null;
+    });
+
+    // True ROAS mood: above / below the minimum, on desktop and phone, in both themes
+    for (const [roas, scene, phrase] of [[0.5, "mascota-festeja", "Por encima de tu mínimo (0,5x)"], [50, "mascota-preocupada", "Por debajo de tu mínimo (50,0x)"]]) {
+      await alertPrefs(roas);
+      for (const [vp, theme] of [["desktop", "light"], ["m360", "dark"]]) {
+        const { context, page, errors } = await open(browser, { theme, viewport: VIEWPORTS[vp], tokens: seeded });
+        await page.goto(APP);
+        await page.waitForSelector(".stat-hero .mascot-mood-art svg", { timeout: 15000 }).catch(() => {});
+        const m = await mood(page);
+        const tag = `mood ${roas}/${vp}/${theme}`;
+        check(`[${tag}] the mascot stands on the True ROAS card with the right pose`, !!m && m.scene === scene && m.drawn, JSON.stringify(m));
+        check(`[${tag}] a sentence says the same in words`, !!m && m.text.includes(phrase), m && m.text);
+        const box = await page.evaluate(() => {
+          const card = document.querySelector(".stat-hero").getBoundingClientRect(), art = document.querySelector(".stat-hero .mascot-mood-art").getBoundingClientRect();
+          return { inside: art.left >= card.left && art.right <= card.right && art.top >= card.top - 1 && art.bottom <= card.bottom + 1, scrollW: document.documentElement.scrollWidth, innerW: window.innerWidth };
+        });
+        check(`[${tag}] it stays inside the card, with no horizontal scroll`, box.inside && box.scrollW <= box.innerW, JSON.stringify(box));
+        check(`[${tag}] no console errors`, errors.length === 0, errors.join(" | "));
+        if (vp === "desktop") await shot(page, `mood-${scene}.png`, { clip: { x: 220, y: 60, width: 760, height: 320 } });
+        await context.close();
+      }
+    }
+    // a new minimum saved in Alertas changes the pose without reloading
+    {
+      await alertPrefs(50);
+      const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens: seeded });
+      await page.goto(APP);
+      await page.waitForSelector(".stat-hero .mascot-mood-art svg", { timeout: 15000 });
+      await page.click("#alerts-btn");
+      await page.fill("#alert-roas-threshold", "0.5");
+      await page.click('#alert-preferences-form button[type="submit"]');
+      const changed = await page.waitForFunction(() => { const a = document.querySelector(".stat-hero .mascot-mood-art"); return a && a.dataset.agentScene === "mascota-festeja"; }, null, { timeout: 5000 }).then(() => true, () => false);
+      check("[mood] saving a new minimum in Alertas changes the pose without reloading", changed);
+      await context.close();
+    }
+
+    // loading block: only when the numbers take a moment
+    {
+      const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens: seeded });
+      await page.route(/\/metrics\/(summary|daily)\?/, async (route) => { await new Promise((r) => setTimeout(r, 1800)); await route.continue(); });
+      await page.goto(APP);
+      const shown = await page.waitForSelector("#chart-container .mascot-loading svg", { timeout: 6000 }).then(() => true, () => false);
+      check("[loading] a slow answer shows the mascot typing on the laptop", shown);
+      check("[loading] the block says it is Ross who is bringing the numbers", shown && /Ross está trayendo tus números/.test(await page.textContent("#chart-container .mascot-loading")));
+      if (shown) await shot(page, "loading.png", { clip: { x: 220, y: 380, width: 1060, height: 260 } });
+      const gone = await page.waitForSelector("#chart-container .mascot-loading", { state: "detached", timeout: 8000 }).then(() => true, () => false);
+      check("[loading] it disappears once the numbers arrive", gone);
+      await context.close();
+    }
+    {
+      const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens: seeded });
+      await page.goto(APP);
+      await page.waitForSelector("#store-panel:not([hidden])");
+      await page.waitForTimeout(1200);
+      check("[loading] a fast answer never flashes it", (await page.locator(".mascot-loading").count()) === 0);
+      await context.close();
+    }
+    {
+      const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens: seeded });
+      await page.route(/\/metrics\/summary\?/, async (route) => { await new Promise((r) => setTimeout(r, 900)); await route.abort(); });
+      await page.goto(APP);
+      const failed = await page.waitForFunction(() => /No pudimos traer tus números/.test((document.getElementById("chart-container") || {}).textContent || ""), null, { timeout: 8000 }).then(() => true, () => false);
+      check("[loading] if the numbers fail, the block is replaced by a message", failed);
+      await context.close();
+    }
+
+    // error toast instead of alert()
+    for (const [vp, theme] of [["desktop", "light"], ["m360", "dark"]]) {
+      const { context, page } = await open(browser, { theme, viewport: VIEWPORTS[vp], tokens: seeded });
+      let dialogs = 0;
+      page.on("dialog", (d) => { dialogs += 1; d.dismiss(); });
+      await page.route(/\/stores\/[^/]+\/products$/, (route) => route.abort());
+      await page.goto(APP);
+      await page.waitForSelector("#store-panel:not([hidden])");
+      await page.click("#seed-btn");
+      const toast = await page.waitForSelector("#mascot-toast:not([hidden]) svg", { timeout: 8000 }).then(() => true, () => false);
+      const tag = `toast/${vp}/${theme}`;
+      check(`[${tag}] a failed action shows the mascot's toast`, toast);
+      const t = await page.evaluate(() => {
+        const box = document.getElementById("mascot-toast");
+        const rect = box.getBoundingClientRect();
+        return { text: box.textContent, role: box.getAttribute("role"), scene: box.querySelector(".mascot-toast-art").dataset.agentScene,
+          inside: rect.left >= 0 && rect.right <= window.innerWidth && rect.bottom <= window.innerHeight, outline: getComputedStyle(box.querySelector("path.c75")).fill };
+      });
+      check(`[${tag}] it says what failed, in a live region, with the cable pose`, /No se pudo cargar la demo/.test(t.text) && t.role === "alert" && t.scene === "mascota-error", JSON.stringify(t));
+      check(`[${tag}] it fits the screen and uses the theme colors`, t.inside && t.outline === OUTLINE[theme], JSON.stringify(t));
+      check(`[${tag}] the browser's alert() is not used`, dialogs === 0, `${dialogs} dialogs`);
+      if (vp === "desktop") await shot(page, "toast.png", { clip: { x: 760, y: 560, width: 520, height: 240 } });
+      await page.click("#mascot-toast .btn");
+      check(`[${tag}] Cerrar dismisses it`, !(await page.isVisible("#mascot-toast")));
+      await page.click("#seed-btn");
+      await page.waitForSelector("#mascot-toast:not([hidden])", { timeout: 8000 });
+      await page.keyboard.press("Escape");
+      check(`[${tag}] Escape dismisses it`, !(await page.isVisible("#mascot-toast")));
+      await context.close();
+    }
   }
 
   await browser.close();

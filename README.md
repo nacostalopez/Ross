@@ -734,7 +734,10 @@ paths as JSON plus a generated `frontend/agentes/paleta.css`; the browser
 animates each scene with a CSS `steps()` strip, with no JavaScript per frame.
 The hand-written runtime is `frontend/agentes/agentes.js` + `agentes.css`
 (`window.Agents.hydrate()`, driven by `data-agent-*` attributes), and scenes
-are fetched one at a time, only where they are used.
+are fetched one at a time, only where they are used. What the agents *do*
+beyond decorating (the login agent and the mascot, below) lives in
+`frontend/agentes/mascota.js` (`window.Mascot`), which only reads the DOM that
+`index.html` and `app.js` already provide.
 
 Modules drawn so far (Phase 1 was the connectors one, as the test module):
 
@@ -748,6 +751,34 @@ Modules drawn so far (Phase 1 was the connectors one, as the test module):
 | Auditoría | Beside the title of the "Auditoría" modal |
 | Equipo | Beside the title of the Equipo view; each member row and Perfil's "Tu equipo" summary show that person's role chip |
 
+**The login welcome agent** peeks out from behind the login card and reacts to
+what the person is doing:
+
+| Situation | What it does |
+| --- | --- |
+| First visit in this browser (no `aramal_ya_ingreso` in `localStorage`, set by the first successful ingress) | Points at the "Crear cuenta" tab, with a bubble that opens it |
+| Login tab at rest | Rests, waves, blinks |
+| Password field focused | Covers its eyes |
+| A failed login or registration | Shakes its head (until the person edits the form) |
+| Registration tab, following the password meter (`data-level`) | Worried when very weak or weak, thumbs up when strong |
+| Account created | Celebrates for 1.2 s before the dashboard shows (no wait with reduced motion) |
+| Expired session ("Tu sesión expiró…") | Worried |
+
+**The mascot is Ross**, one character (suit and tie, short hair) that is also the
+login welcome agent. The name is meant to work for anyone, so any copy that
+mentions it stays grammatically neutral ("Ross está trayendo tus números…"); it
+is defined once, as `NAME` in `mascota.js`, and the character as `ROSS` in
+`tools/agentes/scenes.py`. Ross introduces itself in the first-visit bubble
+("Soy Ross.") and is the voice for states: errors that used to use the browser's `alert()` are a
+toast with the mascot holding an unplugged cable (`reportError()` in `app.js`;
+the "connected correctly" alert is unchanged); the chart panel shows it typing
+on a laptop while the numbers take longer than 300 ms (and a message if they
+fail); and, when True ROAS is the hero tile, it celebrates or worries on that
+card depending on whether the result reaches the minimum the user set in
+Alertas (`roas_threshold`, 1.0 by default, read from
+`GET /stores/{id}/alert-preferences`), with the same thing said in words next to
+it. With no result there is no mascot.
+
 Every person also shows as an agent: the role's chip in the topbar and its bust
 in Perfil. A scene inside a hidden modal or view is only downloaded and drawn
 when it is shown. Rules that hold for every later scene: no text
@@ -756,11 +787,12 @@ or `$`, which broke 16 of 23 real UI phrases), sprites have no background so
 one drawing serves both themes, `prefers-reduced-motion` stops every
 animation, a topbar button pauses them (remembered in `localStorage`), and
 the whole `frontend/agentes/` folder has a 25 KB gzip budget (4 KB per scene)
-that `tools/agentes/export.py` enforces. Today that is 7.4 KB gzip in
-total, runtime included (a scene is 0.5–0.8 KB).
+that `tools/agentes/export.py` enforces. Today that is 22.7 KB gzip in
+total, runtime included (a scene is 0.3–1.0 KB; `mascota.js` is 3.6 KB).
 Check a change with `pytest tools/agentes` (output is current and within
 budget) and `npm run test:agents` in `e2e/` (real browser: both themes,
-360 px, pause, reduced motion, every role; not in CI).
+360 px, pause, reduced motion, every role, the login agent, the mascot's toast,
+loading block and mood; not in CI).
 
 Which role the agents wear: the topbar chip shows the role the person holds
 *in the active store* while they are on the Dashboard (a per-store override
@@ -891,8 +923,10 @@ management, an inline quick-alert builder) round out the dashboard and
 account settings (see "P&L completo" and "Perfil" below). A pixel-art
 **agents** identity is under way (see "Agents"): Phase 1 (a single test
 module) and Phase 2 (Alertas, Reportes, Equipo, Auditoría, Perfil and the
-Dashboard, one at a time) are done; Phase 3 (login, landing and pricing
-scenes) has not started. Not yet built:
+Dashboard, one at a time) are done; Phase 3 is partly done: the login welcome
+agent (with its registration behavior) and the mascot's error toast, loading
+block and True ROAS mood are built, while the first-steps guide for new
+accounts and the landing/pricing scenes are not. Not yet built:
 
 - No revenue/ROAS attribution down to the individual ad — creative
   analytics currently shows each platform's own metrics (spend, CTR, CPC,

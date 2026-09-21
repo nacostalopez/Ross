@@ -22,6 +22,10 @@ ROLES = {
     "viewer": dict(outfit="shirt", cloth=("S", "T"), accent="G", acc=["goggles"], lens="B"),
 }
 
+# Ross, the app's mascot: the same character at the login and across the app (toast, loading, True ROAS
+# mood). Name and look are deliberately gender-neutral: short hair, suit and tie, no pronoun anywhere.
+ROSS = {**ROLES["owner"], **VARIANTS[0]}
+
 # The module agent for "Tiendas y conectores": a technician with a hard hat and goggles.
 TECHNICIAN = dict(outfit="coat", acc=["hardhat", "goggles"], hat=("Y", "y"), lens="B", accent="B", **VARIANTS[1])
 
@@ -336,3 +340,209 @@ def _dashboard_frame(k):
 
 def dashboard():
     return scene_from_frames([_dashboard_frame(k) for k in range(DASHBOARD_FRAMES)], DASHBOARD_SECONDS)
+
+
+# ----------------------------------------------------------------------------------------------
+# Ross at the login (head and chest, 22x15): the welcome agent peeks out from behind the login card and
+# reacts to what the person is doing. Shown by frontend/agentes/mascota.js.
+
+LOGIN_W, LOGIN_H = 22, 15
+LOGIN_AGENT = ROSS
+
+
+def _login_base(dx=0):
+    g = Grid(LOGIN_W, LOGIN_H)
+    agent(g, 5 + dx, 0, **LOGIN_AGENT)
+    left, right = shoulders(5 + dx, 0)
+    return g, left, right
+
+
+def _login_frames(fn, n):
+    return [fn(k) for k in range(n)]
+
+
+def _login_rest_frame(k):
+    """Rest: hands on the card's edge, a wave on the third frame, a blink on the fourth."""
+    g, left, right = _login_base()
+    arm(g, left[0], left[1], 1, 13)
+    arm(g, right[0], right[1], 18, 6 if k == 2 else 13)
+    if k == 3:
+        g.px(9, 5, LOGIN_AGENT["shade"])
+        g.px(12, 5, LOGIN_AGENT["shade"])
+    return g
+
+
+def _login_invite_frame(k):
+    """First visit: points down at the "Crear cuenta" tab, the hand bobbing."""
+    g, left, right = _login_base()
+    arm(g, left[0], left[1], 1, 13)
+    arm(g, right[0], right[1], 19, (12, 13, 12, 11)[k])
+    return g
+
+
+def _login_shy_frame(k):
+    """Password field focused: both hands over the eyes; the right one slips on the second frame."""
+    g, _, _ = _login_base()
+    skin, sleeve = LOGIN_AGENT["skin"], LOGIN_AGENT["suit"]
+    g.outlined({(x, y) for x in (6, 7) for y in range(8, 13)}, sleeve)
+    g.outlined({(x, y) for x in (14, 15) for y in range(8, 13)}, sleeve)
+    g.outlined({(x, y) for x in (8, 9, 10) for y in range(4, 8)}, skin)
+    right_x = (11, 12, 13) if k == 0 else (12, 13, 14)
+    g.outlined({(x, y) for x in right_x for y in range(4, 8)}, skin)
+    return g
+
+
+def _login_error_frame(k):
+    """Login or registration failed: shakes its head, an alert drop beside it."""
+    dx = (0, -1, 1, 0)[k]
+    g, left, right = _login_base(dx)
+    arm(g, left[0], left[1], 1 + dx, 13)
+    arm(g, right[0], right[1], 18 + dx, 13)
+    for y in (1, 2, 4):
+        g.px(17, y, "R")
+    return g
+
+
+def _login_worried_frame(k):
+    """Weak password (or an expired session): hands on the cheeks, a sweat drop running down."""
+    g, left, right = _login_base()
+    arm(g, left[0], left[1], 3, 7)
+    arm(g, right[0], right[1], 16, 7)
+    dy = (0, 1, 2, 3)[k]
+    g.px(18, 2 + dy, "B")
+    g.px(18, 3 + dy, "B")
+    return g
+
+
+def _login_thumbs_frame(k):
+    """Strong password: thumbs up and a sparkle."""
+    g, left, right = _login_base()
+    arm(g, left[0], left[1], 1, 13)
+    arm(g, right[0], right[1], 18, 6)
+    g.outlined({(18, 4), (18, 5)}, LOGIN_AGENT["skin"])
+    sx, sy = ((2, 3), (4, 1))[k % 2]
+    for dx, dy in ((0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)):
+        g.px(sx + dx, sy + dy, "Y")
+    return g
+
+
+def _confetti(g, k, w, h):
+    base = [(2, 0), (7, 1), (12, 0), (17, 1), (20, 0), (4, 4), (15, 3), (9, 5)]
+    for i, (x, y) in enumerate(base):
+        g.px(x % w, (y + 3 * k + i) % (h - 3), "YBGR"[i % 4])
+
+
+def _login_celebrate_frame(k):
+    """Account created: both arms up under falling confetti."""
+    g, left, right = _login_base()
+    arm(g, left[0], left[1], 1, 3)
+    arm(g, right[0], right[1], 19, 3)
+    _confetti(g, k, LOGIN_W, LOGIN_H)
+    return g
+
+
+def login_rest():
+    return scene_from_frames(_login_frames(_login_rest_frame, 4), 3.2)
+
+
+def login_invite():
+    return scene_from_frames(_login_frames(_login_invite_frame, 4), 1.2)
+
+
+def login_shy():
+    return scene_from_frames(_login_frames(_login_shy_frame, 2), 1.2)
+
+
+def login_error():
+    return scene_from_frames(_login_frames(_login_error_frame, 4), 0.8)
+
+
+def login_worried():
+    return scene_from_frames(_login_frames(_login_worried_frame, 4), 1.2)
+
+
+def login_thumbs():
+    return scene_from_frames(_login_frames(_login_thumbs_frame, 4), 1.2)
+
+
+def login_celebrate():
+    return scene_from_frames(_login_frames(_login_celebrate_frame, 4), 1.0)
+
+
+# ----------------------------------------------------------------------------------------------
+# The app's mascot (full body, 26x23): the agent of the login hero proposal, now the voice of the
+# app's states (loading, error) and the mood of the True ROAS card.
+
+MASCOT_W, MASCOT_H = 26, 23
+MASCOT_AGENT = ROSS
+
+
+def _mascot_base():
+    g = Grid(MASCOT_W, MASCOT_H)
+    agent(g, 11, 2, **MASCOT_AGENT)
+    left, right = shoulders(11, 2)
+    return g, left, right
+
+
+def _mascot_loading_frame(k):
+    """Loading: types on a laptop while three dots count."""
+    g, _, _ = _mascot_base()
+    g.rect(7, 14, 12, 7, "K")
+    g.rect(8, 15, 10, 5, "M")
+    g.rect(12, 17, 2, 1, "B")
+    g.rect(6, 21, 14, 1, "K")
+    g.rect(9 + (k % 2) * 6, 20, 2, 1, MASCOT_AGENT["skin"])
+    for i in range(3):
+        g.px(12 + i * 3, 0, "B" if i == k % 3 else "M")
+    return g
+
+
+def _mascot_error_frame(k):
+    """Error: holds an unplugged cable that sparks, an alert mark above the head."""
+    g, left, right = _mascot_base()
+    arm(g, left[0], left[1], 10, 19)
+    arm(g, right[0], right[1], 22, 15)
+    g.vl(23, 17, 4, "G")
+    g.rect(22, 21, 3, 2, "L")
+    if k % 2 == 0:
+        for x, y in ((21, 20), (25, 20), (23, 19)):
+            g.px(x, y, "Y")
+    for y in (1, 2, 4):
+        g.px(18, y, "R")
+    return g
+
+
+def _mascot_happy_frame(k):
+    """Good result: both arms up under confetti."""
+    g, left, right = _mascot_base()
+    arm(g, left[0], left[1], 6, 4)
+    arm(g, right[0], right[1], 24, 4)
+    _confetti(g, k, MASCOT_W, MASCOT_H)
+    return g
+
+
+def _mascot_worried_frame(k):
+    """Result under the minimum: hands on the head and a sweat drop."""
+    g, left, right = _mascot_base()
+    arm(g, left[0], left[1], 8, 8)
+    arm(g, right[0], right[1], 22, 8)
+    dy = (0, 1, 2, 3)[k]
+    g.px(24, 3 + dy, "B")
+    g.px(24, 4 + dy, "B")
+    return g
+
+
+def mascot_loading():
+    return scene_from_frames([_mascot_loading_frame(k) for k in range(4)], 1.2)
+
+
+def mascot_error():
+    return scene_from_frames([_mascot_error_frame(k) for k in range(4)], 0.8)
+
+
+def mascot_happy():
+    return scene_from_frames([_mascot_happy_frame(k) for k in range(4)], 1.0)
+
+
+def mascot_worried():
+    return scene_from_frames([_mascot_worried_frame(k) for k in range(4)], 1.2)

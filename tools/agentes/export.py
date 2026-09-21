@@ -25,7 +25,16 @@ DEFAULT_OUT = os.path.abspath(os.path.join(HERE, "..", "..", "frontend", "agente
 SCENE_BUDGET = 4 * 1024   # per scene (loaded one at a time, only where it is used)
 TOTAL_BUDGET = 25 * 1024  # the whole agentes/ folder, hand-written files included
 
-SCENES = {"conectores": scenes.connectors, "alertas": scenes.alerts, "reportes": scenes.reports, "equipo": scenes.team, "auditoria": scenes.audit, "perfil": scenes.profile, "dashboard": scenes.dashboard}
+SCENES = {
+    "conectores": scenes.connectors, "alertas": scenes.alerts, "reportes": scenes.reports, "equipo": scenes.team,
+    "auditoria": scenes.audit, "perfil": scenes.profile, "dashboard": scenes.dashboard,
+    # the login welcome agent (head and chest) and the app's mascot (full body)
+    "login-reposo": scenes.login_rest, "login-invita": scenes.login_invite, "login-clave": scenes.login_shy,
+    "login-error": scenes.login_error, "login-preocupada": scenes.login_worried,
+    "login-aprueba": scenes.login_thumbs, "login-festeja": scenes.login_celebrate,
+    "mascota-carga": scenes.mascot_loading, "mascota-error": scenes.mascot_error,
+    "mascota-festeja": scenes.mascot_happy, "mascota-preocupada": scenes.mascot_worried,
+}
 HEAD_MODULES = {"conectores": scenes.TECHNICIAN}
 
 

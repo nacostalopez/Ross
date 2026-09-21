@@ -34,6 +34,12 @@ stale. `frontend/agentes/agentes.js` and `agentes.css` are hand-written (the run
 - `scenes.py`: the scenes, module heads and portraits; `ROLES` maps each API role to its uniform.
 - `export.py`: writes everything and enforces the weight budget.
 
+Ross, the mascot, is `ROSS` in `scenes.py` (owner uniform, skin/hair variant 0): the login agent and the
+app mascot are the same character. Scene families and sizes: the connectors scene is 48x30; module scenes (alerts, reports, team,
+audit, profile, dashboard) are 40x26; the login welcome agent (`login-*`) is head and chest, 22x15;
+the app mascot (`mascota-*`) is full body, 26x23. Which scene is shown when is decided by hand-written
+code in `frontend/agentes/mascota.js`, not here.
+
 ## Roles
 
 | Role (`/auth/me`) | Uniform |
@@ -60,8 +66,8 @@ Each person gets one of 4 skin/hair variants, always the same one for the same u
 ## Adding a scene
 
 1. Draw it in `scenes.py`. Build its frames as `Grid`s and use `scene_from_frames` (it splits the
-   static background from the part that moves). Module scenes are 40x26; the connectors one, the
-   first, is 48x30.
+   static background from the part that moves). Module scenes are 40x26 (see "Scene families"
+   above for the others).
 2. Register it in `SCENES` in `export.py` and run the export.
 3. Show it with `<div class="pxa pxa-scene" style="--w:40;--h:26" data-agent-scene="<name>"></div>`
    (the `--w`/`--h` reserve its space). Inside a hidden modal or view it is drawn, and its file

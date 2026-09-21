@@ -11,6 +11,7 @@ const state = {
   activeStoreId: null,
   activeStoreCurrency: "USD",
   currentView: null,
+  roasThresholds: {}, // store id -> the True ROAS minimum from its alert preferences
   dashboardLayout: null,
   dashboardEditMode: false,
 };
@@ -87,6 +88,12 @@ function paintUserAgent(el, kind, role = state.currentUser.role) {
   el.dataset[kind] = role;
   el.dataset.agentSeed = state.currentUser.id;
   paintAgents(el);
+}
+
+// Errors are shown by the mascot's toast (agentes/mascota.js); without it, by the browser's alert.
+function reportError(title, detail) {
+  if (window.Mascot) window.Mascot.toast(title, detail);
+  else alert(detail ? `${title}: ${detail}` : title);
 }
 
 // The topbar chip shows the role the person holds where they are looking: on the Dashboard,
@@ -387,6 +394,9 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
       },
     });
     setTokens(data.access_token, data.refresh_token);
+    // The welcome agent celebrates the new account before the dashboard shows (no wait with
+    // reduced motion).
+    if (window.Mascot) await window.Mascot.celebrate();
     await enterDashboard();
   } catch (err) {
     showAuthError(err.message);
@@ -476,6 +486,7 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
 });
 
 function showAuthError(message) {
+  delete authError.dataset.kind;
   authError.textContent = message;
   authError.hidden = false;
 }
@@ -500,6 +511,7 @@ function sessionExpired() {
   showLoggedOut();
   showAuthMode("login");
   showAuthError("Tu sesión expiró — iniciá sesión de nuevo.");
+  authError.dataset.kind = "expired"; // the welcome agent worries instead of shaking its head
 }
 
 function setTokens(accessToken, refreshToken) {
@@ -519,6 +531,7 @@ async function enterDashboard() {
   state.account = await api("/accounts/me");
   state.currentUser = await api("/auth/me");
   document.getElementById("account-name").textContent = state.account.name;
+  if (window.Mascot) window.Mascot.markVisited();
   paintUserAgent(document.getElementById("account-chip"), "agentChip");
   // Only owner/admin can list members (see require_role on GET /accounts/members).
   document.getElementById("nav-members").hidden = state.currentUser.role === "viewer";
@@ -715,6 +728,8 @@ async function saveQuickAlertThreshold() {
       roas_days_n: current.roas_days_n,
     },
   });
+  state.roasThresholds[state.activeStoreId] = threshold;
+  if (state.lastSummary) refreshRoasMood(state.lastSummary);
   statusEl.textContent = "Guardado — alertas activadas.";
 }
 
@@ -849,7 +864,7 @@ async function persistAndRerenderLayout() {
   try {
     await api("/dashboard/layout", { method: "PUT", body: { widgets: state.dashboardLayout } });
   } catch (err) {
-    alert("No se pudo guardar el layout: " + err.message);
+    reportError("No se pudo guardar el layout", err.message);
   }
 }
 
@@ -937,6 +952,23 @@ function applyStatWidgets(summary, prevSummary) {
     }
     renderDelta(`stat-delta-${type}`, field.raw(summary), field.raw(prevSummary), { neutral: !!field.neutral });
   }
+  refreshRoasMood(summary);
+}
+
+// The mascot on the True ROAS card reacts to the result against the minimum the user set in Alertas
+// (1.0 unless they changed it). That minimum is fetched once per store and kept in state.
+async function refreshRoasMood(summary) {
+  if (!window.Mascot || !state.activeStoreId) return;
+  const storeId = state.activeStoreId;
+  if (state.roasThresholds[storeId] === undefined) {
+    try {
+      state.roasThresholds[storeId] = Number((await api(`/stores/${storeId}/alert-preferences`)).roas_threshold);
+    } catch (err) {
+      state.roasThresholds[storeId] = 1.0;
+    }
+  }
+  if (storeId !== state.activeStoreId) return; // the user moved to another store while we waited
+  window.Mascot.roasMood(summary.true_roas, state.roasThresholds[storeId]);
 }
 
 async function refreshMetrics() {
@@ -955,11 +987,20 @@ async function refreshMetrics() {
   const prevRange = previousDateRange(start, end);
   const prevQs = `start=${encodeURIComponent(prevRange.start)}&end=${encodeURIComponent(prevRange.end)}`;
 
-  const [summary, daily, prevSummary] = await Promise.all([
-    api(`/stores/${state.activeStoreId}/metrics/summary?${qs}`),
-    api(`/stores/${state.activeStoreId}/metrics/daily?${qs}`),
-    api(`/stores/${state.activeStoreId}/metrics/summary?${prevQs}`),
-  ]);
+  // If the numbers take a moment the mascot shows a loading block in the chart panel.
+  const stopLoading = window.Mascot ? window.Mascot.loading(document.getElementById("chart-container")) : () => {};
+  let summary, daily, prevSummary;
+  try {
+    [summary, daily, prevSummary] = await Promise.all([
+      api(`/stores/${state.activeStoreId}/metrics/summary?${qs}`),
+      api(`/stores/${state.activeStoreId}/metrics/daily?${qs}`),
+      api(`/stores/${state.activeStoreId}/metrics/summary?${prevQs}`),
+    ]);
+  } catch (err) {
+    stopLoading(true);
+    throw err;
+  }
+  stopLoading(false);
 
   state.lastSummary = summary;
   state.lastPrevSummary = prevSummary;
@@ -1181,7 +1222,7 @@ document.getElementById("connect-provider-form").addEventListener("submit", asyn
     );
     window.location.href = authUrl;
   } catch (err) {
-    alert(`No se pudo iniciar la conexión: ${err.message}`);
+    reportError("No se pudo iniciar la conexión", err.message);
   }
 });
 
@@ -1200,7 +1241,7 @@ async function handleConnectorCallback(provider) {
   const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
 
   if (!code || !pending || pending.provider !== provider) {
-    alert("El enlace de conexión no es válido o ya expiró. Probá conectar de nuevo.");
+    reportError("El enlace de conexión no es válido o ya expiró", "Probá conectar de nuevo.");
     return;
   }
 
@@ -1217,7 +1258,7 @@ async function handleConnectorCallback(provider) {
     await api(`/connectors/${provider}/callback?${callbackParams}`, { method: "POST" });
     alert(`${PROVIDER_CONNECT_CONFIG[provider].label} conectado correctamente.`);
   } catch (err) {
-    alert(`No se pudo completar la conexión con ${PROVIDER_CONNECT_CONFIG[provider].label}: ${err.message}`);
+    reportError(`No se pudo completar la conexión con ${PROVIDER_CONNECT_CONFIG[provider].label}`, err.message);
   }
 }
 
@@ -1641,6 +1682,8 @@ document.getElementById("alert-preferences-form").addEventListener("submit", asy
       roas_days_n: Number(document.getElementById("alert-roas-days").value),
     },
   });
+  state.roasThresholds[state.activeStoreId] = Number(document.getElementById("alert-roas-threshold").value);
+  if (state.lastSummary) refreshRoasMood(state.lastSummary);
   alertPreferencesModal.hidden = true;
 });
 
@@ -1753,7 +1796,7 @@ async function setStoreMemberRole(userId, role) {
       body: { role: role || null },
     });
   } catch (err) {
-    alert(err.message);
+    reportError("No se pudo completar la acción", err.message);
   }
   await openStoreMembersModal();
 }
@@ -2052,7 +2095,7 @@ async function updateMemberRole(memberId, role) {
   try {
     await api(`/accounts/members/${memberId}/role`, { method: "PATCH", body: { role } });
   } catch (err) {
-    alert(err.message);
+    reportError("No se pudo completar la acción", err.message);
   }
   await loadMembers();
 }
@@ -2062,7 +2105,7 @@ async function removeMember(memberId) {
   try {
     await api(`/accounts/members/${memberId}`, { method: "DELETE" });
   } catch (err) {
-    alert(err.message);
+    reportError("No se pudo completar la acción", err.message);
   }
   await loadMembers();
 }
@@ -2072,7 +2115,7 @@ async function revokeInvite(inviteId) {
   try {
     await api(`/accounts/invites/${inviteId}`, { method: "DELETE" });
   } catch (err) {
-    alert(err.message);
+    reportError("No se pudo completar la acción", err.message);
   }
   await loadMembers();
 }
@@ -2084,7 +2127,7 @@ async function resendInvite(inviteId, btn) {
     btn.textContent = "Reenviada ✓";
     setTimeout(() => loadMembers(), 1200);
   } catch (err) {
-    alert(err.message);
+    reportError("No se pudo completar la acción", err.message);
     btn.disabled = false;
   }
 }
@@ -2126,7 +2169,7 @@ document.getElementById("seed-btn").addEventListener("click", async () => {
     await seedDemoData(state.activeStoreId);
     await refreshMetrics();
   } catch (err) {
-    alert(`No se pudo cargar la demo: ${err.message}`);
+    reportError("No se pudo cargar la demo", err.message);
   } finally {
     btn.disabled = false;
     btn.textContent = "Cargar datos de demo";

@@ -58,11 +58,27 @@ def test_connectors_scene_size():
     assert (data["w"], data["h"]) == (scenes.W, scenes.H)
 
 
-def test_module_scenes_are_40x26():
+def _expected_size(name):
+    """Scene size by family: connectors, login welcome agent, app mascot, or a module scene."""
+    if name == "conectores":
+        return scenes.W, scenes.H
+    if name.startswith("login-"):
+        return scenes.LOGIN_W, scenes.LOGIN_H
+    if name.startswith("mascota-"):
+        return scenes.MASCOT_W, scenes.MASCOT_H
+    return scenes.MW, scenes.MH
+
+
+def test_every_scene_has_the_size_of_its_family():
     for name, fn in export.SCENES.items():
-        if name != "conectores":
-            data = fn().to_data()
-            assert (data["w"], data["h"]) == (scenes.MW, scenes.MH), name
+        data = fn().to_data()
+        assert (data["w"], data["h"]) == _expected_size(name), name
+
+
+def test_scene_names_are_safe_file_names():
+    """The runtime builds `escenas/<name>.json` from a data attribute."""
+    for name in export.SCENES:
+        assert re.fullmatch(r"[a-z]+(-[a-z]+)*", name), name
 
 
 def test_every_scene_is_one_well_formed_animated_strip():
