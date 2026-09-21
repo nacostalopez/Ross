@@ -1,0 +1,93 @@
+/* Aramal agents: pixel-art scenes drawn with SVG and animated with steps().
+   Fills come from paleta.css (generated); this file is hand-written. */
+
+/* A sprite is drawn at an integer scale: --w/--h are its size in art pixels, --s the scale. */
+.pxa-sprite {
+  display: inline-flex;
+  flex: none;
+  height: calc(var(--h) * var(--s, 2) * 1px);
+  position: relative;
+  width: calc(var(--w) * var(--s, 2) * 1px);
+}
+
+/* A scene fills the width it is given, up to --max screen pixels per art pixel (8 by default). */
+.pxa-scene {
+  aspect-ratio: var(--w) / var(--h);
+  position: relative;
+  width: min(100%, calc(var(--w) * var(--max, 8) * 1px));
+}
+
+.pxa .pxa-lay {
+  display: block;
+  height: 100%;
+  left: 0;
+  position: absolute;
+  shape-rendering: crispEdges;
+  top: 0;
+  width: 100%;
+}
+
+.pxa-pt {
+  overflow: hidden;
+  position: absolute;
+}
+
+/* One strip of n frames, as wide as n boxes; each step slides it by one frame. */
+.pxa .pxa-st {
+  animation: pxa-strip var(--t) steps(var(--n), end) infinite;
+  display: block;
+  height: 100%;
+  shape-rendering: crispEdges;
+  width: calc(var(--n) * 100%);
+}
+
+@keyframes pxa-strip {
+  to { transform: translateX(-100%); }
+}
+
+/* The topbar button pauses every agent animation (see agentes.js). */
+html[data-agents-paused] .pxa .pxa-st {
+  animation-play-state: paused;
+}
+
+.agents-pause {
+  align-items: center;
+  display: flex;
+  flex: none;
+  justify-content: center;
+  padding: 8px;
+}
+.agents-pause .icon-play { display: none; }
+.agents-pause[aria-pressed="true"] .icon-pause { display: none; }
+.agents-pause[aria-pressed="true"] .icon-play { display: block; }
+
+/* Layout hooks for the places agents appear. */
+
+/* Empty dashboard: the module's scene in a panel, above the message. */
+.agents-empty-frame {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  justify-content: center;
+  margin: 0 auto 24px;
+  max-width: 420px;
+  padding: 16px;
+}
+
+/* Topbar: the role's chip beside the account name. */
+.account-chip { display: inline-flex; flex: none; }
+
+/* Widget title with the module's head beside it. */
+.widget-title-row { align-items: center; display: flex; gap: 8px; }
+.panel .widget-title-row h3 { margin: 0; }
+
+/* Perfil header: the portrait beside the title. */
+.profile-heading { align-items: center; display: flex; gap: 16px; }
+
+/* Reduced motion: the first frame stays on screen, and the pause button has nothing to do.
+   Kept last so it wins over the rules above. */
+@media (prefers-reduced-motion: reduce) {
+  .pxa .pxa-st { animation: none; }
+  .agents-pause { display: none; }
+}

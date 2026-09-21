@@ -1,10 +1,16 @@
-const CACHE_NAME = "aramal-shell-v1";
+const CACHE_NAME = "aramal-shell-v2";
 
+// Agent scenes (agentes/escenas/*.json) are not listed on purpose: they are fetched on
+// demand and cached by the stale-while-revalidate handler below on first use.
 const SHELL_ASSETS = [
   "index.html",
   "landing.html",
   "style.css",
   "app.js",
+  "agentes/agentes.js",
+  "agentes/agentes.css",
+  "agentes/paleta.css",
+  "agentes/retratos.json",
   "manifest.json",
   "icons/icon-192.png",
   "icons/icon-512.png",

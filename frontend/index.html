@@ -14,6 +14,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="agentes/paleta.css" />
+  <link rel="stylesheet" href="agentes/agentes.css" />
 </head>
 <body>
   <div class="app-bg" aria-hidden="true">
@@ -49,10 +51,15 @@
         <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>
       </button>
       <div id="topbar-account" class="topbar-account" hidden>
+        <button id="agents-pause" class="btn btn-ghost agents-pause" type="button" aria-pressed="false" aria-label="Pausar las animaciones de los agentes" title="Pausar las animaciones de los agentes">
+          <svg class="icon-pause" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+          <svg class="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></svg>
+        </button>
         <button id="push-toggle" class="btn btn-ghost push-toggle" type="button" aria-label="Activar notificaciones push" title="Notificaciones push" hidden>
           <svg class="icon-bell" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
           <svg class="icon-bell-active" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" fill="none"/></svg>
         </button>
+        <span id="account-chip" class="pxa pxa-sprite account-chip" style="--w:12;--h:18" data-agent-chip="" aria-hidden="true"></span>
         <span id="account-name"></span>
         <button id="logout-btn" class="btn btn-ghost">Cerrar sesión</button>
       </div>
@@ -258,6 +265,9 @@
       <div class="content">
         <div id="dashboard-panels">
           <div id="empty-state" class="empty-state" hidden>
+            <div class="agents-empty-frame">
+              <div class="pxa pxa-scene" style="--w:48;--h:30" data-agent-scene="conectores" aria-hidden="true"></div>
+            </div>
             <p>Todavía no conectaste ninguna tienda.</p>
             <button id="empty-new-store-btn" class="btn btn-primary">Conectar tu primera tienda</button>
           </div>
@@ -319,9 +329,12 @@
 
         <div id="profile-panel" class="members-panel" hidden>
           <div class="store-panel-header">
-            <div>
-              <h2>Perfil</h2>
-              <span class="muted">Es personal — no afecta a otros miembros de la cuenta.</span>
+            <div class="profile-heading">
+              <span id="profile-bust" class="pxa pxa-sprite" style="--w:16;--h:22;--s:3" data-agent-bust="" aria-hidden="true"></span>
+              <div>
+                <h2>Perfil</h2>
+                <span class="muted">Es personal — no afecta a otros miembros de la cuenta.</span>
+              </div>
             </div>
           </div>
 
@@ -505,6 +518,7 @@
     </div>
   </div>
 
+  <script src="agentes/agentes.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
