@@ -1892,7 +1892,7 @@ function renderTeamSummary(members) {
     .join(" · ");
   const avatars = members
     .slice(0, 4)
-    .map((m) => `<div class="team-avatar">${m.email[0].toUpperCase()}</div>`)
+    .map((m) => `<span class="pxa pxa-sprite team-chip" style="--w:12;--h:18" data-agent-chip="${m.role}" data-agent-seed="${m.id}" aria-hidden="true"></span>`)
     .join("");
   const extra = members.length > 4 ? `<div class="team-avatar team-avatar-extra">+${members.length - 4}</div>` : "";
 
@@ -1906,6 +1906,7 @@ function renderTeamSummary(members) {
       <button type="button" class="btn btn-ghost" id="profile-view-team-btn" style="margin-left:auto;">Ver equipo completo →</button>
     </div>
   `;
+  paintAgents(document.getElementById("profile-team-summary"));
   document.getElementById("profile-view-team-btn").addEventListener("click", () => switchDashboardView("members"));
 }
 
@@ -1969,6 +1970,7 @@ function renderMembers(members) {
         : `<span class="role-badge ${m.role}">${m.role}</span>`;
       return `
         <div class="member-row">
+          <span class="pxa pxa-sprite member-chip" style="--w:12;--h:18" data-agent-chip="${m.role}" data-agent-seed="${m.id}" aria-hidden="true"></span>
           <div>
             <div class="member-email">${m.email}${isSelf ? ' <span class="you-tag">· vos</span>' : ""}</div>
             <div class="member-meta">Miembro desde ${fmtDate(m.created_at)}</div>
@@ -1978,6 +1980,7 @@ function renderMembers(members) {
       `;
     })
     .join("");
+  paintAgents(list);
 
   list.querySelectorAll(".role-select").forEach((select) => {
     select.addEventListener("change", () => updateMemberRole(select.dataset.memberId, select.value));

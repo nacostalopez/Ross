@@ -39,11 +39,32 @@ if (SHOTS_DIR) fs.mkdirSync(SHOTS_DIR, { recursive: true });
 const OUTLINE = { light: "rgb(12, 23, 48)", dark: "rgb(5, 10, 23)" };
 const VIEWPORTS = { desktop: { width: 1280, height: 800 }, m390: { width: 390, height: 780 }, m360: { width: 360, height: 740 } };
 
+// Go to a sidebar view. Below 860 px the sidebar is an off-canvas drawer, so open it first.
+async function goTo(page, navSelector) {
+  if (await page.isVisible("#sidebar-toggle")) await page.click("#sidebar-toggle");
+  await page.click(navSelector);
+}
+
 // Module scenes beyond the connectors one: how to reach each and where it is drawn. A scene is
 // only downloaded once its surface is shown (agentes.js paints on un-hide), which is checked too.
 const MODULE_SURFACES = [
   { name: "alertas", open: (page) => page.click("#alerts-btn"), host: "#alert-preferences-modal", card: ".modal-card" },
   { name: "reportes", open: (page) => page.click("#reports-btn"), host: "#report-preferences-modal", card: ".modal-card" },
+  {
+    name: "equipo", open: (page) => goTo(page, "#nav-members"), host: "#members-panel", card: ".store-panel-header",
+    extra: async (page, tag) => {
+      const drawn = (selector) => page.waitForSelector(selector, { timeout: 10000 }).then(() => true, () => false);
+      check(`[${tag}] member rows carry their role chip`, await drawn("#members-list .member-chip svg"));
+      const rows = await page.evaluate(() => ({
+        rows: document.querySelectorAll("#members-list .member-row").length,
+        chips: document.querySelectorAll("#members-list .member-chip svg").length,
+        first: (document.querySelector("#members-list .member-chip") || { dataset: {} }).dataset.agentKey || "",
+      }));
+      check(`[${tag}] one chip per member, owner drawn as owner`, rows.rows > 0 && rows.rows === rows.chips && rows.first.startsWith("chips:owner:"), JSON.stringify(rows));
+      await goTo(page, "#nav-profile");
+      check(`[${tag}] Perfil's team summary shows role chips`, await drawn("#profile-team-summary .team-chip svg"));
+    },
+  },
 ];
 
 const problems = [];
@@ -229,8 +250,9 @@ async function shot(page, name, options = {}) {
         check(`[${tag}] scene sits inside its container`, m.inside);
         check(`[${tag}] no horizontal scroll`, m.scrollW <= m.innerW, `${m.scrollW}/${m.innerW}`);
         check(`[${tag}] theme colors applied`, m.outline === OUTLINE[theme], m.outline);
-        check(`[${tag}] no console errors`, errors.length === 0, errors.join(" | "));
         await shot(page, `module-${surface.name}-${theme}-${vp}.png`);
+        if (surface.extra) await surface.extra(page, tag);
+        check(`[${tag}] no console errors`, errors.length === 0, errors.join(" | "));
         await context.close();
       }
     }

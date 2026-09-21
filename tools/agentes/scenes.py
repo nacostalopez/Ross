@@ -213,3 +213,24 @@ def _reports_frame(k):
 
 def reports():
     return scene_from_frames([_reports_frame(k) for k in range(REPORTS_FRAMES)], REPORTS_SECONDS)
+
+
+# One agent per role, side by side. Left to right: x position, role, skin/hair variant.
+TEAM_MEMBERS = [(0, "owner", 0), (14, "admin", 2), (28, "viewer", 1)]
+TEAM_FRAMES = 4
+TEAM_SECONDS = 2.0
+
+
+def _team_frame(k):
+    """Frame 0: everybody at rest; frames 1..3: each member in turn waves."""
+    g = _module_base()
+    for i, (x, role, variant) in enumerate(TEAM_MEMBERS):
+        agent(g, x, 4, **{**ROLES[role], **VARIANTS[variant]})
+        if k == i + 1:
+            _, right = shoulders(x, 4)
+            arm(g, right[0], right[1], x + 10, 8)
+    return g
+
+
+def team():
+    return scene_from_frames([_team_frame(k) for k in range(TEAM_FRAMES)], TEAM_SECONDS)
