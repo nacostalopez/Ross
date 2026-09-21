@@ -177,3 +177,39 @@ def _alerts_frame(k):
 
 def alerts():
     return scene_from_frames([_alerts_frame(k) for k in range(ALERTS_FRAMES)], ALERTS_SECONDS)
+
+
+REPORTS_AGENT = {**ROLES["owner"], **VARIANTS[3]}
+REPORTS_FRAMES = 4
+REPORTS_SECONDS = 1.6
+
+# The stamp: a handle over a base, 4x3. It comes down onto the envelope, lifts and leaves a seal.
+_STAMP = [".NN.", ".NN.", "MMMM"]
+_STAMP_Y = (7, 10, 13, 9)  # top of the stamp in each frame: up, going down, pressed, lifted
+
+
+def _reports_frame(k):
+    """The owner stamps the weekly-summary envelope; the seal shows once the stamp lifts."""
+    g = _module_base()
+    g.rect(17, 12, 16, 12, "K")
+    g.rect(18, 13, 14, 10, "W")
+    g.hl(18, 13, 14, "L")
+    for i in range(6):  # the flap's V
+        g.px(18 + i, 14 + i, "L")
+        g.px(31 - i, 14 + i, "L")
+    g.rect(21, 9, 12, 4, "K")  # the sheet peeking out
+    g.rect(22, 10, 10, 3, "W")
+    g.hl(23, 11, 5, "M")
+    if k == 3:
+        g.disc(24, 18, 2, "y")
+        g.disc(24, 18, 1, "Y")
+        g.px(23, 17, "W")
+    _, right = _module_agent(g, REPORTS_AGENT)
+    stamp_y = _STAMP_Y[k]
+    arm(g, right[0], right[1], 20, stamp_y)
+    g.art(_STAMP, 22, stamp_y)
+    return g
+
+
+def reports():
+    return scene_from_frames([_reports_frame(k) for k in range(REPORTS_FRAMES)], REPORTS_SECONDS)

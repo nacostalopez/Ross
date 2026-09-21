@@ -43,6 +43,7 @@ const VIEWPORTS = { desktop: { width: 1280, height: 800 }, m390: { width: 390, h
 // only downloaded once its surface is shown (agentes.js paints on un-hide), which is checked too.
 const MODULE_SURFACES = [
   { name: "alertas", open: (page) => page.click("#alerts-btn"), host: "#alert-preferences-modal", card: ".modal-card" },
+  { name: "reportes", open: (page) => page.click("#reports-btn"), host: "#report-preferences-modal", card: ".modal-card" },
 ];
 
 const problems = [];

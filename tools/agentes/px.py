@@ -61,6 +61,12 @@ class Grid:
         for (x, y) in bresenham(x0, y0, x1, y1):
             self.px(x, y, c)
 
+    def disc(self, cx, cy, r, c):
+        for y in range(cy - r, cy + r + 1):
+            for x in range(cx - r, cx + r + 1):
+                if (x - cx) ** 2 + (y - cy) ** 2 <= r * r + r * 0.4:
+                    self.px(x, y, c)
+
     def outlined(self, cells, fill, outline="K"):
         """Fill `cells` and draw a 1px outline around them."""
         cells = set(cells)

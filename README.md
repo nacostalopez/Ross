@@ -742,6 +742,7 @@ Modules drawn so far (Phase 1 was the connectors one, as the test module):
 | --- | --- |
 | Tiendas y conectores | Empty dashboard ("Todavía no conectaste ninguna tienda"), the technician's head beside the "Estado de conectores" widget |
 | Alertas | Beside the title of the "Alertas de CAC y ROAS" modal |
+| Reportes | Beside the title of the "Reporte semanal" modal |
 
 Every person also shows as an agent: the role's chip in the topbar and its bust
 in Perfil. A scene inside a hidden modal or view is only downloaded and drawn
@@ -886,7 +887,7 @@ management, an inline quick-alert builder) round out the dashboard and
 account settings (see "P&L completo" and "Perfil" below). A pixel-art
 **agents** identity is under way (see "Agents"): Phase 1 (a single test
 module) is done and Phase 2 (the remaining modules, one at a time) is in
-progress — Alertas is drawn; Reportes, Equipo, Auditoría, Perfil and
+progress — Alertas and Reportes are drawn; Equipo, Auditoría, Perfil and
 Dashboard are not yet. Phase 3 (login/landing/pricing scenes) has not
 started. Not yet built:
 
