@@ -75,6 +75,11 @@ html[data-agents-paused] .pxa .pxa-st {
   padding: 16px;
 }
 
+/* Dashboard with no orders in the range: a smaller frame, message centered under it. */
+.agents-empty-frame-small { max-width: 288px; }
+#metrics-empty { margin-bottom: 20px; text-align: center; }
+#metrics-empty p { margin: 0; }
+
 /* Topbar: the role's chip beside the account name. */
 .account-chip { display: inline-flex; flex: none; }
 

@@ -62,6 +62,10 @@ Each person gets one of 4 skin/hair variants, always the same one for the same u
 1. Draw it in `scenes.py`. Build its frames as `Grid`s and use `scene_from_frames` (it splits the
    static background from the part that moves). Keep it at 48x30 unless there is a reason.
 2. Register it in `SCENES` in `export.py` and run the export.
-3. Show it with `<div class="pxa pxa-scene" style="--w:48;--h:30" data-agent-scene="<name>"></div>`
-   and call `Agents.hydrate(container)` after inserting the markup.
-4. Check it in both themes and at 360 px with `e2e/agents.js` (see its header).
+3. Show it with `<div class="pxa pxa-scene" style="--w:40;--h:26" data-agent-scene="<name>"></div>`
+   (the `--w`/`--h` reserve its space). Inside a hidden modal or view it is drawn, and its file
+   downloaded, when that section is shown; markup you insert later needs
+   `Agents.hydrate(container)`. Beside a modal title use `.agents-modal-head`; beside a view
+   title, `.agents-heading`.
+4. Add it to `MODULE_SURFACES` in `e2e/agents.js` (how to reach it and where it is drawn) and run
+   that script: both themes, desktop and 360 px, lazy download, animation, no overflow.

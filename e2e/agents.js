@@ -11,7 +11,11 @@
  *   - prefers-reduced-motion stops the animation and hides the pause button;
  *   - the topbar chip and the Perfil bust are drawn for each role (owner for real;
  *     admin/viewer by rewriting the /auth/me response);
- *   - the connectors widget shows the module's head once the account has a store.
+ *   - the connectors widget shows the module's head once the account has a store;
+ *   - every other module's scene (see MODULE_SURFACES) is only downloaded once its modal or
+ *     view is shown, animates, sits inside its container, and fits at 360 px in both themes;
+ *   - Equipo's member rows and Perfil's team summary show one role chip per person;
+ *   - GET /stores carries the effective role and the topbar chip follows it.
  *
  * Prerequisites (local/manual, NOT wired into CI):
  *   - the docker-compose stack running, frontend on FRONTEND_URL (default
@@ -50,6 +54,8 @@ async function goTo(page, navSelector) {
 const MODULE_SURFACES = [
   { name: "alertas", open: (page) => page.click("#alerts-btn"), host: "#alert-preferences-modal", card: ".modal-card" },
   { name: "reportes", open: (page) => page.click("#reports-btn"), host: "#report-preferences-modal", card: ".modal-card" },
+  // shown on its own once the store's metrics load, so there is no "before it is shown" moment to check
+  { name: "dashboard", open: async () => {}, host: "#metrics-empty", card: ".agents-empty-frame", lazy: false },
   { name: "perfil", open: (page) => goTo(page, "#nav-profile"), host: "#profile-panel", card: ".store-panel-header" },
   { name: "auditoria", open: (page) => page.click("#audit-log-btn"), host: "#audit-log-modal", card: ".modal-card" },
   {
@@ -233,7 +239,9 @@ async function shot(page, name, options = {}) {
         await page.waitForSelector("#store-panel:not([hidden])", { timeout: 10000 });
         const tag = `${surface.name}/${theme}/${vp}`;
         const file = `escenas/${surface.name}.json`;
-        check(`[${tag}] scene is not downloaded before it is shown`, !files.some((f) => f.name === file), files.map((f) => f.name).join(", "));
+        if (surface.lazy !== false) {
+          check(`[${tag}] scene is not downloaded before it is shown`, !files.some((f) => f.name === file), files.map((f) => f.name).join(", "));
+        }
         await surface.open(page);
         await page.waitForSelector(`${surface.host} .pxa-scene svg`, { timeout: 10000 });
         const m = await page.evaluate(({ host, card }) => {

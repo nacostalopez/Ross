@@ -300,3 +300,39 @@ def _profile_frame(k):
 
 def profile():
     return scene_from_frames([_profile_frame(k) for k in range(PROFILE_FRAMES)], PROFILE_SECONDS)
+
+
+DASHBOARD_AGENT = {**ROLES["admin"], **VARIANTS[0]}
+DASHBOARD_FRAMES = 4
+DASHBOARD_SECONDS = 1.6
+_BARS = (3, 5, 4, 7, 9)              # bar heights once fully grown
+_BAR_GROWTH = (0.5, 0.75, 1.0, 1.0)  # how much of each bar is drawn per frame
+
+
+def _dashboard_frame(k):
+    """An analyst points at a board whose bars grow, the last one sparkling at the end."""
+    g = _module_base()
+    x, y, w, h = 19, 4, 20, 16
+    g.rect(x, y, w, h, "K")
+    g.rect(x + 1, y + 1, w - 2, h - 2, "D")
+    for gy in (y + 5, y + 9, y + 13):
+        for gx in range(x + 2, x + w - 2, 2):
+            g.px(gx, gy, "N")  # dotted grid
+    g.px(x + 3, y + 3, "B")
+    g.hl(x + 5, y + 3, 6, "M")
+    for i, full in enumerate(_BARS):
+        height = max(1, round(full * _BAR_GROWTH[k]))
+        bx, top = x + 3 + i * 3, y + h - 2 - height
+        g.rect(bx, top, 2, height, "G")
+        g.hl(bx, top, 2, "l")
+        if k == 3 and i == len(_BARS) - 1:
+            g.px(bx, top - 1, "W")
+    g.rect(x + 8, y + h, 4, 4, "K")  # stand
+    g.rect(x + 4, MFLOOR - 2, 12, 2, "K")
+    _, right = _module_agent(g, DASHBOARD_AGENT)
+    arm(g, right[0], right[1], 16, 15)
+    return g
+
+
+def dashboard():
+    return scene_from_frames([_dashboard_frame(k) for k in range(DASHBOARD_FRAMES)], DASHBOARD_SECONDS)
