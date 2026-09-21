@@ -60,7 +60,8 @@ Each person gets one of 4 skin/hair variants, always the same one for the same u
 ## Adding a scene
 
 1. Draw it in `scenes.py`. Build its frames as `Grid`s and use `scene_from_frames` (it splits the
-   static background from the part that moves). Keep it at 48x30 unless there is a reason.
+   static background from the part that moves). Module scenes are 40x26; the connectors one, the
+   first, is 48x30.
 2. Register it in `SCENES` in `export.py` and run the export.
 3. Show it with `<div class="pxa pxa-scene" style="--w:40;--h:26" data-agent-scene="<name>"></div>`
    (the `--w`/`--h` reserve its space). Inside a hidden modal or view it is drawn, and its file
