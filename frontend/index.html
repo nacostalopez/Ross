@@ -477,7 +477,10 @@
   <!-- Audit log modal (customer-linked data access) -->
   <div id="audit-log-modal" class="modal" hidden>
     <div class="modal-card modal-card-wide">
-      <h3>Auditoría</h3>
+      <div class="agents-modal-head">
+        <h3>Auditoría</h3>
+        <div class="pxa pxa-scene" style="--w:40;--h:26;--max:3" data-agent-scene="auditoria" aria-hidden="true"></div>
+      </div>
       <p class="muted">Quién consultó los pedidos de esta tienda (el único dato ligado a clientes que se expone hoy) y cuándo.</p>
       <div id="audit-log-table"></div>
       <div class="modal-actions">

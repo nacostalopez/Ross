@@ -50,6 +50,7 @@ async function goTo(page, navSelector) {
 const MODULE_SURFACES = [
   { name: "alertas", open: (page) => page.click("#alerts-btn"), host: "#alert-preferences-modal", card: ".modal-card" },
   { name: "reportes", open: (page) => page.click("#reports-btn"), host: "#report-preferences-modal", card: ".modal-card" },
+  { name: "auditoria", open: (page) => page.click("#audit-log-btn"), host: "#audit-log-modal", card: ".modal-card" },
   {
     name: "equipo", open: (page) => goTo(page, "#nav-members"), host: "#members-panel", card: ".store-panel-header",
     extra: async (page, tag) => {

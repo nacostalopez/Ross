@@ -234,3 +234,36 @@ def _team_frame(k):
 
 def team():
     return scene_from_frames([_team_frame(k) for k in range(TEAM_FRAMES)], TEAM_SECONDS)
+
+
+AUDIT_AGENT = dict(outfit="coat", acc=["goggles"], lens="Y", accent="Y", **VARIANTS[0])
+AUDIT_FRAMES = 4
+AUDIT_SECONDS = 1.6
+_LEDGER_ROWS = (16, 18, 20, 22)  # y of each entry in the register
+
+
+def _audit_frame(k):
+    """The auditor reads a register under a magnifier; row k is highlighted, and the
+    third entry is flagged."""
+    g = _module_base()
+    g.rect(21, 14, 17, 10, "K")
+    g.rect(22, 15, 15, 8, "W")
+    for i, y in enumerate(_LEDGER_ROWS):
+        g.hl(23, y, 13, "B" if i == k else "L")
+    if k == 2:
+        g.rect(34, 20, 2, 1, "R")
+    lens = {(x, y) for y in range(3, 15) for x in range(21, 33) if (x - 26.5) ** 2 + (y - 8.5) ** 2 <= 30}
+    g.outlined(lens, "w")
+    g.px(24, 6, "W")
+    g.px(25, 5, "W")
+    g.px(24, 7, "W")
+    g.line(31, 13, 36, 19, "K")
+    g.line(32, 13, 37, 19, "y")
+    g.line(31, 14, 36, 20, "K")
+    _, right = _module_agent(g, AUDIT_AGENT)
+    arm(g, right[0], right[1], 16, 13)
+    return g
+
+
+def audit():
+    return scene_from_frames([_audit_frame(k) for k in range(AUDIT_FRAMES)], AUDIT_SECONDS)
