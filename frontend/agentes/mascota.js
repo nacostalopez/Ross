@@ -4,7 +4,8 @@
 //     strength of the password being chosen and celebrates a new account;
 //   - a toast that reports errors (instead of the browser's alert());
 //   - the "loading" block for the chart panel;
-//   - the mood of the True ROAS card against the minimum the user set in Alertas.
+//   - the mood of the True ROAS card against the minimum the user set in Alertas;
+//   - the "first steps" card for an account that still has things to set up.
 // It only reads the DOM that index.html and app.js already provide, and everything here is
 // decorative or a nicer way to show a message: if a sprite fails to load, the text is still there.
 (function () {
@@ -25,6 +26,14 @@
   function show(host, scene) {
     host.dataset.agentScene = scene;
     Agents.hydrate(host);
+  }
+
+  // The small "Ross" label that heads every message box (see .ross-box in agentes.css).
+  function label() {
+    const who = document.createElement("span");
+    who.className = "ross-who";
+    who.textContent = NAME;
+    return who;
   }
 
   function sprite(scene, size, max, cls) {
@@ -179,7 +188,7 @@
     if (!box) {
       box = document.createElement("div");
       box.id = "mascot-toast";
-      box.className = "mascot-toast";
+      box.className = "mascot-toast ross-box";
       box.setAttribute("role", "alert");
       document.body.appendChild(box);
     }
@@ -187,7 +196,7 @@
     text.className = "mascot-toast-text";
     const heading = document.createElement("strong");
     heading.textContent = title;
-    text.appendChild(heading);
+    text.append(label(), heading);
     if (detail) {
       const extra = document.createElement("span");
       extra.textContent = detail;
@@ -200,7 +209,7 @@
     close.addEventListener("click", dismissToast);
     text.appendChild(close);
 
-    box.replaceChildren(sprite("mascota-error", [26, 23], 4, "mascot-toast-art"), text);
+    box.replaceChildren(sprite("mascota-error", [26, 23], 3, "mascot-toast-art"), text);
     box.hidden = false;
     Agents.hydrate(box);
     clearTimeout(toastTimer);
@@ -272,13 +281,96 @@
     if (!art) {
       art = sprite("mascota-festeja", [26, 23], 4.5, "mascot-mood mascot-mood-art");
       note = document.createElement("p");
-      note.className = "mascot-mood mascot-mood-note";
+      note.className = "mascot-mood mascot-mood-note ross-box";
+      const msg = document.createElement("span");
+      msg.className = "ross-msg";
+      const arrow = document.createElement("span");
+      arrow.className = "ross-arrow";
+      const words = document.createElement("span");
+      words.className = "ross-words";
+      msg.append(arrow, words);
+      note.append(label(), msg);
       card.append(art, note);
     }
     note.classList.toggle("ok", ok);
     note.classList.toggle("low", !ok);
-    note.textContent = `${ok ? "▲ Por encima" : "▼ Por debajo"} de tu mínimo (${formatRoas(threshold)}x)`;
+    note.querySelector(".ross-arrow").textContent = ok ? "▲" : "▼";
+    note.querySelector(".ross-words").textContent = ` ${ok ? "Por encima" : "Por debajo"} de tu mínimo (${formatRoas(threshold)}x)`;
     show(art, ok ? "mascota-festeja" : "mascota-preocupada");
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // First steps
+  // ---------------------------------------------------------------------------------------------
+
+  // The card at the top of the Dashboard. app.js decides what the steps are and what each button does:
+  // `steps` is [{ title, detail, done, label, run }] and `run(button)` goes straight to that action, never
+  // by pressing some other button. The card is drawn again each time app.js calls this with the new
+  // result; null (or every step done) hides it. With `onHide`, the card offers to be put away.
+  function firstSteps(steps, onHide) {
+    const card = $("first-steps");
+    if (!card) return;
+    if (!steps || steps.every((step) => step.done)) {
+      card.hidden = true;
+      card.replaceChildren();
+      delete card.dataset.key;
+      return;
+    }
+    const key = steps.map((step) => (step.done ? 1 : 0)).join("");
+    if (card.dataset.key === key && !card.hidden) return; // nothing changed: leave the drawing alone
+    card.dataset.key = key;
+
+    const done = steps.filter((step) => step.done).length;
+    const next = steps.findIndex((step) => !step.done);
+    const list = document.createElement("ol");
+    steps.forEach((step, i) => {
+      const row = document.createElement("li");
+      row.classList.toggle("done", step.done);
+      const text = document.createElement("div");
+      const title = document.createElement("strong");
+      title.textContent = step.title;
+      const detail = document.createElement("span");
+      detail.textContent = step.detail;
+      text.append(title, detail);
+      row.append(text);
+      if (step.done) {
+        const ok = document.createElement("em");
+        ok.textContent = "Listo";
+        row.append(ok);
+      } else {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `btn ${i === next ? "btn-primary" : "btn-ghost"}`;
+        button.textContent = step.label;
+        button.addEventListener("click", () => step.run(button));
+        row.append(button);
+      }
+      list.append(row);
+    });
+
+    const head = document.createElement("div");
+    head.className = "first-steps-head";
+    const title = document.createElement("h3");
+    title.id = "first-steps-title";
+    title.textContent = `Primeros pasos · ${done} de ${steps.length}`;
+    head.append(title);
+    if (onHide) {
+      const hide = document.createElement("button");
+      hide.type = "button";
+      hide.className = "first-steps-hide";
+      hide.textContent = "Ocultar";
+      hide.addEventListener("click", onHide);
+      head.append(hide);
+    }
+    const intro = document.createElement("p");
+    intro.className = "muted";
+    intro.textContent = `${NAME} te acompaña: cada botón te lleva directo al paso.`;
+
+    const body = document.createElement("div");
+    body.append(head, intro, list);
+    card.replaceChildren(sprite("login-reposo", [22, 15], 5, "first-steps-art"), body);
+    card.hidden = false;
+    Agents.hydrate(card);
   }
 
   window.Mascot = {
@@ -287,5 +379,6 @@
     toast,
     loading,
     roasMood,
+    firstSteps,
   };
 })();

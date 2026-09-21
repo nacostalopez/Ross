@@ -125,8 +125,8 @@ def thick(x0, y0, x1, y1, t=2):
     return cells
 
 
-def paths_for(g, x_offset=0):
-    """{role: 'M..'} with horizontal runs merged vertically (few, short paths)."""
+def rects_for(g, x_offset=0):
+    """{role: [(x, y, w, h), ...]}: horizontal runs merged vertically (few, tall rectangles)."""
     per = {}
     for y in range(g.h):
         x = 0
@@ -141,7 +141,7 @@ def paths_for(g, x_offset=0):
             per.setdefault(c, {}).setdefault((x0, x - x0), []).append(y)
     out = {}
     for c, runs in per.items():
-        d = []
+        rects = []
         for (x0, w), ys in runs.items():
             ys.sort()
             start = prev = ys[0]
@@ -149,16 +149,33 @@ def paths_for(g, x_offset=0):
                 if y is not None and y == prev + 1:
                     prev = y
                     continue
-                d.append("M%d %dh%dv%dh-%dz" % (x0 + x_offset, start, w, prev - start + 1, w))
+                rects.append((x0 + x_offset, start, w, prev - start + 1))
                 if y is not None:
                     start = prev = y
-        out[c] = "".join(d)
+        out[c] = rects
     return out
 
 
-def _layer(g, x_offset=0):
-    """[[role_code, path], ...]; role_code is ord(role), used as the CSS class `c<code>`."""
-    return [[ord(c), d] for c, d in sorted(paths_for(g, x_offset).items())]
+def delta_coded(rects):
+    """Flat [x, y, w, h, x, y, w, h, ...] in reading order (top to bottom, left to right). Each y is
+    relative to the previous rectangle's and, when it is on the same row, so is x: the numbers stay
+    small and repeat, which gzip likes. The runtime undoes it in `rects()` of frontend/agentes/agentes.js:
+    change both together."""
+    flat, px, py = [], 0, 0
+    for x, y, w, h in sorted(rects, key=lambda r: (r[1], r[0])):
+        flat += [x - px if y == py else x, y - py, w, h]
+        px, py = x, y
+    return flat
+
+
+def _layer(grids):
+    """[[role_code, delta_coded_rects], ...]; role_code is ord(role), used as the CSS class `c<code>`.
+    `grids` is [(grid, x_offset), ...]: the rectangles of a role in all of them share one entry."""
+    per = {}
+    for g, x_offset in grids:
+        for c, rects in rects_for(g, x_offset).items():
+            per.setdefault(c, []).extend(rects)
+    return [[ord(c), delta_coded(rects)] for c, rects in sorted(per.items())]
 
 
 class Part:
@@ -196,15 +213,13 @@ class Scene:
             x1 = max(b[2] for b in boxes)
             y1 = max(b[3] for b in boxes)
             w, h, n = x1 - x0 + 1, y1 - y0 + 1, len(part.frames)
-            paths = []
-            for i, frame in enumerate(part.frames):
-                paths += _layer(frame.crop(x0, y0, w, h), x_offset=i * w)
+            paths = _layer([(frame.crop(x0, y0, w, h), i * w) for i, frame in enumerate(part.frames)])
             parts.append({
                 "l": round(100.0 * x0 / self.w, 3), "t": round(100.0 * y0 / self.h, 3),
                 "w": round(100.0 * w / self.w, 3), "h": round(100.0 * h / self.h, 3),
                 "n": n, "s": part.seconds, "vw": w * n, "vh": h, "p": paths,
             })
-        return {"w": self.w, "h": self.h, "bg": _layer(self.bg), "parts": parts}
+        return {"w": self.w, "h": self.h, "bg": _layer([(self.bg, 0)]), "parts": parts}
 
 
 def scene_from_frames(frames, seconds):

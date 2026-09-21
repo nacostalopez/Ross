@@ -102,13 +102,66 @@ def test_every_role_and_variant_has_a_chip_and_a_bust():
     assert set(portraits["heads"]) == set(export.HEAD_MODULES)
 
 
-def test_paths_are_plain_svg_path_data():
-    """The runtime puts `d` into markup: it must only ever contain path commands and numbers."""
+def _layers(data):
+    return [data["bg"]] + [part["p"] for part in data["parts"]]
+
+
+def test_layers_are_lists_of_whole_number_rectangles():
+    """The runtime turns these numbers into markup: they must be plain non-negative integers, four per
+    rectangle, with a real (non-empty) width and height."""
     for data in _all_drawings():
-        layers = [data["bg"]] + [part["p"] for part in data["parts"]]
-        for layer in layers:
-            for _, d in layer:
-                assert re.fullmatch(r"[MhvzZ0-9 \-]+", d), d[:60]
+        for layer in _layers(data):
+            for code, flat in layer:
+                assert isinstance(code, int)
+                assert flat and len(flat) % 4 == 0
+                assert all(isinstance(n, int) and n >= 0 for n in flat)
+                assert all(flat[i] > 0 and flat[i + 1] > 0 for i in range(2, len(flat), 4)), (chr(code), flat[:8])
+
+
+def _decode(flat):
+    """What `rects()` in frontend/agentes/agentes.js does, as a set of covered (x, y) cells."""
+    cells, px, py = set(), 0, 0
+    for i in range(0, len(flat), 4):
+        dy = flat[i + 1]
+        x = (0 if dy else px) + flat[i]
+        y = py + dy
+        w, h = flat[i + 2], flat[i + 3]
+        for j in range(h):
+            for k in range(w):
+                assert (x + k, y + j) not in cells, "two rectangles cover the same cell"
+                cells.add((x + k, y + j))
+        px, py = x, y
+    return cells
+
+
+def _cells_of(grid, x_offset=0):
+    return {(x + x_offset, y): grid.get(x, y) for y in range(grid.h) for x in range(grid.w) if grid.get(x, y) != "."}
+
+
+def test_rectangles_draw_exactly_the_grid():
+    """Encoding then decoding gives back every cell of the drawing with its own role, nothing more."""
+    for name, fn in export.SCENES.items():
+        scene = fn()
+        data = scene.to_data()
+        drawn = {}
+        for code, flat in data["bg"]:
+            for cell in _decode(flat):
+                assert cell not in drawn, name
+                drawn[cell] = chr(code)
+        assert drawn == _cells_of(scene.bg), name
+        for part, spec in zip(scene.parts, data["parts"]):
+            boxes = [f.bbox() for f in part.frames if f.bbox()]
+            x0, y0 = min(b[0] for b in boxes), min(b[1] for b in boxes)
+            w, h = max(b[2] for b in boxes) - x0 + 1, max(b[3] for b in boxes) - y0 + 1
+            expected = {}
+            for i, frame in enumerate(part.frames):
+                expected.update(_cells_of(frame.crop(x0, y0, w, h), i * w))
+            drawn = {}
+            for code, flat in spec["p"]:
+                for cell in _decode(flat):
+                    assert cell not in drawn, name
+                    drawn[cell] = chr(code)
+            assert drawn == expected, name
 
 
 def test_exported_json_is_valid():

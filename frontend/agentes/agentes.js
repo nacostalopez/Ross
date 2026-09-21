@@ -29,13 +29,32 @@
     return cache.get(path);
   }
 
-  // The JSON is our own static export, but numbers are still coerced so nothing
-  // unexpected can end up inside the markup.
+  // The JSON is our own static export, but everything that reaches the markup is still coerced to a
+  // number, so nothing unexpected can end up inside it.
   const num = (value) => Number(value) || 0;
-  const attr = (text) => String(text).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+
+  // A layer is [[role, [x, y, w, h, x, y, w, h, ...]], ...]: rectangles in reading order, delta-coded
+  // (tools/agentes/px.py, delta_coded(): change both together). Each y is relative to the previous
+  // rectangle's and, on the same row, so is x. Every role becomes one <path>.
+  function rects(flat) {
+    if (!Array.isArray(flat)) return ""; // a scene cached in the old format: draw nothing until it refreshes
+    let d = "";
+    let px = 0;
+    let py = 0;
+    for (let i = 0; i + 3 < flat.length; i += 4) {
+      const dy = num(flat[i + 1]);
+      const x = (dy ? 0 : px) + num(flat[i]);
+      const y = py + dy;
+      const w = num(flat[i + 2]);
+      d += `M${x} ${y}h${w}v${num(flat[i + 3])}h-${w}z`;
+      px = x;
+      py = y;
+    }
+    return d;
+  }
 
   function paths(list) {
-    return list.map(([role, d]) => `<path class="c${num(role)}" d="${attr(d)}"/>`).join("");
+    return list.map(([role, flat]) => `<path class="c${num(role)}" d="${rects(flat)}"/>`).join("");
   }
 
   // A drawing is a static background layer plus animated parts. Each part is a strip of

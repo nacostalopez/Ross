@@ -109,7 +109,7 @@
         </svg>
         <div class="auth-card">
           <div id="auth-mascot" class="pxa pxa-scene auth-mascot" style="--w:22;--h:15;--max:7" data-agent-scene="login-reposo" aria-hidden="true"></div>
-          <button type="button" id="auth-invite" class="agents-bubble" aria-label="Soy Ross. ¿Primera vez? Creá tu cuenta" hidden>Soy Ross.<br />¿Primera vez?<br />Creá tu cuenta</button>
+          <button type="button" id="auth-invite" class="ross-box agents-bubble" aria-label="Soy Ross. ¿Primera vez? Creá tu cuenta" hidden><span class="ross-who">Ross</span><span class="ross-msg">¿Primera vez?<br />Creá tu cuenta</span></button>
           <div id="login-heading" class="auth-card-heading">
             <h2>Bienvenido de nuevo</h2>
             <p>Ingresá para ver el estado real de tu negocio.</p>
@@ -266,6 +266,8 @@
 
       <div class="content">
         <div id="dashboard-panels">
+          <section id="first-steps" class="panel first-steps" aria-labelledby="first-steps-title" hidden></section>
+
           <div id="empty-state" class="empty-state" hidden>
             <div class="agents-empty-frame">
               <div class="pxa pxa-scene" style="--w:48;--h:30" data-agent-scene="conectores" aria-hidden="true"></div>

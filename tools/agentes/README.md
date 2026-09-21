@@ -25,9 +25,14 @@ stale. `frontend/agentes/agentes.js` and `agentes.css` are hand-written (the run
 
 ## How it is built
 
-- `px.py`: the engine. A `Grid` holds one-character *roles*; `paths_for` turns it into SVG paths
+- `px.py`: the engine. A `Grid` holds one-character *roles*; `rects_for` turns it into rectangles
   (horizontal runs merged vertically). An animated part is a strip of frames that the runtime
   slides with CSS `steps(n)`, so no JavaScript runs per frame.
+- What is exported per color is one flat list `[x, y, w, h, x, y, w, h, ...]`, in reading order and
+  delta-coded by `delta_coded()` (each `y` relative to the previous rectangle's and, on the same row,
+  each `x` too), which gzips about 28% smaller than SVG path text. The runtime rebuilds the paths in
+  `rects()` of `agentes.js`: if you change the encoding, change both (`pytest` decodes the numbers
+  and compares them to the grid, and the pixel output can be compared before and after in a browser).
 - `palette.py`: role to color. Aramal's base theme is light, so `LIGHT` has every role and `DARK`
   only the ones that change.
 - `agent.py`: the 12x21 agent with three uniforms (`suit`, `coat`, `shirt`) and accessories.

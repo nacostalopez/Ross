@@ -11,7 +11,8 @@ const state = {
   activeStoreId: null,
   activeStoreCurrency: "USD",
   currentView: null,
-  roasThresholds: {}, // store id -> the True ROAS minimum from its alert preferences
+  alertPrefs: {}, // store id -> a promise of its alert preferences (the True ROAS minimum, whether alerts are on)
+  hasOrders: {}, // store id -> whether the dashboard has ever shown orders for it (stays true once seen)
   dashboardLayout: null,
   dashboardEditMode: false,
 };
@@ -581,6 +582,7 @@ async function loadStores() {
     emptyState.hidden = false;
     paintAgents(emptyState);
     document.getElementById("store-panel").hidden = true;
+    refreshFirstSteps();
     return;
   }
 
@@ -728,8 +730,9 @@ async function saveQuickAlertThreshold() {
       roas_days_n: current.roas_days_n,
     },
   });
-  state.roasThresholds[state.activeStoreId] = threshold;
+  rememberAlertPrefs(state.activeStoreId, { ...current, enabled: true, roas_threshold: threshold });
   if (state.lastSummary) refreshRoasMood(state.lastSummary);
+  refreshFirstSteps();
   statusEl.textContent = "Guardado — alertas activadas.";
 }
 
@@ -955,20 +958,35 @@ function applyStatWidgets(summary, prevSummary) {
   refreshRoasMood(summary);
 }
 
+// A store's alert preferences are fetched once and kept: the True ROAS mood needs the minimum, the
+// first-steps card needs to know whether alerts are on. A failed fetch is forgotten so the next asker retries.
+function alertPrefs(storeId) {
+  if (!state.alertPrefs[storeId]) {
+    state.alertPrefs[storeId] = api(`/stores/${storeId}/alert-preferences`).catch((err) => {
+      delete state.alertPrefs[storeId];
+      throw err;
+    });
+  }
+  return state.alertPrefs[storeId];
+}
+
+function rememberAlertPrefs(storeId, prefs) {
+  state.alertPrefs[storeId] = Promise.resolve(prefs);
+}
+
 // The mascot on the True ROAS card reacts to the result against the minimum the user set in Alertas
-// (1.0 unless they changed it). That minimum is fetched once per store and kept in state.
+// (1.0 unless they changed it).
 async function refreshRoasMood(summary) {
   if (!window.Mascot || !state.activeStoreId) return;
   const storeId = state.activeStoreId;
-  if (state.roasThresholds[storeId] === undefined) {
-    try {
-      state.roasThresholds[storeId] = Number((await api(`/stores/${storeId}/alert-preferences`)).roas_threshold);
-    } catch (err) {
-      state.roasThresholds[storeId] = 1.0;
-    }
+  let threshold = 1.0;
+  try {
+    threshold = Number((await alertPrefs(storeId)).roas_threshold);
+  } catch (err) {
+    // no preferences to read: the default minimum
   }
   if (storeId !== state.activeStoreId) return; // the user moved to another store while we waited
-  window.Mascot.roasMood(summary.true_roas, state.roasThresholds[storeId]);
+  window.Mascot.roasMood(summary.true_roas, threshold);
 }
 
 async function refreshMetrics() {
@@ -979,9 +997,11 @@ async function refreshMetrics() {
   const needsData = layout.some((w) => STAT_WIDGET_TYPES.includes(w.type) || w.type === "chart_daily");
   if (!needsData) {
     document.getElementById("metrics-empty").hidden = true;
+    refreshFirstSteps();
     return;
   }
 
+  const storeId = state.activeStoreId;
   const { start, end } = dateRange();
   const qs = `start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
   const prevRange = previousDateRange(start, end);
@@ -1005,9 +1025,11 @@ async function refreshMetrics() {
   state.lastSummary = summary;
   state.lastPrevSummary = prevSummary;
   state.lastDaily = daily;
+  state.hasOrders[storeId] = state.hasOrders[storeId] || summary.revenue > 0;
 
   applyStatWidgets(summary, prevSummary);
   renderChart(daily);
+  refreshFirstSteps();
 }
 
 function renderChart(daily) {
@@ -1673,17 +1695,16 @@ document.getElementById("alert-preferences-cancel").addEventListener("click", ()
 document.getElementById("alert-preferences-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const cacRaw = document.getElementById("alert-cac-threshold").value;
-  await api(`/stores/${state.activeStoreId}/alert-preferences`, {
-    method: "PUT",
-    body: {
-      enabled: document.getElementById("alert-enabled").checked,
-      cac_threshold: cacRaw === "" ? null : Number(cacRaw),
-      roas_threshold: Number(document.getElementById("alert-roas-threshold").value),
-      roas_days_n: Number(document.getElementById("alert-roas-days").value),
-    },
-  });
-  state.roasThresholds[state.activeStoreId] = Number(document.getElementById("alert-roas-threshold").value);
+  const prefs = {
+    enabled: document.getElementById("alert-enabled").checked,
+    cac_threshold: cacRaw === "" ? null : Number(cacRaw),
+    roas_threshold: Number(document.getElementById("alert-roas-threshold").value),
+    roas_days_n: Number(document.getElementById("alert-roas-days").value),
+  };
+  await api(`/stores/${state.activeStoreId}/alert-preferences`, { method: "PUT", body: prefs });
+  rememberAlertPrefs(state.activeStoreId, prefs);
   if (state.lastSummary) refreshRoasMood(state.lastSummary);
+  refreshFirstSteps();
   alertPreferencesModal.hidden = true;
 });
 
@@ -2161,20 +2182,34 @@ document.getElementById("invite-form").addEventListener("submit", async (e) => {
 // Seed demo data (mirrors scripts/seed_demo.py, run from the browser)
 // ---------------------------------------------------------------------------
 
-document.getElementById("seed-btn").addEventListener("click", async () => {
-  const btn = document.getElementById("seed-btn");
-  btn.disabled = true;
-  btn.textContent = "Cargando…";
+let seeding = false;
+
+// Loads the demo data into the active store. Every button that can start it (the header's, the first-steps
+// card's) shows the progress, and a second press while it runs does nothing.
+async function loadDemoData(...pressed) {
+  if (seeding) return;
+  seeding = true;
+  const buttons = [...new Set([document.getElementById("seed-btn"), ...pressed])];
+  const labels = buttons.map((btn) => btn.textContent);
+  buttons.forEach((btn) => {
+    btn.disabled = true;
+    btn.textContent = "Cargando…";
+  });
   try {
     await seedDemoData(state.activeStoreId);
     await refreshMetrics();
   } catch (err) {
     reportError("No se pudo cargar la demo", err.message);
   } finally {
-    btn.disabled = false;
-    btn.textContent = "Cargar datos de demo";
+    seeding = false;
+    buttons.forEach((btn, i) => {
+      btn.disabled = false;
+      btn.textContent = labels[i];
+    });
   }
-});
+}
+
+document.getElementById("seed-btn").addEventListener("click", () => loadDemoData());
 
 async function seedDemoData(storeId) {
   await api(`/stores/${storeId}/products`, {
@@ -2292,6 +2327,81 @@ async function seedDemoData(storeId) {
     }
   }
   await api(`/stores/${storeId}/creative-performance`, { method: "POST", body: creativeRows });
+}
+
+// ---------------------------------------------------------------------------
+// First steps (the card is drawn by agentes/mascota.js)
+// ---------------------------------------------------------------------------
+
+const firstStepsKey = () => `aramal_first_steps_hidden_${state.currentUser.id}`;
+
+function firstStepsHidden() {
+  try {
+    return window.localStorage.getItem(firstStepsKey()) === "1";
+  } catch (err) {
+    return false;
+  }
+}
+
+function hideFirstSteps() {
+  try {
+    window.localStorage.setItem(firstStepsKey(), "1");
+  } catch (err) {
+    // storage blocked: it comes back next time
+  }
+  window.Mascot.firstSteps(null);
+}
+
+// Each button goes straight to its action: the demo data loads on the spot (the button shows the
+// progress), and the alerts form opens with focus inside it. Nothing presses another button for the person.
+async function openAlertsFromFirstSteps() {
+  try {
+    await openAlertPreferencesModal();
+    document.getElementById("alert-enabled").focus();
+  } catch (err) {
+    reportError("No se pudo abrir la configuración de alertas", err.message);
+  }
+}
+
+// The card follows what a new account still lacks (a store, orders, an active alert), all read from what
+// the app already knows. It is for the people who can do those things: owner and admin of the active store.
+// With no answer about orders (the board has no stat or chart widget) that step is not held against them.
+async function refreshFirstSteps() {
+  if (!window.Mascot) return;
+  const storeId = state.activeStoreId;
+  const store = state.stores.find((s) => s.id === storeId);
+  if (!store || !["owner", "admin"].includes(store.effective_role) || firstStepsHidden()) {
+    window.Mascot.firstSteps(null);
+    return;
+  }
+  let prefs;
+  try {
+    prefs = await alertPrefs(storeId);
+  } catch (err) {
+    window.Mascot.firstSteps(null);
+    return;
+  }
+  if (storeId !== state.activeStoreId) return; // the user moved to another store while we waited
+  window.Mascot.firstSteps(
+    [
+      { title: "Tienda lista", detail: `${store.name} · ${store.platform}`, done: true },
+      {
+        title: "Cargá datos de demo",
+        detail: "Para ver un True ROAS real sin esperar pedidos.",
+        label: "Cargar demo",
+        done: state.hasOrders[storeId] !== false,
+        run: (button) => loadDemoData(button),
+      },
+      {
+        title: "Activá una alerta",
+        detail: "Te avisamos si el CAC o el ROAS se van de rango.",
+        label: "Configurar",
+        done: Boolean(prefs.enabled),
+        run: openAlertsFromFirstSteps,
+      },
+    ],
+    hideFirstSteps
+  );
 }
 
 // ---------------------------------------------------------------------------

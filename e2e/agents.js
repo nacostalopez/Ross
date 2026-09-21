@@ -20,7 +20,9 @@
  *     shakes its head on a failure, follows the password strength while registering, celebrates a
  *     new account, and worries on an expired session;
  *   - the app mascot: an error toast instead of alert(), a loading block while the numbers load,
- *     and the True ROAS card mood against the minimum set in Alertas.
+ *     and the True ROAS card mood against the minimum set in Alertas;
+ *   - the first-steps card: shown to owner/admin of a store, ticks off as things get done, and each
+ *     button goes straight to its action (no other button is pressed for the person).
  *
  * Prerequisites (local/manual, NOT wired into CI):
  *   - the docker-compose stack running, frontend on FRONTEND_URL (default
@@ -46,6 +48,12 @@ if (SHOTS_DIR) fs.mkdirSync(SHOTS_DIR, { recursive: true });
 
 // Sprite outline color (role "K") per theme: agentes/paleta.css.
 const OUTLINE = { light: "rgb(12, 23, 48)", dark: "rgb(5, 10, 23)" };
+// The stripe of Ross's message boxes (--ross-* in agentes/agentes.css) per theme: greeting, error, and True ROAS
+// above / below the minimum (light tones are darker so they hold 3:1 on white).
+const STRIPE = {
+  light: { neutral: "rgb(59, 140, 184)", error: "rgb(250, 7, 21)", ok: "rgb(8, 135, 111)", warn: "rgb(168, 122, 0)" },
+  dark: { neutral: "rgb(125, 184, 217)", error: "rgb(250, 7, 21)", ok: "rgb(14, 181, 150)", warn: "rgb(224, 164, 0)" },
+};
 const VIEWPORTS = { desktop: { width: 1280, height: 800 }, m390: { width: 390, height: 780 }, m360: { width: 360, height: 740 } };
 
 // Go to a sidebar view. Below 860 px the sidebar is an off-canvas drawer, so open it first.
@@ -335,7 +343,8 @@ async function shot(page, name, options = {}) {
       check("[login agent] a first visit gets the invitation (scene, bubble, ring on the tab)",
         (await sceneIs(page, "login-invita")) && (await page.isVisible("#auth-invite")) &&
         (await page.evaluate(() => document.getElementById("tab-register").classList.contains("agents-invite-hint"))));
-      check("[login agent] the invitation introduces Ross", /Soy Ross/.test(await page.textContent("#auth-invite")));
+      check("[login agent] the invitation is headed by Ross's name and says what to do", (await page.textContent("#auth-invite .ross-who")) === "Ross" &&
+        /Primera vez/.test(await page.textContent("#auth-invite")) && /Soy Ross/.test(await page.getAttribute("#auth-invite", "aria-label")));
       await page.click("#auth-invite");
       check("[login agent] the invitation opens the registration tab", (await page.isVisible("#register-form")) && !(await page.isVisible("#auth-invite")));
       check("[login agent] no console errors on a first visit", errors.length === 0, errors.join(" | "));
@@ -414,12 +423,17 @@ async function shot(page, name, options = {}) {
           scrollW: document.documentElement.scrollWidth, innerW: window.innerWidth,
           clipped: agent.top < side.top - 0.5,
           bubbleInside: bubble.left >= 0 && bubble.right <= window.innerWidth,
+          // the head spans the first 15 of the scene's 22 columns
+          clearOfFace: bubble.left >= agent.left + (agent.width * 15) / 22 - 0.5,
+          stripe: getComputedStyle(document.getElementById("auth-invite")).borderLeftColor,
           outline: getComputedStyle(document.querySelector("#auth-mascot path.c75")).fill,
         };
       });
       check(`[login agent/${theme}/m360] no horizontal scroll`, m.scrollW <= m.innerW, `${m.scrollW}/${m.innerW}`);
       check(`[login agent/${theme}/m360] the agent is not clipped by the form side`, !m.clipped);
       check(`[login agent/${theme}/m360] the bubble stays inside the screen`, m.bubbleInside);
+      check(`[login agent/${theme}/m360] the bubble stays clear of the agent's face`, m.clearOfFace);
+      check(`[login agent/${theme}/m360] the bubble's stripe is the neutral greeting color`, m.stripe === STRIPE[theme].neutral, m.stripe);
       check(`[login agent/${theme}/m360] theme colors applied`, m.outline === OUTLINE[theme], m.outline);
       await shot(page, `login-agent-${theme}-m360.png`);
       await context.close();
@@ -441,7 +455,10 @@ async function shot(page, name, options = {}) {
     const alertPrefs = (roas) => put(`/stores/${store.id}/alert-preferences`, { enabled: false, cac_threshold: null, roas_threshold: roas, roas_days_n: 3 }, seeded.access_token);
     const mood = (page) => page.evaluate(() => {
       const art = document.querySelector(".stat-hero .mascot-mood-art"), note = document.querySelector(".stat-hero .mascot-mood-note");
-      return art && note ? { scene: art.dataset.agentScene, drawn: !!art.querySelector("svg"), text: note.textContent, low: note.classList.contains("low") } : null;
+      return art && note ? {
+        scene: art.dataset.agentScene, drawn: !!art.querySelector("svg"), text: note.textContent, low: note.classList.contains("low"),
+        who: (note.querySelector(".ross-who") || {}).textContent, arrow: (note.querySelector(".ross-arrow") || {}).textContent, stripe: getComputedStyle(note).borderLeftColor,
+      } : null;
     });
 
     // True ROAS mood: above / below the minimum, on desktop and phone, in both themes
@@ -455,6 +472,8 @@ async function shot(page, name, options = {}) {
         const tag = `mood ${roas}/${vp}/${theme}`;
         check(`[${tag}] the mascot stands on the True ROAS card with the right pose`, !!m && m.scene === scene && m.drawn, JSON.stringify(m));
         check(`[${tag}] a sentence says the same in words`, !!m && m.text.includes(phrase), m && m.text);
+        check(`[${tag}] Ross's label heads the box and the stripe is ${roas === 0.5 ? "green" : "amber (not red)"}`,
+          !!m && m.who === "Ross" && m.arrow === (roas === 0.5 ? "▲" : "▼") && m.stripe === STRIPE[theme][roas === 0.5 ? "ok" : "warn"], JSON.stringify(m));
         const box = await page.evaluate(() => {
           const card = document.querySelector(".stat-hero").getBoundingClientRect(), art = document.querySelector(".stat-hero .mascot-mood-art").getBoundingClientRect();
           return { inside: art.left >= card.left && art.right <= card.right && art.top >= card.top - 1 && art.bottom <= card.bottom + 1, scrollW: document.documentElement.scrollWidth, innerW: window.innerWidth };
@@ -524,11 +543,14 @@ async function shot(page, name, options = {}) {
       const t = await page.evaluate(() => {
         const box = document.getElementById("mascot-toast");
         const rect = box.getBoundingClientRect();
+        const art = box.querySelector(".mascot-toast-art").getBoundingClientRect();
         return { text: box.textContent, role: box.getAttribute("role"), scene: box.querySelector(".mascot-toast-art").dataset.agentScene,
+          who: (box.querySelector(".ross-who") || {}).textContent, stripe: getComputedStyle(box).borderLeftColor, standing: Math.abs(art.bottom - rect.top) <= 2,
           inside: rect.left >= 0 && rect.right <= window.innerWidth && rect.bottom <= window.innerHeight, outline: getComputedStyle(box.querySelector("path.c75")).fill };
       });
       check(`[${tag}] it says what failed, in a live region, with the cable pose`, /No se pudo cargar la demo/.test(t.text) && t.role === "alert" && t.scene === "mascota-error", JSON.stringify(t));
       check(`[${tag}] it fits the screen and uses the theme colors`, t.inside && t.outline === OUTLINE[theme], JSON.stringify(t));
+      check(`[${tag}] Ross's label heads it, the stripe is red and Ross stands on its top edge`, t.who === "Ross" && t.stripe === STRIPE[theme].error && t.standing, JSON.stringify(t));
       check(`[${tag}] the browser's alert() is not used`, dialogs === 0, `${dialogs} dialogs`);
       if (vp === "desktop") await shot(page, "toast.png", { clip: { x: 760, y: 560, width: 520, height: 240 } });
       await page.click("#mascot-toast .btn");
@@ -539,6 +561,163 @@ async function shot(page, name, options = {}) {
       check(`[${tag}] Escape dismisses it`, !(await page.isVisible("#mascot-toast")));
       await context.close();
     }
+  }
+
+  // 9) First steps: the card for an account that still has things to set up.
+  {
+    // Registering is limited to 5 a minute per address: wait for the window instead of failing.
+    const fresh = async (label, { store = true } = {}) => {
+      const body = { account_name: `${label} QA`, email: `${label.toLowerCase().replace(/\W/g, "-")}-${Date.now()}@example.com`, password: "Aramal-QA-2026!xQ7" };
+      let tokensFor;
+      for (;;) {
+        try {
+          tokensFor = await post("/auth/register", body);
+          break;
+        } catch (err) {
+          if (!/ 429 /.test(err.message)) throw err;
+          await new Promise((resolve) => setTimeout(resolve, 15000));
+        }
+      }
+      const made = store ? await post("/stores", { name: "Tienda QA", platform: "tiendanube", currency: "ARS" }, tokensFor.access_token) : null;
+      return { tokens: tokensFor, store: made };
+    };
+    const cardState = (page) => page.evaluate(() => {
+      const card = document.getElementById("first-steps");
+      const rows = Array.from(card.querySelectorAll("li")).map((li) => ({
+        title: li.querySelector("strong").textContent, done: li.classList.contains("done"),
+        button: li.querySelector("button") ? li.querySelector("button").textContent : null,
+        primary: !!li.querySelector("button.btn-primary"),
+      }));
+      return {
+        visible: !card.hidden, heading: (card.querySelector("h3") || {}).textContent || "", rows,
+        scene: (card.querySelector(".first-steps-art") || {}).dataset && card.querySelector(".first-steps-art").dataset.agentScene,
+        drawn: !!card.querySelector(".first-steps-art svg"),
+      };
+    });
+    const spyClicks = (page) => page.evaluate(() => {
+      window.__clicked = [];
+      document.addEventListener("click", (event) => window.__clicked.push(event.target.id || event.target.textContent.trim()), true);
+    });
+
+    // no store yet: the empty state has its own button, the card stays away
+    {
+      const { tokens: noStore } = await fresh("Sin tienda", { store: false });
+      const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens: noStore });
+      await page.goto(APP);
+      await page.waitForSelector("#empty-state:not([hidden])");
+      await page.waitForTimeout(600);
+      check("[first steps] with no store there is no card (the empty state has its own button)", (await cardState(page)).visible === false);
+      await context.close();
+    }
+
+    // the whole path, on desktop: every button goes straight to its action, nothing opens by itself
+    {
+      const { tokens: mine } = await fresh("Primeros pasos");
+      const { context, page, errors } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens: mine });
+      await page.goto(APP);
+      await page.waitForSelector("#first-steps:not([hidden]) .first-steps-art svg", { timeout: 15000 });
+      let s = await cardState(page);
+      check("[first steps] a store with no orders and no alert shows 1 of 3 with Ross drawn", s.heading === "Primeros pasos · 1 de 3" && s.scene === "login-reposo" && s.drawn, JSON.stringify(s));
+      check("[first steps] the store is done and the other two have a button; the next one is the primary", s.rows.length === 3 && s.rows[0].done && s.rows[1].button === "Cargar demo" && s.rows[1].primary && s.rows[2].button === "Configurar" && !s.rows[2].primary, JSON.stringify(s.rows));
+      check("[first steps] nothing has opened by itself", await page.evaluate(() => ["new-store-modal", "alert-preferences-modal", "report-preferences-modal", "store-members-modal"].every((id) => document.getElementById(id).hidden)));
+      await shot(page, "first-steps.png", { clip: { x: 220, y: 60, width: 1060, height: 300 } });
+      await spyClicks(page);
+
+      // "Configurar": the alerts form is what opens, in front of the person, with focus inside it
+      await page.click("#first-steps li:nth-child(3) button");
+      await page.waitForSelector("#alert-preferences-modal:not([hidden])", { timeout: 8000 });
+      const focused = await page.evaluate(() => document.activeElement && document.activeElement.id);
+      check("[first steps] Configurar opens the alerts form with focus on its first field", focused === "alert-enabled", String(focused));
+      check("[first steps] it goes straight there: no other button is pressed for the person", await page.evaluate(() => window.__clicked.length === 1 && !window.__clicked.includes("alerts-btn")), JSON.stringify(await page.evaluate(() => window.__clicked)));
+      await page.check("#alert-enabled");
+      await page.click('#alert-preferences-form button[type="submit"]');
+      await page.waitForFunction(() => document.getElementById("alert-preferences-modal").hidden);
+      await page.waitForFunction(() => /2 de 3/.test(document.querySelector("#first-steps h3").textContent), null, { timeout: 5000 });
+      s = await cardState(page);
+      check("[first steps] saving the alert ticks its step (2 of 3) without reloading", s.rows[2].done && s.rows[2].button === null && s.rows[1].primary, JSON.stringify(s.rows));
+
+      // "Cargar demo": loads on the spot, both buttons show the progress, the card goes away when done
+      await page.evaluate(() => (window.__clicked = []));
+      await page.click("#first-steps li:nth-child(2) button");
+      const progress = await page.evaluate(() => ({ seed: document.getElementById("seed-btn").textContent, guide: document.querySelector("#first-steps li:nth-child(2) button").textContent, disabled: document.getElementById("seed-btn").disabled }));
+      check("[first steps] Cargar demo shows the progress in the card and in the header button", progress.seed === "Cargando…" && progress.guide === "Cargando…" && progress.disabled, JSON.stringify(progress));
+      await page.waitForFunction(() => document.getElementById("first-steps").hidden === true, null, { timeout: 40000 });
+      check("[first steps] with the demo loaded and the alert on, the card is gone and the numbers are there", await page.evaluate(() => document.getElementById("metrics-empty").hidden === true && document.getElementById("seed-btn").textContent === "Cargar datos de demo" && !document.getElementById("seed-btn").disabled));
+      check("[first steps] no other button was pressed for the person", await page.evaluate(() => !window.__clicked.includes("seed-btn")), JSON.stringify(await page.evaluate(() => window.__clicked)));
+      await page.reload();
+      await page.waitForSelector("#store-panel:not([hidden])");
+      await page.waitForFunction(() => document.getElementById("metrics-empty").hidden === true, null, { timeout: 15000 });
+      await page.waitForTimeout(500);
+      check("[first steps] once everything is done it stays away after a reload", (await cardState(page)).visible === false);
+      check("[first steps] no console errors", errors.length === 0, errors.join(" | "));
+      await context.close();
+    }
+
+    // The next cases change nothing in this account (a failed load, a role override, layout checks),
+    // except putting the card away, which goes last.
+    const { tokens: pending } = await fresh("Guia pendiente");
+
+    // an error while loading the demo is reported by the mascot's toast and the button comes back
+    {
+      const mine = pending;
+      const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens: mine });
+      await page.route(/\/stores\/[^/]+\/products$/, (route) => route.abort());
+      await page.goto(APP);
+      await page.waitForSelector("#first-steps:not([hidden]) li:nth-child(2) button");
+      await page.click("#first-steps li:nth-child(2) button");
+      const toast = await page.waitForSelector("#mascot-toast:not([hidden])", { timeout: 8000 }).then(() => true, () => false);
+      check("[first steps] a failure while loading the demo shows the mascot's toast", toast && /No se pudo cargar la demo/.test(await page.textContent("#mascot-toast")));
+      check("[first steps] the button comes back and the step is still pending", await page.evaluate(() => document.querySelector("#first-steps li:nth-child(2) button").textContent === "Cargar demo" && !document.querySelector("#first-steps li:nth-child(2) button").disabled));
+      await context.close();
+    }
+
+    // a viewer in the store cannot do any of it, so does not get the card
+    {
+      const mine = pending;
+      const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens: mine });
+      await page.route(/\/stores$/, async (route) => {
+        const res = await route.fetch();
+        await route.fulfill({ response: res, json: (await res.json()).map((s) => ({ ...s, effective_role: "viewer" })) });
+      });
+      await page.goto(APP);
+      await page.waitForSelector("#store-panel:not([hidden])");
+      await page.waitForTimeout(1000);
+      check("[first steps] a viewer of the store does not get the card", (await cardState(page)).visible === false);
+      await context.close();
+    }
+
+    // phone and dark theme: fits, is drawn with the theme colors, nothing overflows
+    for (const [vp, theme] of [["m360", "light"], ["m360", "dark"], ["m390", "dark"]]) {
+      const mine = pending;
+      const { context, page, errors } = await open(browser, { theme, viewport: VIEWPORTS[vp], tokens: mine });
+      await page.goto(APP);
+      await page.waitForSelector("#first-steps:not([hidden]) .first-steps-art svg", { timeout: 15000 });
+      const m = await page.evaluate(() => {
+        const card = document.getElementById("first-steps").getBoundingClientRect();
+        const inside = Array.from(document.querySelectorAll("#first-steps *")).filter((el) => !el.closest(".pxa")).every((el) => { const r = el.getBoundingClientRect(); return r.right <= card.right + 0.5 && r.left >= card.left - 0.5; });
+        return { scrollW: document.documentElement.scrollWidth, innerW: window.innerWidth, inside, outline: getComputedStyle(document.querySelector("#first-steps path.c75")).fill };
+      });
+      const tag = `first steps/${theme}/${vp}`;
+      check(`[${tag}] no horizontal scroll and everything stays inside the card`, m.scrollW <= m.innerW && m.inside, JSON.stringify(m));
+      check(`[${tag}] theme colors applied and no console errors`, m.outline === OUTLINE[theme] && errors.length === 0, `${m.outline} ${errors.join(" | ")}`);
+      await shot(page, `first-steps-${theme}-${vp}.png`, { fullPage: false });
+      await context.close();
+    }
+    // putting it away is remembered for that person
+    {
+      const mine = pending;
+      const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens: mine });
+      await page.goto(APP);
+      await page.waitForSelector("#first-steps:not([hidden]) .first-steps-hide");
+      await page.click(".first-steps-hide");
+      check("[first steps] Ocultar puts the card away", (await cardState(page)).visible === false);
+      await page.reload();
+      await page.waitForSelector("#store-panel:not([hidden])");
+      await page.waitForTimeout(1000);
+      check("[first steps] and it stays away after a reload", (await cardState(page)).visible === false);
+      await context.close();
+    }
+
   }
 
   await browser.close();
