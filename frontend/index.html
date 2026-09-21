@@ -329,7 +329,7 @@
 
         <div id="profile-panel" class="members-panel" hidden>
           <div class="store-panel-header">
-            <div class="profile-heading">
+            <div class="agents-heading">
               <span id="profile-bust" class="pxa pxa-sprite" style="--w:16;--h:22;--s:3" data-agent-bust="" aria-hidden="true"></span>
               <div>
                 <h2>Perfil</h2>
@@ -407,7 +407,10 @@
   <!-- Alert preferences modal -->
   <div id="alert-preferences-modal" class="modal" hidden>
     <div class="modal-card">
-      <h3>Alertas de CAC y ROAS</h3>
+      <div class="agents-modal-head">
+        <h3>Alertas de CAC y ROAS</h3>
+        <div class="pxa pxa-scene" style="--w:40;--h:26;--max:3" data-agent-scene="alertas" aria-hidden="true"></div>
+      </div>
       <p class="muted">Te avisamos por email cuando el CAC de un canal se pasa del umbral, o cuando el true ROAS está por debajo del mínimo varios días seguidos.</p>
       <form id="alert-preferences-form">
         <label class="checkbox-label">

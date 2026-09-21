@@ -125,3 +125,55 @@ def bust(role, variant):
         g.art(["KKKKKKKKKK", "KDDDDDDDDK", "KDGDBBBBDK", "KDDDDDDDDK", "KKKKKKKKKK"], 3, 16)  # tablet
     g.frame(0, 0, 16, 22, "K")
     return g
+
+
+# ----------------------------------------------------------------------------------------------
+# Module scenes (40x26): an agent and one prop on a floor line, used beside modal titles and in
+# empty states. Each builds N full frames; scene_from_frames keeps the static part as background.
+
+MW, MH, MFLOOR = 40, 26, 25
+
+
+def _module_base():
+    g = Grid(MW, MH)
+    g.hl(0, MFLOOR, MW, "x")
+    return g
+
+
+def _module_agent(g, params, x=3, y=4):
+    """Draw the agent at the left of a module scene; returns its (left, right) shoulders."""
+    agent(g, x, y, **params)
+    return shoulders(x, y)
+
+
+ALERTS_AGENT = dict(outfit="coat", acc=["headset"], accent="R", **VARIANTS[2])
+ALERTS_FRAMES = 4
+ALERTS_SECONDS = 1.2
+
+# Rays around the siren: two alternating patterns while it is lit.
+_SIREN_RAYS = (
+    [(23, 6), (35, 6), (29, 3), (24, 11), (34, 11), (22, 4), (36, 4)],
+    [(22, 7), (36, 7), (27, 3), (31, 3), (23, 11), (35, 11)],
+)
+
+
+def _alerts_frame(k):
+    """The watcher stands by a siren that lights up when CAC passes the threshold."""
+    g = _module_base()
+    g.rect(24, 22, 10, 3, "N")
+    g.hl(24, 22, 10, "M")
+    g.frame(24, 22, 10, 3, "K")
+    g.rect(28, 13, 2, 9, "K")
+    if k < 2:  # lit, rays alternating
+        g.art([".KKKKKK.", "KRRPRRRK", "KRRPRRRK", "KRRRRRRK", "KrrrrrrK", "KKKKKKKK"], 25, 8)
+        for x, y in _SIREN_RAYS[k]:
+            g.px(x, y, "Y")
+    else:      # dark
+        g.art([".KKKKKK.", "KrrrrrrK", "KrrrrrrK", "KrrrrrrK", "KrrrrrrK", "KKKKKKKK"], 25, 8)
+    _, right = _module_agent(g, ALERTS_AGENT)
+    arm(g, right[0], right[1], 16, 16)
+    return g
+
+
+def alerts():
+    return scene_from_frames([_alerts_frame(k) for k in range(ALERTS_FRAMES)], ALERTS_SECONDS)

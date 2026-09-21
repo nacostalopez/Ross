@@ -17,8 +17,10 @@ LIGHT = {
     "x": "#c6d2e4",  # floor line
     # functional teal (Aramal --positive)
     "G": "#0EB596", "g": "#0a8a72", "e": "#066352", "l": "#9be8d8",
-    # gold: insignia, ties, hard hat
+    # gold: insignia, ties, hard hat, seals
     "Y": "#d9a92a", "y": "#a17a10",
+    # alert red (Aramal --danger, softened for sprites) and its highlight
+    "R": "#f0625a", "r": "#a3312b", "P": "#f2c25c",
     # brand blues (Aramal --celeste / --primary)
     "B": "#6fb0d6", "b": "#2263A2", "w": "#cfe8f5",
     # skin tones and hair (identical in both themes)

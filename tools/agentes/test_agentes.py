@@ -53,16 +53,28 @@ def test_weight_budget():
     assert export.over_budget(export.weights(export.DEFAULT_OUT)) == []
 
 
-def test_connectors_scene_shape():
+def test_connectors_scene_size():
     data = scenes.connectors().to_data()
     assert (data["w"], data["h"]) == (scenes.W, scenes.H)
-    assert len(data["parts"]) == 1
-    part = data["parts"][0]
-    assert part["n"] == scenes.CONNECTORS_FRAMES
-    assert part["vw"] % part["n"] == 0  # a strip of n equal frames
-    # every animated box sits inside the scene
-    assert part["l"] >= 0 and part["l"] + part["w"] <= 100.001
-    assert part["t"] >= 0 and part["t"] + part["h"] <= 100.001
+
+
+def test_module_scenes_are_40x26():
+    for name, fn in export.SCENES.items():
+        if name != "conectores":
+            data = fn().to_data()
+            assert (data["w"], data["h"]) == (scenes.MW, scenes.MH), name
+
+
+def test_every_scene_is_one_well_formed_animated_strip():
+    for name, fn in export.SCENES.items():
+        data = fn().to_data()
+        assert len(data["parts"]) == 1, name
+        part = data["parts"][0]
+        assert part["n"] >= 2, name  # a scene that does not move should not be a scene
+        assert part["vw"] % part["n"] == 0, name  # a strip of n equal frames
+        # the animated box sits inside the scene
+        assert part["l"] >= 0 and part["l"] + part["w"] <= 100.001, name
+        assert part["t"] >= 0 and part["t"] + part["h"] <= 100.001, name
 
 
 def test_every_role_and_variant_has_a_chip_and_a_bust():

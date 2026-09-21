@@ -39,6 +39,12 @@ if (SHOTS_DIR) fs.mkdirSync(SHOTS_DIR, { recursive: true });
 const OUTLINE = { light: "rgb(12, 23, 48)", dark: "rgb(5, 10, 23)" };
 const VIEWPORTS = { desktop: { width: 1280, height: 800 }, m390: { width: 390, height: 780 }, m360: { width: 360, height: 740 } };
 
+// Module scenes beyond the connectors one: how to reach each and where it is drawn. A scene is
+// only downloaded once its surface is shown (agentes.js paints on un-hide), which is checked too.
+const MODULE_SURFACES = [
+  { name: "alertas", open: (page) => page.click("#alerts-btn"), host: "#alert-preferences-modal", card: ".modal-card" },
+];
+
 const problems = [];
 let total = 0;
 function check(name, ok, detail = "") {
@@ -192,6 +198,41 @@ async function shot(page, name, options = {}) {
     check(`[store/${theme}] no console errors`, errors.length === 0, errors.join(" | "));
     await shot(page, `store-${theme}.png`);
     await context.close();
+  }
+
+  // 5b) Module scenes: lazy, animated, themed, and inside their container on desktop and at 360 px.
+  for (const surface of MODULE_SURFACES) {
+    for (const theme of ["light", "dark"]) {
+      for (const vp of ["desktop", "m360"]) {
+        const { context, page, errors, files } = await open(browser, { theme, viewport: VIEWPORTS[vp], tokens });
+        await page.goto(APP);
+        await page.waitForSelector("#store-panel:not([hidden])", { timeout: 10000 });
+        const tag = `${surface.name}/${theme}/${vp}`;
+        const file = `escenas/${surface.name}.json`;
+        check(`[${tag}] scene is not downloaded before it is shown`, !files.some((f) => f.name === file), files.map((f) => f.name).join(", "));
+        await surface.open(page);
+        await page.waitForSelector(`${surface.host} .pxa-scene svg`, { timeout: 10000 });
+        const m = await page.evaluate(({ host, card }) => {
+          const scene = document.querySelector(`${host} .pxa-scene`);
+          const strip = getComputedStyle(scene.querySelector(".pxa-st"));
+          const box = scene.getBoundingClientRect();
+          const cardBox = document.querySelector(`${host} ${card || ""}`).getBoundingClientRect();
+          return {
+            name: strip.animationName, timing: strip.animationTimingFunction, playing: strip.animationPlayState,
+            inside: box.left >= cardBox.left - 0.5 && box.right <= cardBox.right + 0.5 && box.width > 40 && box.height > 20,
+            scrollW: document.documentElement.scrollWidth, innerW: window.innerWidth,
+            outline: getComputedStyle(scene.querySelector("path.c75")).fill,
+          };
+        }, { host: surface.host, card: surface.card });
+        check(`[${tag}] scene animates with steps()`, m.name === "pxa-strip" && /^steps\(\d/.test(m.timing) && m.playing === "running", `${m.name} ${m.timing} ${m.playing}`);
+        check(`[${tag}] scene sits inside its container`, m.inside);
+        check(`[${tag}] no horizontal scroll`, m.scrollW <= m.innerW, `${m.scrollW}/${m.innerW}`);
+        check(`[${tag}] theme colors applied`, m.outline === OUTLINE[theme], m.outline);
+        check(`[${tag}] no console errors`, errors.length === 0, errors.join(" | "));
+        await shot(page, `module-${surface.name}-${theme}-${vp}.png`);
+        await context.close();
+      }
+    }
   }
 
   // 6) Store role: GET /stores carries the effective role, and the topbar chip follows it on

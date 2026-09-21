@@ -25,7 +25,7 @@ DEFAULT_OUT = os.path.abspath(os.path.join(HERE, "..", "..", "frontend", "agente
 SCENE_BUDGET = 4 * 1024   # per scene (loaded one at a time, only where it is used)
 TOTAL_BUDGET = 25 * 1024  # the whole agentes/ folder, hand-written files included
 
-SCENES = {"conectores": scenes.connectors}
+SCENES = {"conectores": scenes.connectors, "alertas": scenes.alerts}
 HEAD_MODULES = {"conectores": scenes.TECHNICIAN}
 
 

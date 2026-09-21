@@ -114,13 +114,22 @@
 
   const SELECTOR = "[data-agent-scene],[data-agent-head],[data-agent-chip],[data-agent-bust]";
 
-  // Paint every sprite placeholder under `root` (or `root` itself). Safe to call repeatedly.
+  // Paint every sprite placeholder under `root` (or `root` itself) that is not inside a hidden
+  // section. Safe to call repeatedly.
   function hydrate(root) {
     const scope = root || document;
     const targets = Array.from(scope.querySelectorAll(SELECTOR));
     if (scope.matches && scope.matches(SELECTOR)) targets.push(scope);
-    return Promise.all(targets.map(paint));
+    return Promise.all(targets.filter((el) => !el.closest("[hidden]")).map(paint));
   }
+
+  // A closed modal or another view is not drawn (nor its scene downloaded) until it is shown:
+  // whenever something loses its `hidden` attribute, paint the placeholders inside it.
+  new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (!mutation.target.hidden) hydrate(mutation.target);
+    }
+  }).observe(document.body, { attributes: true, attributeFilter: ["hidden"], subtree: true });
 
   // Pause/resume every animation. The choice is remembered; without storage it lasts the session.
   function initPause(button) {

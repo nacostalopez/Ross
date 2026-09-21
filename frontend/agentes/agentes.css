@@ -82,8 +82,13 @@ html[data-agents-paused] .pxa .pxa-st {
 .widget-title-row { align-items: center; display: flex; gap: 8px; }
 .panel .widget-title-row h3 { margin: 0; }
 
+/* Modal title with the module's scene at its right (scale 3: 120px wide). */
+.agents-modal-head { align-items: center; display: flex; gap: 12px; justify-content: space-between; }
+.agents-modal-head h3 { margin: 0; }
+.agents-modal-head .pxa-scene { flex: none; width: 120px; }
+
 /* Perfil header: the portrait beside the title. */
-.profile-heading { align-items: center; display: flex; gap: 16px; }
+.agents-heading { align-items: center; display: flex; gap: 16px; }
 
 /* Reduced motion: the first frame stays on screen, and the pause button has nothing to do.
    Kept last so it wins over the rules above. */

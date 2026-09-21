@@ -722,7 +722,7 @@ yet (see "Billing scaffolding" above); the "Solicitar demo" CTA is how
 someone gets on the list to hear when pricing lands. Plain HTML/CSS/JS,
 no framework, mirroring `landing.html`'s conventions.
 
-### Agents (pixel-art identity, Phase 1 of 3)
+### Agents (pixel-art identity)
 
 The frontend is getting a pixel-art identity, carried over from
 TERXPERIENCE_APP: every module is an animated agent doing that module's
@@ -736,17 +736,23 @@ The hand-written runtime is `frontend/agentes/agentes.js` + `agentes.css`
 (`window.Agents.hydrate()`, driven by `data-agent-*` attributes), and scenes
 are fetched one at a time, only where they are used.
 
-Phase 1 covers a single test module, **Tiendas y conectores**: its scene in
-the empty dashboard ("Todavía no conectaste ninguna tienda"), the technician's
-head beside the "Estado de conectores" widget title, and the role's chip in
-the topbar and bust in Perfil. Rules that hold for every later scene: no text
+Modules drawn so far (Phase 1 was the connectors one, as the test module):
+
+| Module | Where it shows |
+| --- | --- |
+| Tiendas y conectores | Empty dashboard ("Todavía no conectaste ninguna tienda"), the technician's head beside the "Estado de conectores" widget |
+| Alertas | Beside the title of the "Alertas de CAC y ROAS" modal |
+
+Every person also shows as an agent: the role's chip in the topbar and its bust
+in Perfil. A scene inside a hidden modal or view is only downloaded and drawn
+when it is shown. Rules that hold for every later scene: no text
 is ever drawn inside a sprite (the pixel font can't render accents, `Ñ`, comma
 or `$`, which broke 16 of 23 real UI phrases), sprites have no background so
 one drawing serves both themes, `prefers-reduced-motion` stops every
 animation, a topbar button pauses them (remembered in `localStorage`), and
 the whole `frontend/agentes/` folder has a 25 KB gzip budget (4 KB per scene)
-that `tools/agentes/export.py` enforces. Phase 1 weighs 6.5 KB gzip in
-total against that budget, runtime included (the one scene is 0.8 KB).
+that `tools/agentes/export.py` enforces. Today that is 7.4 KB gzip in
+total, runtime included (a scene is 0.5–0.8 KB).
 Check a change with `pytest tools/agentes` (output is current and within
 budget) and `npm run test:agents` in `e2e/` (real browser: both themes,
 360 px, pause, reduced motion, every role; not in CI).
@@ -878,9 +884,11 @@ notifications"), on top of email, and a full **P&L breakdown** widget and
 a personal **Perfil** page (unified notification channels, device
 management, an inline quick-alert builder) round out the dashboard and
 account settings (see "P&L completo" and "Perfil" below). A pixel-art
-**agents** identity is under way (see "Agents"): Phase 1, a single test
-module, is done; Phase 2 (the remaining modules, one at a time) and Phase 3
-(login/landing/pricing scenes) are not. Not yet built:
+**agents** identity is under way (see "Agents"): Phase 1 (a single test
+module) is done and Phase 2 (the remaining modules, one at a time) is in
+progress — Alertas is drawn; Reportes, Equipo, Auditoría, Perfil and
+Dashboard are not yet. Phase 3 (login/landing/pricing scenes) has not
+started. Not yet built:
 
 - No revenue/ROAS attribution down to the individual ad — creative
   analytics currently shows each platform's own metrics (spend, CTR, CPC,
