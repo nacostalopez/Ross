@@ -9,7 +9,7 @@ import pytest
 from fastapi import status
 
 from app.dependencies import _plan_for_account, require_plan_feature
-from app.models import Plan, Subscription
+from app.models import Subscription
 
 
 @pytest.mark.db
