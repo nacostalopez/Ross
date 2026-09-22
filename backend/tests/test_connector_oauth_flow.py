@@ -244,3 +244,151 @@ class TestGoogleOAuthFlow:
         )
         assert response.status_code == status.HTTP_200_OK
         assert captured["customer_id"] == "1112223333"
+
+
+@pytest.mark.db
+class TestTikTokOAuthFlow:
+    """TikTok wraps its token response in a {"code": 0, "data": {...}}
+    envelope, unlike every other provider here — the module-level
+    _fake_oauth_token_exchange fixture returns a flat body, so each test
+    below re-patches requests.post with a TikTok-shaped one instead."""
+
+    def _fake_tiktok_token_response(self, monkeypatch):
+        monkeypatch.setattr(
+            requests,
+            "post",
+            lambda *a, **k: _FakeTokenResponse({"code": 0, "message": "OK", "data": {"access_token": "fake-access-token"}}),
+        )
+
+    def test_callback_persists_advertiser_id(self, client, auth_header, test_store, test_db_session, monkeypatch):
+        self._fake_tiktok_token_response(monkeypatch)
+        state = _get_auth_url_and_state(client, auth_header, test_store.id, "tiktok")
+
+        response = client.post(
+            "/connectors/tiktok/callback",
+            headers=auth_header,
+            params={
+                "store_id": str(test_store.id),
+                "code": "fake-code",
+                "state": state,
+                "advertiser_id": "adv-123456",
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        credential = test_db_session.query(StoreCredential).filter_by(store_id=test_store.id, provider="tiktok").one()
+        assert credential.provider_account_id == "adv-123456"
+
+    def test_callback_without_advertiser_id_leaves_it_null(
+        self, client, auth_header, test_store, test_db_session, monkeypatch
+    ):
+        self._fake_tiktok_token_response(monkeypatch)
+        state = _get_auth_url_and_state(client, auth_header, test_store.id, "tiktok")
+
+        response = client.post(
+            "/connectors/tiktok/callback",
+            headers=auth_header,
+            params={"store_id": str(test_store.id), "code": "fake-code", "state": state},
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        credential = test_db_session.query(StoreCredential).filter_by(store_id=test_store.id, provider="tiktok").one()
+        assert credential.provider_account_id is None
+
+    def test_sync_route_constructs_connector_with_stored_advertiser_id(
+        self, client, auth_header, test_store, test_db_session, monkeypatch
+    ):
+        self._fake_tiktok_token_response(monkeypatch)
+        state = _get_auth_url_and_state(client, auth_header, test_store.id, "tiktok")
+        client.post(
+            "/connectors/tiktok/callback",
+            headers=auth_header,
+            params={
+                "store_id": str(test_store.id),
+                "code": "fake-code",
+                "state": state,
+                "advertiser_id": "adv-999",
+            },
+        )
+
+        captured = {}
+
+        def fake_fetch_ad_spend(self, access_token, start_date, end_date):
+            captured["advertiser_id"] = self.advertiser_id
+            return []
+
+        from app.connectors.tiktok import TikTokConnector
+
+        monkeypatch.setattr(TikTokConnector, "fetch_ad_spend", fake_fetch_ad_spend)
+
+        response = client.post(
+            "/connectors/tiktok/sync-ad-spend",
+            headers=auth_header,
+            params={
+                "store_id": str(test_store.id),
+                "start_date": "2026-01-01T00:00:00Z",
+                "end_date": "2026-01-31T00:00:00Z",
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert captured["advertiser_id"] == "adv-999"
+
+
+@pytest.mark.db
+class TestLinkedInOAuthFlow:
+    def test_callback_persists_ad_account_id(self, client, auth_header, test_store, test_db_session):
+        state = _get_auth_url_and_state(client, auth_header, test_store.id, "linkedin")
+
+        response = client.post(
+            "/connectors/linkedin/callback",
+            headers=auth_header,
+            params={
+                "store_id": str(test_store.id),
+                "code": "fake-code",
+                "state": state,
+                "ad_account_id": "512345678",
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+        credential = (
+            test_db_session.query(StoreCredential).filter_by(store_id=test_store.id, provider="linkedin").one()
+        )
+        assert credential.provider_account_id == "512345678"
+
+    def test_sync_route_constructs_connector_with_stored_ad_account_id(
+        self, client, auth_header, test_store, test_db_session, monkeypatch
+    ):
+        state = _get_auth_url_and_state(client, auth_header, test_store.id, "linkedin")
+        client.post(
+            "/connectors/linkedin/callback",
+            headers=auth_header,
+            params={
+                "store_id": str(test_store.id),
+                "code": "fake-code",
+                "state": state,
+                "ad_account_id": "512999999",
+            },
+        )
+
+        captured = {}
+
+        def fake_fetch_ad_spend(self, access_token, start_date, end_date):
+            captured["ad_account_id"] = self.ad_account_id
+            return []
+
+        from app.connectors.linkedin import LinkedInConnector
+
+        monkeypatch.setattr(LinkedInConnector, "fetch_ad_spend", fake_fetch_ad_spend)
+
+        response = client.post(
+            "/connectors/linkedin/sync-ad-spend",
+            headers=auth_header,
+            params={
+                "store_id": str(test_store.id),
+                "start_date": "2026-01-01T00:00:00Z",
+                "end_date": "2026-01-31T00:00:00Z",
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert captured["ad_account_id"] == "512999999"

@@ -3,10 +3,12 @@ import pytest
 
 from app.connectors import BaseConnector
 from app.connectors.google import GoogleAdsConnector
+from app.connectors.linkedin import LinkedInConnector
 from app.connectors.mercadopago import MercadoPagoConnector
 from app.connectors.meta import MetaConnector
 from app.connectors.shopify import ShopifyConnector
 from app.connectors.tiendanube import TiendanubeConnector
+from app.connectors.tiktok import TikTokConnector
 
 
 @pytest.mark.connector
@@ -20,7 +22,15 @@ class TestConnectorInterface:
 
     @pytest.mark.parametrize(
         "connector_cls",
-        [ShopifyConnector, MetaConnector, GoogleAdsConnector, TiendanubeConnector, MercadoPagoConnector],
+        [
+            ShopifyConnector,
+            MetaConnector,
+            GoogleAdsConnector,
+            TiendanubeConnector,
+            MercadoPagoConnector,
+            TikTokConnector,
+            LinkedInConnector,
+        ],
     )
     def test_is_subclass_of_base_connector(self, connector_cls):
         assert issubclass(connector_cls, BaseConnector)
@@ -43,4 +53,12 @@ class TestConnectorInterface:
 
     def test_mercadopago_conforms_to_interface(self):
         connector = MercadoPagoConnector(store_id="store-1")
+        assert connector.get_oauth_url("state").startswith("https://")
+
+    def test_tiktok_conforms_to_interface(self):
+        connector = TikTokConnector(store_id="store-1")
+        assert connector.get_oauth_url("state").startswith("https://")
+
+    def test_linkedin_conforms_to_interface(self):
+        connector = LinkedInConnector(store_id="store-1")
         assert connector.get_oauth_url("state").startswith("https://")

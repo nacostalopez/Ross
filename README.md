@@ -6,8 +6,8 @@ other repo on this machine.
 
 ## Stack
 
-- **FastAPI** (Python) — REST API, plus Shopify/Meta/Google Ads connectors
-  (`backend/app/connectors/`)
+- **FastAPI** (Python) — REST API, plus Shopify/Meta/Google/TikTok/LinkedIn
+  Ads connectors (`backend/app/connectors/`)
 - **PostgreSQL + TimescaleDB** — relational config tables + hypertables for orders,
   pixel events, and ad spend, with a continuous aggregate for fast daily rollups
 - **Plain HTML/CSS/JS frontend** (`frontend/`) — no build step, calls the API
@@ -172,13 +172,14 @@ a duplicate type in the same layout is rejected with `422`.
 
 `ad_spend` tracks spend at campaign/adset level; `creative_performance` is a
 separate hypertable for the ad (creative) level — what a media buyer
-actually scans to decide what to scale or kill. Meta and Google only
-(Tiendanube/MercadoPago aren't creative-based ad platforms). `MetaConnector`
-and `GoogleAdsConnector` each get a `fetch_creative_performance()` alongside
-their existing `fetch_ad_spend()`, and the connector routes get a matching
+actually scans to decide what to scale or kill. Meta, Google, TikTok, and
+LinkedIn only (Tiendanube/MercadoPago aren't creative-based ad platforms).
+Each of `MetaConnector`, `GoogleAdsConnector`, `TikTokConnector`, and
+`LinkedInConnector` gets a `fetch_creative_performance()` alongside its
+existing `fetch_ad_spend()`, and the connector routes get a matching
 `.../sync-creative-performance` next to `.../sync-ad-spend`. Thumbnail
-images aren't fetched yet — both platforms need a separate per-creative API
-call to get them, deliberately left for later rather than adding N+1
+images aren't fetched yet — every platform needs a separate per-creative
+API call to get them, deliberately left for later rather than adding N+1
 requests to every sync.
 
 `GET /stores/{id}/metrics/creatives?start=&end=` aggregates
@@ -263,12 +264,16 @@ Analytics scoping out ad-level attribution:
 
 `GET /stores/{id}/metrics/cac-by-channel?start=&end=` splits the same
 blended CAC above by acquisition channel: for each cohort month, one row
-per channel (`meta`, `google`, or `other`) with that channel's own new
-customers, `ad_spend`, and CAC. A customer's channel is whichever one their
-*first* order's `attribution_utm_source` normalizes to (aliases like
-`facebook`/`fb`/`instagram` → `meta`, `adwords`/`google ads` → `google`);
-anything else lands in `other`, which correctly has no spend/CAC since
-`ad_spend` only ever has `meta`/`google`/`mercadopago` rows to divide by.
+per channel (`meta`, `google`, `tiktok`, `linkedin`, or `other`) with that
+channel's own new customers, `ad_spend`, and CAC. A customer's channel is
+whichever one their *first* order's `attribution_utm_source` normalizes to
+(aliases like `facebook`/`fb`/`instagram` → `meta`, `adwords`/`google ads`/
+`youtube` → `google`, `tiktokads` → `tiktok`); anything else lands in
+`other`, which correctly has no spend/CAC since `ad_spend` only ever has
+`meta`/`google`/`tiktok`/`linkedin`/`mercadopago` rows to divide by.
+Instagram and YouTube aren't `ad_spend` platforms of their own — both run
+through their parent's ad account/API (Meta's Graph API, Google Ads' GAQL),
+so their spend already arrives as `meta`/`google`.
 Needs `db/init/019_order_attribution.sql` and reliable
 `attribution_utm_source` on orders (see "Status / next steps") to be
 meaningful — before that migration, everything falls into `other`. The
@@ -420,18 +425,32 @@ deliberate v1 simplifications; a failed send stays visible via
 `capi_events.error` and `GET /stores/{id}/connectors/health` (as
 `meta_capi`/`google_capi`) either way.
 
-### Connect flow (Shopify, Meta, Google)
+### Connect flow (Shopify, Meta, Google, TikTok, LinkedIn)
 
 The "Estado de conectores" widget's providers used to be permanently stuck
 on "No conectado" — the backend had full OAuth plumbing
 (`/connectors/{provider}/auth-url`, `/connectors/{provider}/callback`,
 CSRF state tokens) but nothing in the frontend ever called it. Each
 disconnected provider's card now has a "Conectar" button that opens a
-small modal (Shopify needs a shop domain up front; Meta/Google's ad
-account id / Ads customer id are optional and can be filled in on a later
+small modal (Shopify needs a shop domain up front; Meta/Google/TikTok/
+LinkedIn's ad account id are optional and can be filled in on a later
 reconnect), then does the standard OAuth round trip: redirect to the
 provider, provider redirects back, frontend exchanges the code for a
 stored, encrypted credential.
+
+TikTok Ads and LinkedIn Ads (`app/connectors/tiktok.py`,
+`app/connectors/linkedin.py`) followed later, on top of the same
+`BaseConnector`/`StoreCredential`/`connector_status` plumbing as Meta and
+Google — `fetch_ad_spend`/`fetch_creative_performance` feed the same
+`ad_spend`/`creative_performance` tables with the same field shapes (see
+`backend/tests/test_connectors_schema.py`). LinkedIn's access tokens expire
+(~60 days) and refresh the same way Google's do; TikTok's, like Meta's,
+don't. Instagram and YouTube deliberately did **not** get connectors of
+their own — both run through their parent's existing ad account/API (Meta's
+Graph API insights include Instagram placements, Google Ads' GAQL includes
+YouTube campaigns), so a Meta/Google connection already covers them; see
+"CAC by channel" above for how their `attribution_utm_source` values map
+onto `meta`/`google`.
 
 The provider's redirect lands back on `index.html?connector={provider}`
 (plain query params, no dedicated route — nginx here serves static files
@@ -448,11 +467,15 @@ already used) and every sync route reads it back.
 
 **You need your own developer app with each platform for this to fully
 work** — Shopify Partners, Meta for Developers (Marketing API), Google
-Cloud (OAuth client) + Google Ads API Center (developer token) — see
-`.env.example`'s comments for exactly what to register and which redirect
-URI to use. Without that, the button/modal/redirect mechanics all work
-correctly (verified via Playwright, including the graceful-failure path),
-but the actual provider consent screen and token exchange can't complete.
+Cloud (OAuth client) + Google Ads API Center (developer token), TikTok for
+Business (Marketing API), LinkedIn Developers (Marketing Developer
+Platform) — see `.env.example`'s comments for exactly what to register and
+which redirect URI to use. Without that, the button/modal/redirect
+mechanics all work correctly (verified via Playwright for Shopify/Meta/
+Google, including the graceful-failure path — TikTok/LinkedIn share the
+identical code path but weren't re-verified via Playwright since no new UI
+surface was added), but the actual provider consent screen and token
+exchange can't complete for any of the five without a registered app.
 
 ### Per-store roles
 
@@ -916,8 +939,8 @@ exceeding a limit returns `429`.
 ## Status / next steps
 
 Schema, ingestion, profit/ROAS math, auth/credential-encryption,
-Shopify/Meta/Google/Tiendanube/MercadoPago connectors, CI, structured
-logging, rate limiting, env-var validation, webhook e2e tests, multi-user
+Shopify/Meta/Google/TikTok/LinkedIn/Tiendanube/MercadoPago connectors, CI,
+structured logging, rate limiting, env-var validation, webhook e2e tests, multi-user
 accounts with Owner/Admin/Viewer roles, revocable refresh tokens, invite and
 password-reset emails (via SMTP, configurable through env vars), transparent
 frontend token refresh, hash-only customer identity resolution (every
@@ -931,8 +954,9 @@ proactive CAC/ROAS email alerts (see "Proactive alerts"), a weekly email
 summary report (see "Weekly reports"), per-store
 role overrides (see "Per-store roles"), a customer-data access log (see
 "Customer data access log"), the Meta/Google CAPI feedback loop (see
-"CAPI feedback loop"), and a working Connect flow for Shopify/Meta/Google
-(see "Connect flow (Shopify, Meta, Google)") are done.
+"CAPI feedback loop"), and a working Connect flow for Shopify/Meta/Google/
+TikTok/LinkedIn (see "Connect flow (Shopify, Meta, Google, TikTok,
+LinkedIn)") are done.
 
 The frontend (`frontend/`, plain HTML/CSS/JS, no build step) has been carried
 well past "just enough to see real numbers": ARAMAL brand system with light/
@@ -1009,12 +1033,14 @@ while the landing/pricing scenes are not. Not yet built:
   explicitly — there is no consent-management source (banner/CMP) in the
   product yet, so `app/services/capi.py` doesn't pass any today and the
   block is simply omitted rather than sending a fabricated default.
-- The Shopify/Meta/Google "Conectar" flow (see "Connect flow" above) has
-  never completed a real provider consent screen — this dev environment
-  has no registered app with any of the three yet, so `SHOPIFY_API_KEY`
-  etc. are all still placeholders. The mechanics (button, modal, redirect,
-  state-token validation, graceful failure, URL cleanup) are verified via
-  Playwright; the actual OAuth handshake needs real credentials to try.
+- The Shopify/Meta/Google/TikTok/LinkedIn "Conectar" flow (see "Connect
+  flow" above) has never completed a real provider consent screen — this
+  dev environment has no registered app with any of the five yet, so
+  `SHOPIFY_API_KEY`/`TIKTOK_APP_ID`/`LINKEDIN_CLIENT_ID` etc. are all still
+  placeholders. The mechanics (button, modal, redirect, state-token
+  validation, graceful failure, URL cleanup) are verified via Playwright
+  for Shopify/Meta/Google; the actual OAuth handshake needs real
+  credentials to try for any of the five.
 - Per-store roles (see "Per-store roles" above) only *override* the
   effective role for a store — there's no way to fully revoke an account
   member's access to one specific store while keeping them in the account

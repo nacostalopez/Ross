@@ -12,10 +12,12 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.connectors.google import GoogleAdsConnector
+from app.connectors.linkedin import LinkedInConnector
 from app.connectors.mercadopago import MercadoPagoConnector
 from app.connectors.meta import MetaConnector
 from app.connectors.shopify import ShopifyConnector
 from app.connectors.tiendanube import TiendanubeConnector
+from app.connectors.tiktok import TikTokConnector
 from app.database import get_db
 from app.dependencies import get_owned_store, require_store_role
 from app.models import (
@@ -746,6 +748,431 @@ def sync_google_creative_performance(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to sync Google creative performance: {str(e)}",
+        )
+
+
+# ============================================================================
+# TikTok Ads Connectors
+# ============================================================================
+
+
+@router.post("/tiktok/auth-url")
+def get_tiktok_auth_url(
+    store: Store = Depends(get_owned_store),
+    _: User = Depends(require_store_role("owner", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Get TikTok OAuth authorization URL."""
+    state_token = _create_oauth_state(db, store.id, "tiktok")
+    connector = TikTokConnector(str(store.id))
+    auth_url = connector.get_oauth_url(state_token)
+
+    return {
+        "auth_url": auth_url,
+        "state": state_token,
+    }
+
+
+@router.post("/tiktok/callback")
+def tiktok_oauth_callback(
+    code: str,
+    state: Optional[str] = None,
+    advertiser_id: Optional[str] = None,
+    store: Store = Depends(get_owned_store),
+    _: User = Depends(require_store_role("owner", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Handle TikTok OAuth callback."""
+    store_id = store.id
+    _consume_oauth_state(db, store_id, "tiktok", state)
+
+    try:
+        connector = TikTokConnector(str(store_id), advertiser_id)
+        token = connector.exchange_auth_code(code, connector.settings.tiktok_redirect_uri)
+
+        encrypted_token = encrypt_secret(token.access_token)
+
+        existing = (
+            db.query(StoreCredential)
+            .filter_by(
+                store_id=store_id,
+                provider="tiktok",
+            )
+            .first()
+        )
+
+        if existing:
+            existing.access_token = encrypted_token
+            if advertiser_id:
+                existing.provider_account_id = advertiser_id
+        else:
+            credential = StoreCredential(
+                id=uuid4(),
+                store_id=store_id,
+                provider="tiktok",
+                access_token=encrypted_token,
+                provider_account_id=advertiser_id,
+            )
+            db.add(credential)
+
+        db.commit()
+        _upsert_connector_status(db, store_id, "tiktok", success=True)
+
+        return {
+            "status": "success",
+            "message": f"Store {store.name} connected to TikTok",
+        }
+    except Exception as e:
+        _upsert_connector_status(db, store_id, "tiktok", success=False, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to authenticate with TikTok: {str(e)}",
+        )
+
+
+@router.post("/tiktok/sync-ad-spend")
+def sync_tiktok_ad_spend(
+    start_date: datetime = Query(...),
+    end_date: datetime = Query(...),
+    store: Store = Depends(get_owned_store),
+    _: User = Depends(require_store_role("owner", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Sync ad spend data from TikTok."""
+    store_id = store.id
+
+    credential = (
+        db.query(StoreCredential)
+        .filter_by(
+            store_id=store_id,
+            provider="tiktok",
+        )
+        .first()
+    )
+
+    if not credential:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="TikTok credentials not configured for this store",
+        )
+
+    try:
+        access_token = decrypt_secret(credential.access_token)
+        connector = TikTokConnector(str(store_id), credential.provider_account_id)
+
+        spend_records = connector.fetch_ad_spend(access_token, start_date, end_date)
+
+        from app.models import ad_spend as ad_spend_table
+
+        rows = [{"store_id": store_id, **record} for record in spend_records]
+        if rows:
+            db.execute(insert(ad_spend_table), rows)
+            db.commit()
+
+        _upsert_connector_status(db, store_id, "tiktok", synced=True, success=True)
+
+        return {
+            "status": "success",
+            "records_synced": len(rows),
+        }
+    except Exception as e:
+        _upsert_connector_status(db, store_id, "tiktok", synced=True, success=False, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to sync TikTok ad spend: {str(e)}",
+        )
+
+
+@router.post("/tiktok/sync-creative-performance")
+def sync_tiktok_creative_performance(
+    start_date: datetime = Query(...),
+    end_date: datetime = Query(...),
+    store: Store = Depends(get_owned_store),
+    _: User = Depends(require_store_role("owner", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Sync ad-level (creative) performance from TikTok."""
+    store_id = store.id
+
+    credential = (
+        db.query(StoreCredential)
+        .filter_by(
+            store_id=store_id,
+            provider="tiktok",
+        )
+        .first()
+    )
+
+    if not credential:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="TikTok credentials not configured for this store",
+        )
+
+    try:
+        access_token = decrypt_secret(credential.access_token)
+        connector = TikTokConnector(str(store_id), credential.provider_account_id)
+
+        creative_records = connector.fetch_creative_performance(access_token, start_date, end_date)
+
+        from app.models import creative_performance as creative_performance_table
+
+        rows = [{"store_id": store_id, **record} for record in creative_records]
+        if rows:
+            db.execute(insert(creative_performance_table), rows)
+            db.commit()
+
+        _upsert_connector_status(db, store_id, "tiktok", synced=True, success=True)
+
+        return {
+            "status": "success",
+            "records_synced": len(rows),
+        }
+    except Exception as e:
+        _upsert_connector_status(db, store_id, "tiktok", synced=True, success=False, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to sync TikTok creative performance: {str(e)}",
+        )
+
+
+# ============================================================================
+# LinkedIn Ads Connectors
+# ============================================================================
+
+
+@router.post("/linkedin/auth-url")
+def get_linkedin_auth_url(
+    store: Store = Depends(get_owned_store),
+    _: User = Depends(require_store_role("owner", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Get LinkedIn OAuth authorization URL."""
+    state_token = _create_oauth_state(db, store.id, "linkedin")
+    connector = LinkedInConnector(str(store.id))
+    auth_url = connector.get_oauth_url(state_token)
+
+    return {
+        "auth_url": auth_url,
+        "state": state_token,
+    }
+
+
+@router.post("/linkedin/callback")
+def linkedin_oauth_callback(
+    code: str,
+    state: Optional[str] = None,
+    ad_account_id: Optional[str] = None,
+    store: Store = Depends(get_owned_store),
+    _: User = Depends(require_store_role("owner", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Handle LinkedIn OAuth callback."""
+    store_id = store.id
+    _consume_oauth_state(db, store_id, "linkedin", state)
+
+    try:
+        connector = LinkedInConnector(str(store_id), ad_account_id)
+        token = connector.exchange_auth_code(code, connector.settings.linkedin_redirect_uri)
+
+        encrypted_token = encrypt_secret(token.access_token)
+        encrypted_refresh = encrypt_secret(token.refresh_token) if token.refresh_token else None
+
+        existing = (
+            db.query(StoreCredential)
+            .filter_by(
+                store_id=store_id,
+                provider="linkedin",
+            )
+            .first()
+        )
+
+        if existing:
+            existing.access_token = encrypted_token
+            existing.refresh_token = encrypted_refresh
+            existing.expires_at = token.expires_at
+            if ad_account_id:
+                existing.provider_account_id = ad_account_id
+        else:
+            credential = StoreCredential(
+                id=uuid4(),
+                store_id=store_id,
+                provider="linkedin",
+                access_token=encrypted_token,
+                refresh_token=encrypted_refresh,
+                expires_at=token.expires_at,
+                provider_account_id=ad_account_id,
+            )
+            db.add(credential)
+
+        db.commit()
+        _upsert_connector_status(db, store_id, "linkedin", success=True)
+
+        return {
+            "status": "success",
+            "message": f"Store {store.name} connected to LinkedIn",
+        }
+    except Exception as e:
+        _upsert_connector_status(db, store_id, "linkedin", success=False, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to authenticate with LinkedIn: {str(e)}",
+        )
+
+
+@router.post("/linkedin/sync-ad-spend")
+def sync_linkedin_ad_spend(
+    start_date: datetime = Query(...),
+    end_date: datetime = Query(...),
+    store: Store = Depends(get_owned_store),
+    _: User = Depends(require_store_role("owner", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Sync ad spend data from LinkedIn."""
+    store_id = store.id
+
+    credential = (
+        db.query(StoreCredential)
+        .filter_by(
+            store_id=store_id,
+            provider="linkedin",
+        )
+        .first()
+    )
+
+    if not credential:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="LinkedIn credentials not configured for this store",
+        )
+
+    try:
+        access_token = decrypt_secret(credential.access_token)
+
+        if credential.expires_at and datetime.now(timezone.utc) > credential.expires_at:
+            refresh_token = decrypt_secret(credential.refresh_token) if credential.refresh_token else None
+            if refresh_token:
+                try:
+                    connector = LinkedInConnector(str(store_id))
+                    new_token = connector.refresh_access_token(refresh_token)
+                    access_token = new_token.access_token
+                    credential.access_token = encrypt_secret(access_token)
+                    credential.expires_at = new_token.expires_at
+                    db.commit()
+                    db.add(TokenRefreshAudit(id=uuid4(), store_id=store_id, provider="linkedin", success=True))
+                    db.commit()
+                except Exception as refresh_error:
+                    db.add(
+                        TokenRefreshAudit(
+                            id=uuid4(),
+                            store_id=store_id,
+                            provider="linkedin",
+                            success=False,
+                            error_message=str(refresh_error),
+                        )
+                    )
+                    db.commit()
+                    raise
+
+        connector = LinkedInConnector(str(store_id), credential.provider_account_id)
+        spend_records = connector.fetch_ad_spend(access_token, start_date, end_date)
+
+        from app.models import ad_spend as ad_spend_table
+
+        rows = [{"store_id": store_id, **record} for record in spend_records]
+        if rows:
+            db.execute(insert(ad_spend_table), rows)
+            db.commit()
+
+        _upsert_connector_status(db, store_id, "linkedin", synced=True, success=True)
+
+        return {
+            "status": "success",
+            "records_synced": len(rows),
+        }
+    except Exception as e:
+        _upsert_connector_status(db, store_id, "linkedin", synced=True, success=False, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to sync LinkedIn ad spend: {str(e)}",
+        )
+
+
+@router.post("/linkedin/sync-creative-performance")
+def sync_linkedin_creative_performance(
+    start_date: datetime = Query(...),
+    end_date: datetime = Query(...),
+    store: Store = Depends(get_owned_store),
+    _: User = Depends(require_store_role("owner", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Sync ad-level (creative) performance from LinkedIn."""
+    store_id = store.id
+
+    credential = (
+        db.query(StoreCredential)
+        .filter_by(
+            store_id=store_id,
+            provider="linkedin",
+        )
+        .first()
+    )
+
+    if not credential:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="LinkedIn credentials not configured for this store",
+        )
+
+    try:
+        access_token = decrypt_secret(credential.access_token)
+
+        if credential.expires_at and datetime.now(timezone.utc) > credential.expires_at:
+            refresh_token = decrypt_secret(credential.refresh_token) if credential.refresh_token else None
+            if refresh_token:
+                try:
+                    connector = LinkedInConnector(str(store_id))
+                    new_token = connector.refresh_access_token(refresh_token)
+                    access_token = new_token.access_token
+                    credential.access_token = encrypt_secret(access_token)
+                    credential.expires_at = new_token.expires_at
+                    db.commit()
+                    db.add(TokenRefreshAudit(id=uuid4(), store_id=store_id, provider="linkedin", success=True))
+                    db.commit()
+                except Exception as refresh_error:
+                    db.add(
+                        TokenRefreshAudit(
+                            id=uuid4(),
+                            store_id=store_id,
+                            provider="linkedin",
+                            success=False,
+                            error_message=str(refresh_error),
+                        )
+                    )
+                    db.commit()
+                    raise
+
+        connector = LinkedInConnector(str(store_id), credential.provider_account_id)
+        creative_records = connector.fetch_creative_performance(access_token, start_date, end_date)
+
+        from app.models import creative_performance as creative_performance_table
+
+        rows = [{"store_id": store_id, **record} for record in creative_records]
+        if rows:
+            db.execute(insert(creative_performance_table), rows)
+            db.commit()
+
+        _upsert_connector_status(db, store_id, "linkedin", synced=True, success=True)
+
+        return {
+            "status": "success",
+            "records_synced": len(rows),
+        }
+    except Exception as e:
+        _upsert_connector_status(db, store_id, "linkedin", synced=True, success=False, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to sync LinkedIn creative performance: {str(e)}",
         )
 
 

@@ -11,10 +11,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.connectors.google import GoogleAdsConnector
+from app.connectors.linkedin import LinkedInConnector
 from app.connectors.mercadopago import MercadoPagoConnector
 from app.connectors.meta import MetaConnector
 from app.connectors.shopify import ShopifyConnector
 from app.connectors.tiendanube import TiendanubeConnector
+from app.connectors.tiktok import TikTokConnector
 
 AD_SPEND_REQUIRED_FIELDS = {
     "time",
@@ -133,6 +135,64 @@ class TestAdSpendSchemaConsistency:
         assert len(records) == 1
         assert AD_SPEND_REQUIRED_FIELDS.issubset(records[0].keys())
         assert records[0]["platform"] == "mercadopago"
+
+    def test_tiktok_ad_spend_record_shape(self):
+        connector = TikTokConnector(store_id="store-1", advertiser_id="adv-123")
+        response = _mock_response(
+            {
+                "code": 0,
+                "data": {
+                    "list": [
+                        {
+                            "dimensions": {"campaign_id": "1", "stat_time_day": "2026-01-01 00:00:00"},
+                            "metrics": {
+                                "campaign_id": "1",
+                                "campaign_name": "Test Campaign",
+                                "spend": "12.50",
+                                "impressions": "1000",
+                                "clicks": "20",
+                            },
+                        }
+                    ],
+                    "page_info": {"total_page": 1},
+                },
+            }
+        )
+        with patch("app.connectors.tiktok.requests.get", return_value=response):
+            records = connector.fetch_ad_spend(
+                "fake-token",
+                datetime(2026, 1, 1, tzinfo=timezone.utc),
+                datetime(2026, 1, 31, tzinfo=timezone.utc),
+            )
+        assert len(records) == 1
+        assert AD_SPEND_REQUIRED_FIELDS.issubset(records[0].keys())
+        assert records[0]["platform"] == "tiktok"
+
+    def test_linkedin_ad_spend_record_shape(self):
+        connector = LinkedInConnector(store_id="store-1", ad_account_id="512345678")
+        response = _mock_response(
+            {
+                "elements": [
+                    {
+                        "dateRange": {"start": {"year": 2026, "month": 1, "day": 1}},
+                        "pivotValues": ["urn:li:sponsoredCampaign:123"],
+                        "impressions": 1000,
+                        "clicks": 20,
+                        "costInLocalCurrency": "12.50",
+                    }
+                ]
+            }
+        )
+        with patch("app.connectors.linkedin.requests.get", return_value=response):
+            records = connector.fetch_ad_spend(
+                "fake-token",
+                datetime(2026, 1, 1, tzinfo=timezone.utc),
+                datetime(2026, 1, 31, tzinfo=timezone.utc),
+            )
+        assert len(records) == 1
+        assert AD_SPEND_REQUIRED_FIELDS.issubset(records[0].keys())
+        assert records[0]["platform"] == "linkedin"
+        assert records[0]["campaign_id"] == "123"
 
     def test_ad_spend_connectors_produce_identical_field_sets(self):
         """Whatever field one ad-spend connector adds, the others must too."""
@@ -301,6 +361,83 @@ class TestCreativePerformanceSchemaConsistency:
                 datetime(2026, 1, 31, tzinfo=timezone.utc),
             )
         assert records[0]["ad_name"] == "Ad 100"
+
+    def test_tiktok_creative_performance_record_shape(self):
+        connector = TikTokConnector(store_id="store-1", advertiser_id="adv-123")
+        response = _mock_response(
+            {
+                "code": 0,
+                "data": {
+                    "list": [
+                        {
+                            "dimensions": {"ad_id": "100", "stat_time_day": "2026-01-01 00:00:00"},
+                            "metrics": {
+                                "campaign_id": "1",
+                                "campaign_name": "Test Campaign",
+                                "ad_name": "Creative A",
+                                "spend": "12.50",
+                                "impressions": "1000",
+                                "clicks": "20",
+                            },
+                        }
+                    ],
+                    "page_info": {"total_page": 1},
+                },
+            }
+        )
+        with patch("app.connectors.tiktok.requests.get", return_value=response):
+            records = connector.fetch_creative_performance(
+                "fake-token",
+                datetime(2026, 1, 1, tzinfo=timezone.utc),
+                datetime(2026, 1, 31, tzinfo=timezone.utc),
+            )
+        assert len(records) == 1
+        assert CREATIVE_PERFORMANCE_REQUIRED_FIELDS.issubset(records[0].keys())
+        assert records[0]["platform"] == "tiktok"
+        assert records[0]["ad_id"] == "100"
+        assert records[0]["ad_name"] == "Creative A"
+
+    def test_linkedin_creative_performance_record_shape(self):
+        connector = LinkedInConnector(store_id="store-1", ad_account_id="512345678")
+        response = _mock_response(
+            {
+                "elements": [
+                    {
+                        "dateRange": {"start": {"year": 2026, "month": 1, "day": 1}},
+                        "pivotValues": ["urn:li:sponsoredCreative:100"],
+                        "impressions": 1000,
+                        "clicks": 20,
+                        "costInLocalCurrency": "12.50",
+                    }
+                ]
+            }
+        )
+        with patch("app.connectors.linkedin.requests.get", return_value=response):
+            records = connector.fetch_creative_performance(
+                "fake-token",
+                datetime(2026, 1, 1, tzinfo=timezone.utc),
+                datetime(2026, 1, 31, tzinfo=timezone.utc),
+            )
+        assert len(records) == 1
+        assert CREATIVE_PERFORMANCE_REQUIRED_FIELDS.issubset(records[0].keys())
+        assert records[0]["platform"] == "linkedin"
+        assert records[0]["ad_id"] == "100"
+        # No parent-campaign lookup for the CREATIVE pivot (see connector docstring).
+        assert records[0]["campaign_id"] == ""
+
+    def test_tiktok_requires_advertiser_id(self):
+        connector = TikTokConnector(store_id="store-1")
+        with pytest.raises(ValueError, match="advertiser_id required"):
+            connector.fetch_creative_performance(
+                "t", datetime(2026, 1, 1, tzinfo=timezone.utc), datetime(2026, 1, 31, tzinfo=timezone.utc)
+            )
+
+    def test_linkedin_requires_ad_account_id(self):
+        connector = LinkedInConnector(store_id="store-1")
+        with pytest.raises(ValueError, match="ad_account_id required"):
+            connector.fetch_creative_performance(
+                "t", datetime(2026, 1, 1, tzinfo=timezone.utc), datetime(2026, 1, 31, tzinfo=timezone.utc)
+            )
 
     def test_creative_performance_connectors_produce_identical_field_sets(self):
         meta_connector = MetaConnector(store_id="store-1", ad_account_id="act_123")

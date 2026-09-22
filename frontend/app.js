@@ -1138,7 +1138,7 @@ async function refreshConnectorHealth() {
 function renderConnectorGrid(health) {
   const grid = document.getElementById("connector-status");
   if (!grid) return;
-  const providers = ["shopify", "meta", "google"];
+  const providers = ["shopify", "meta", "google", "tiktok", "linkedin"];
 
   grid.innerHTML = providers
     .map((provider) => {
@@ -1176,12 +1176,13 @@ function renderConnectorGrid(health) {
 }
 
 // ---------------------------------------------------------------------------
-// Connect flow (Shopify/Meta/Google OAuth) — button -> auth-url -> redirect
-// to the provider -> provider redirects back to index.html?connector=... ->
-// handleConnectorCallback() picks it up in boot(). No dedicated backend
-// callback page: nginx here serves static files with no SPA fallback, so
-// the OAuth redirect_uri points straight at index.html (see
-// backend/app/connectors/{shopify,meta,google}.py's *_redirect_uri).
+// Connect flow (Shopify/Meta/Google/TikTok/LinkedIn OAuth) — button ->
+// auth-url -> redirect to the provider -> provider redirects back to
+// index.html?connector=... -> handleConnectorCallback() picks it up in
+// boot(). No dedicated backend callback page: nginx here serves static
+// files with no SPA fallback, so the OAuth redirect_uri points straight at
+// index.html (see backend/app/connectors/{shopify,meta,google,tiktok,
+// linkedin}.py's *_redirect_uri).
 // ---------------------------------------------------------------------------
 
 const PROVIDER_CONNECT_CONFIG = {
@@ -1204,6 +1205,20 @@ const PROVIDER_CONNECT_CONFIG = {
     fieldRequired: false,
     fieldLabel: "ID de cliente de Google Ads (opcional)",
     fieldPlaceholder: "123-456-7890",
+    hint: "Podés completarlo ahora o más adelante volviendo a conectar.",
+  },
+  tiktok: {
+    label: "TikTok",
+    fieldRequired: false,
+    fieldLabel: "ID de anunciante (opcional)",
+    fieldPlaceholder: "1234567890123456",
+    hint: "Podés completarlo ahora o más adelante volviendo a conectar.",
+  },
+  linkedin: {
+    label: "LinkedIn",
+    fieldRequired: false,
+    fieldLabel: "ID de cuenta publicitaria (opcional)",
+    fieldPlaceholder: "512345678",
     hint: "Podés completarlo ahora o más adelante volviendo a conectar.",
   },
 };
@@ -1276,6 +1291,8 @@ async function handleConnectorCallback(provider) {
     if (provider === "shopify") callbackParams.set("shop", shop || "");
     if (provider === "meta" && pending.extraId) callbackParams.set("ad_account_id", pending.extraId);
     if (provider === "google" && pending.extraId) callbackParams.set("customer_id", pending.extraId);
+    if (provider === "tiktok" && pending.extraId) callbackParams.set("advertiser_id", pending.extraId);
+    if (provider === "linkedin" && pending.extraId) callbackParams.set("ad_account_id", pending.extraId);
 
     await api(`/connectors/${provider}/callback?${callbackParams}`, { method: "POST" });
     alert(`${PROVIDER_CONNECT_CONFIG[provider].label} conectado correctamente.`);
@@ -1364,7 +1381,7 @@ function renderLtvCohortsTable(rows) {
 // each customer's first order instead of blended across all of them.
 // ---------------------------------------------------------------------------
 
-const CHANNEL_LABELS = { meta: "Meta", google: "Google", other: "Otro" };
+const CHANNEL_LABELS = { meta: "Meta", google: "Google", tiktok: "TikTok", linkedin: "LinkedIn", other: "Otro" };
 
 async function refreshCacByChannel() {
   if (!document.getElementById("cac-by-channel-table")) return;
@@ -1586,7 +1603,7 @@ async function refreshPnl() {
 // Creative performance (ad-level: spend/CTR/CPC/CPM per creative, ranked)
 // ---------------------------------------------------------------------------
 
-const PLATFORM_LABELS = { meta: "Meta", google: "Google" };
+const PLATFORM_LABELS = { meta: "Meta", google: "Google", tiktok: "TikTok", linkedin: "LinkedIn" };
 
 async function refreshCreativePerformance() {
   // creative_performance widget not on the current layout — don't even fetch.
@@ -2248,7 +2265,7 @@ async function seedDemoData(storeId) {
         payment_gateway_fee: Math.round((gross * 0.029 + 0.3) * 100) / 100,
         cogs_total: Math.round(gross * 0.25 * 100) / 100,
         currency: "USD",
-        attribution_utm_source: ["meta", "google", "organic"][Math.floor(Math.random() * 3)],
+        attribution_utm_source: ["meta", "google", "tiktok", "linkedin", "organic"][Math.floor(Math.random() * 5)],
         attribution_utm_campaign: "demo-campaign",
       };
       if (eligibleCustomers.length) {
@@ -2273,7 +2290,7 @@ async function seedDemoData(storeId) {
       payment_gateway_fee: Math.round((gross * 0.029 + 0.3) * 100) / 100,
       cogs_total: Math.round(gross * 0.25 * 100) / 100,
       currency: "USD",
-      attribution_utm_source: ["meta", "google", "organic"][Math.floor(Math.random() * 3)],
+      attribution_utm_source: ["meta", "google", "tiktok", "linkedin", "organic"][Math.floor(Math.random() * 5)],
       attribution_utm_campaign: "demo-campaign",
       customer_email: email,
     });
@@ -2284,7 +2301,7 @@ async function seedDemoData(storeId) {
   for (let dayOffset = 0; dayOffset < 90; dayOffset++) {
     const day = new Date(now - dayOffset * 86400000);
     day.setHours(0, 0, 0, 0);
-    for (const platform of ["meta", "google"]) {
+    for (const platform of ["meta", "google", "tiktok", "linkedin"]) {
       adSpend.push({
         time: day.toISOString(),
         platform,
@@ -2305,6 +2322,9 @@ async function seedDemoData(storeId) {
     { platform: "meta", ad_id: "demo-meta-3", ad_name: "Imagen — Oferta 20% OFF" },
     { platform: "google", ad_id: "demo-google-1", ad_name: "Búsqueda — Marca" },
     { platform: "google", ad_id: "demo-google-2", ad_name: "Búsqueda — Genérico" },
+    { platform: "tiktok", ad_id: "demo-tiktok-1", ad_name: "Video — Unboxing" },
+    { platform: "tiktok", ad_id: "demo-tiktok-2", ad_name: "Spark Ad — Reseña de cliente" },
+    { platform: "linkedin", ad_id: "demo-linkedin-1", ad_name: "Imagen única — Caso de éxito" },
   ];
   const creativeRows = [];
   for (let dayOffset = 0; dayOffset < 14; dayOffset++) {

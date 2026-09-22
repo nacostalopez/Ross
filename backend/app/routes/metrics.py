@@ -221,7 +221,12 @@ LTV_COHORTS_SQL = text(
 # whoever built the ad, so it's normalized against the small set of aliases
 # real campaigns actually use; anything else falls into 'other', which
 # correctly gets no spend/CAC since ad_spend only has 'meta'/'google'/
-# 'mercadopago' rows (see connectors' fetch_ad_spend) — no data to divide by.
+# 'tiktok'/'linkedin'/'mercadopago' rows (see connectors' fetch_ad_spend) —
+# no data to divide by. Instagram and YouTube aren't separate ad_spend
+# platforms: both run through their parent's own ads account/API (Meta's
+# Graph API insights, Google Ads' GAQL) and land as 'meta'/'google' spend
+# already, so 'instagram'/'youtube' utm_source values map onto those, not a
+# platform of their own.
 CAC_BY_CHANNEL_SQL = text(
     """
     WITH channel_orders AS (
@@ -236,6 +241,10 @@ CAC_BY_CHANNEL_SQL = text(
                 WHEN 'google' THEN 'google'
                 WHEN 'adwords' THEN 'google'
                 WHEN 'google ads' THEN 'google'
+                WHEN 'youtube' THEN 'google'
+                WHEN 'tiktok' THEN 'tiktok'
+                WHEN 'tiktokads' THEN 'tiktok'
+                WHEN 'linkedin' THEN 'linkedin'
                 ELSE 'other'
             END AS channel
         FROM orders o
@@ -314,6 +323,10 @@ ATTRIBUTION_BY_CHANNEL_SQL = text(
                 WHEN 'google' THEN 'google'
                 WHEN 'adwords' THEN 'google'
                 WHEN 'google ads' THEN 'google'
+                WHEN 'youtube' THEN 'google'
+                WHEN 'tiktok' THEN 'tiktok'
+                WHEN 'tiktokads' THEN 'tiktok'
+                WHEN 'linkedin' THEN 'linkedin'
                 ELSE 'other'
             END AS channel
         FROM orders o
