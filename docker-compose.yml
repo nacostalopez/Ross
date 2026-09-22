@@ -51,6 +51,40 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_CLAIM_EMAIL: ${VAPID_CLAIM_EMAIL:-admin@escal.app}
+      # Connector OAuth credentials — each *_ID/*_SECRET/*_TOKEN defaults to
+      # empty (same as its connector's own Python default), so leaving them
+      # unset in .env changes nothing; setting a real value here is what
+      # actually lets a real "Conectar" flow complete. Fallbacks for
+      # *_REDIRECT_URI/*_SCOPES mirror the matching connector's own default
+      # exactly, so they're safe no-ops too when left unset in .env.
+      SHOPIFY_API_KEY: ${SHOPIFY_API_KEY:-}
+      SHOPIFY_API_SECRET: ${SHOPIFY_API_SECRET:-}
+      SHOPIFY_REDIRECT_URI: ${SHOPIFY_REDIRECT_URI:-http://localhost:3100/index.html?connector=shopify}
+      SHOPIFY_SCOPES: ${SHOPIFY_SCOPES:-read_orders,write_orders,read_products,write_products}
+      META_APP_ID: ${META_APP_ID:-}
+      META_APP_SECRET: ${META_APP_SECRET:-}
+      META_REDIRECT_URI: ${META_REDIRECT_URI:-http://localhost:3100/index.html?connector=meta}
+      META_SCOPES: ${META_SCOPES:-ads_management,ads_read}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:3100/index.html?connector=google}
+      GOOGLE_SCOPES: ${GOOGLE_SCOPES:-https://www.googleapis.com/auth/adwords}
+      GOOGLE_DEVELOPER_TOKEN: ${GOOGLE_DEVELOPER_TOKEN:-}
+      TIKTOK_APP_ID: ${TIKTOK_APP_ID:-}
+      TIKTOK_APP_SECRET: ${TIKTOK_APP_SECRET:-}
+      TIKTOK_REDIRECT_URI: ${TIKTOK_REDIRECT_URI:-http://localhost:3100/index.html?connector=tiktok}
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+      LINKEDIN_REDIRECT_URI: ${LINKEDIN_REDIRECT_URI:-http://localhost:3100/index.html?connector=linkedin}
+      LINKEDIN_SCOPES: ${LINKEDIN_SCOPES:-r_ads,r_ads_reporting}
+      TIENDANUBE_CLIENT_ID: ${TIENDANUBE_CLIENT_ID:-}
+      TIENDANUBE_CLIENT_SECRET: ${TIENDANUBE_CLIENT_SECRET:-}
+      TIENDANUBE_REDIRECT_URI: ${TIENDANUBE_REDIRECT_URI:-http://localhost:3100/auth/tiendanube/callback}
+      TIENDANUBE_SCOPES: ${TIENDANUBE_SCOPES:-read_orders,read_products}
+      MERCADOPAGO_CLIENT_ID: ${MERCADOPAGO_CLIENT_ID:-}
+      MERCADOPAGO_CLIENT_SECRET: ${MERCADOPAGO_CLIENT_SECRET:-}
+      MERCADOPAGO_REDIRECT_URI: ${MERCADOPAGO_REDIRECT_URI:-http://localhost:3100/auth/mercadopago/callback}
+      MERCADOPAGO_SCOPES: ${MERCADOPAGO_SCOPES:-offline_access read write}
     ports:
       - "${API_PORT:-8100}:8000"
     depends_on:
