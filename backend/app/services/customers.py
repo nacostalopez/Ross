@@ -1,7 +1,7 @@
 """Customer identity resolution — the one place email/phone hashing lives.
 
-Every order-ingestion path (bulk API, Shopify webhook, Tiendanube webhook)
-calls resolve_customer_id() instead of hashing/upserting customers itself.
+Every order-ingestion path (bulk API, Shopify/Tiendanube webhooks, Mercado
+Libre/Mercado Pago syncs and notifications) calls resolve_customer_id() instead of hashing/upserting customers itself.
 """
 
 import hashlib
@@ -42,8 +42,9 @@ def resolve_customer_id(
     order_time: datetime | None = None,
 ) -> UUID | None:
     """Find-or-create the Customer for this store matching the given
-    email/phone, and return its id. Returns None if neither is given — the
-    order simply has no linked customer, same as before this existed.
+    email/phone (or, failing both, a namespaced marketplace buyer id), and
+    return its id. Returns None if none is given — the order simply has no
+    linked customer, same as before this existed.
 
     Email is the primary dedup key; phone is only used to match when no
     email is present (a customer could plausibly share a phone with someone
@@ -58,7 +59,14 @@ def resolve_customer_id(
     email_hash = _hash_email(email) if email else None
     phone_hash = _hash_phone(phone) if phone else None
 
-    if not email_hash and not phone_hash:
+    # Marketplaces (Mercado Libre) mask buyer contact data, so their stable
+    # buyer id is the only identity there is. Only used as a key when
+    # there's no email/phone at all, and only for ids the connector
+    # namespaced ("ml:123", "mp:456") — a bare Shopify/Tiendanube customer
+    # id stays reference-only, as before.
+    external_key = external_customer_id if external_customer_id and ":" in external_customer_id else None
+
+    if not email_hash and not phone_hash and not external_key:
         return None
 
     order_time = order_time or datetime.now(timezone.utc)
@@ -68,6 +76,8 @@ def resolve_customer_id(
         existing = db.query(Customer).filter_by(store_id=store_id, email_hash=email_hash).first()
     elif phone_hash:
         existing = db.query(Customer).filter_by(store_id=store_id, phone_hash=phone_hash).first()
+    else:
+        existing = db.query(Customer).filter_by(store_id=store_id, external_customer_id=external_key).first()
 
     if existing:
         # Enrich with anything new we learned about this customer, but

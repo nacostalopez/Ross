@@ -173,7 +173,8 @@ a duplicate type in the same layout is rejected with `422`.
 `ad_spend` tracks spend at campaign/adset level; `creative_performance` is a
 separate hypertable for the ad (creative) level — what a media buyer
 actually scans to decide what to scale or kill. Meta, Google, TikTok, and
-LinkedIn only (Tiendanube/MercadoPago aren't creative-based ad platforms).
+LinkedIn only (Tiendanube and Mercado Pago aren't ad platforms, and Mercado
+Libre's Product Ads are synced at campaign level only).
 Each of `MetaConnector`, `GoogleAdsConnector`, `TikTokConnector`, and
 `LinkedInConnector` gets a `fetch_creative_performance()` alongside its
 existing `fetch_ad_spend()`, and the connector routes get a matching
@@ -264,13 +265,16 @@ Analytics scoping out ad-level attribution:
 
 `GET /stores/{id}/metrics/cac-by-channel?start=&end=` splits the same
 blended CAC above by acquisition channel: for each cohort month, one row
-per channel (`meta`, `google`, `tiktok`, `linkedin`, or `other`) with that
+per channel (`meta`, `google`, `tiktok`, `linkedin`, `mercadolibre`, or `other`) with that
 channel's own new customers, `ad_spend`, and CAC. A customer's channel is
 whichever one their *first* order's `attribution_utm_source` normalizes to
 (aliases like `facebook`/`fb`/`instagram` → `meta`, `adwords`/`google ads`/
 `youtube` → `google`, `tiktokads` → `tiktok`); anything else lands in
 `other`, which correctly has no spend/CAC since `ad_spend` only ever has
-`meta`/`google`/`tiktok`/`linkedin`/`mercadopago` rows to divide by.
+`meta`/`google`/`tiktok`/`linkedin`/`mercadolibre` rows to divide by.
+Mercado Libre orders have no UTMs; their connector sets
+`attribution_utm_source = 'mercadolibre'`, which pairs them with that
+channel's Product Ads spend.
 Instagram and YouTube aren't `ad_spend` platforms of their own — both run
 through their parent's ad account/API (Meta's Graph API, Google Ads' GAQL),
 so their spend already arrives as `meta`/`google`.
@@ -476,6 +480,51 @@ Google, including the graceful-failure path — TikTok/LinkedIn share the
 identical code path but weren't re-verified via Playwright since no new UI
 surface was added), but the actual provider consent screen and token
 exchange can't complete for any of the five without a registered app.
+
+### Mercado Libre + Mercado Pago
+
+Two connectors on the same "Conectar" flow as the others (no extra id to
+type — the seller/collector id comes back with the token):
+
+- **Mercado Libre** (`app/connectors/mercadolibre.py`) is both a sales
+  channel and an ad platform. `POST /connectors/mercadolibre/sync-orders`
+  backfills marketplace orders into `orders` (paid ones upserted,
+  cancelled ones removed); after that, `POST
+  /connectors/mercadolibre/notifications` (the app's notifications callback,
+  topic `orders_v2`) keeps them current — it answers immediately and
+  re-fetches the order with the seller's token in a background task,
+  never trusting the payload (Mercado Libre notifications aren't signed).
+  Mercado Libre's selling fee (`sale_fee` × quantity) goes into
+  `payment_gateway_fee`, so net profit is net of commissions. `POST
+  /connectors/mercadolibre/sync-ad-spend` pulls Product Ads spend per
+  campaign per day into `ad_spend` (platform `mercadolibre`) — idempotent
+  (replaces the window instead of appending) and clamped to Mercado Ads'
+  90-day lookback. A seller without Product Ads enabled syncs 0 rows, not
+  an error. Access tokens last 6 h and refresh tokens are **single-use**,
+  so every refresh persists the new one under a row lock
+  (`_fresh_access_token` in `routes/connectors.py`) — two concurrent
+  refreshes would otherwise disconnect the store.
+- **Mercado Pago** (`app/connectors/mercadopago.py`) used to be modeled as
+  an ad platform calling `/advertising/{id}/reports`, which isn't a Mercado
+  Pago endpoint (Mercado Ads belongs to Mercado Libre). It now reads the
+  merchant's **payments**: `POST /connectors/mercadopago/sync-payments`
+  and the signed `POST /connectors/mercadopago/notifications`. On a store
+  whose platform is `mercadopago` (new option: payment links, QR, own
+  checkout) each approved payment becomes an order (`mp:<id>`; refunds and
+  chargebacks remove it). On any other store, payments only fill in the
+  processing fee of the order whose id matches `external_reference` —
+  ingesting them as orders too would double-count revenue. Payments of a
+  Mercado Libre sale are always skipped (that connector owns them).
+  Notifications are verified with the Webhooks panel's *clave secreta*
+  (`MERCADOPAGO_WEBHOOK_SECRET`), per the manifest in Mercado Pago's own
+  SDK (`id:<data.id>;request-id:<x-request-id>;ts:<ts>;`) — the old code
+  checked against the client secret, which was the wrong key.
+
+Marketplace buyers usually come with no email/phone, so
+`resolve_customer_id` now falls back to a namespaced buyer id
+(`ml:<id>`, `mp:<id>`) as the identity key — only when there's neither,
+and only for namespaced ids (`db/init/029_marketplace_customers.sql` adds
+its index). `.env.example` says what to register on each platform.
 
 ### Per-store roles
 
@@ -733,9 +782,38 @@ has every gated feature, so **nothing is actually restricted today**;
 `Plan.monthly_price` and the volume limits are placeholders. Gating a
 feature only ever applies to *enabling* it, never to turning it off — a
 future downgrade must not strand someone unable to disable something
-they already had on. This is Phase 1 only: no checkout, no Stripe
-integration, no way for a real account to end up on a plan other than
-Scale yet.
+they already had on. Phase 2 (below) adds the checkout, with Mercado Pago instead of the
+proposal's Stripe.
+
+### Billing with Mercado Pago Suscripciones (Phase 2)
+
+`app/routes/billing.py` + `app/services/billing_mercadopago.py`, acting as
+ARAMAL's own Mercado Pago account (`MERCADOPAGO_BILLING_ACCESS_TOKEN`) —
+unrelated to the merchant connector above. `POST /billing/checkout`
+(owner only) creates a monthly preapproval without an associated plan
+(`external_reference = <account_id>:<plan_id>`, amount from
+`plans.monthly_price`, currency `BILLING_CURRENCY`, default ARS) and
+returns its checkout URL; nothing about the account changes until `POST
+/billing/webhooks/mercadopago` (signed, `MERCADOPAGO_BILLING_WEBHOOK_SECRET`)
+reports the preapproval `authorized` — only then does the Subscription move
+to that plan. A plan change is a new preapproval; the old one is cancelled
+at Mercado Pago once the new one is authorized. Each recurring charge
+(`subscription_authorized_payment`) upserts an `Invoice`; a rejected
+charge marks the subscription `past_due`, a later approved one restores
+`active`. `POST /billing/cancel` stops the charges. Frontend: "Mi plan" on
+Perfil (plans, current status, invoices, Suscribirme/Cancelar).
+
+Workaround in place: since 2026-09-02 Mercado Pago returns `init_point`s
+with `&activation=true`, which open "Esta página no existe"
+([mercadopago/sdk-nodejs#480](https://github.com/mercadopago/sdk-nodejs/issues/480),
+no official fix yet) — `strip_activation_param` drops it.
+
+**Still inert by design:** every plan's `monthly_price` is NULL, so no plan
+is purchasable (the UI says "Disponible pronto") and registration still
+pins new accounts to Scale. Going live needs the proposal's business
+decisions: prices, trial length, what a canceled or never-paid account
+drops to (canceling today stops the charges but keeps the plan), and
+ARAMAL's own Mercado Pago account.
 
 ### Pricing page (`frontend/pricing.html`)
 
@@ -923,9 +1001,16 @@ list, see `app/dependencies.py::effective_roles_for_stores`).
 - `GET/PUT /stores/{id}/report-preferences`, `POST
   /stores/{id}/report-preferences/send-now` — weekly email summary (see
   "Weekly reports" below)
-- `GET/POST /connectors/{shopify,meta,google,tiendanube,mercadopago}/...` —
+- `GET/POST /connectors/{shopify,meta,google,tiktok,linkedin,tiendanube,mercadolibre,mercadopago}/...` —
   OAuth handshake, ad-spend sync, and (Shopify/Tiendanube) order webhook per
-  provider; Meta/Google also get `.../sync-creative-performance` — see `DEVELOPMENT.md`
+  provider; Meta/Google/TikTok/LinkedIn also get `.../sync-creative-performance`;
+  Mercado Libre gets `.../sync-orders` + `.../notifications`, Mercado Pago
+  `.../sync-payments` + `.../notifications` (see "Mercado Libre + Mercado
+  Pago") — see `DEVELOPMENT.md`
+- `GET /billing/plans`, `GET /billing/subscription`, `GET /billing/invoices`,
+  `POST /billing/checkout`, `POST /billing/cancel`, `POST
+  /billing/webhooks/mercadopago` — see "Billing with Mercado Pago
+  Suscripciones"
 - `GET /stores/{id}/connectors/health` — per-provider sync status
 - `GET/PUT /stores/{id}/members` — per-store role overrides (see "Per-store
   roles" above)
@@ -939,7 +1024,8 @@ exceeding a limit returns `429`.
 ## Status / next steps
 
 Schema, ingestion, profit/ROAS math, auth/credential-encryption,
-Shopify/Meta/Google/TikTok/LinkedIn/Tiendanube/MercadoPago connectors, CI,
+Shopify/Meta/Google/TikTok/LinkedIn/Tiendanube/Mercado Libre/Mercado Pago
+connectors (see "Mercado Libre + Mercado Pago"), CI,
 structured logging, rate limiting, env-var validation, webhook e2e tests, multi-user
 accounts with Owner/Admin/Viewer roles, revocable refresh tokens, invite and
 password-reset emails (via SMTP, configurable through env vars), transparent
@@ -954,9 +1040,11 @@ proactive CAC/ROAS email alerts (see "Proactive alerts"), a weekly email
 summary report (see "Weekly reports"), per-store
 role overrides (see "Per-store roles"), a customer-data access log (see
 "Customer data access log"), the Meta/Google CAPI feedback loop (see
-"CAPI feedback loop"), and a working Connect flow for Shopify/Meta/Google/
-TikTok/LinkedIn (see "Connect flow (Shopify, Meta, Google, TikTok,
-LinkedIn)") are done.
+"CAPI feedback loop"), a working Connect flow for Shopify/Meta/Google/
+TikTok/LinkedIn/Mercado Libre/Mercado Pago (see "Connect flow (Shopify,
+Meta, Google, TikTok, LinkedIn)"), and the Mercado Pago Suscripciones
+checkout for ARAMAL's own billing (see "Billing with Mercado Pago
+Suscripciones (Phase 2)" — wired but inert until prices exist) are done.
 
 The frontend (`frontend/`, plain HTML/CSS/JS, no build step) has been carried
 well past "just enough to see real numbers": ARAMAL brand system with light/
@@ -1063,13 +1151,26 @@ while the landing/pricing scenes are not. Not yet built:
   customer-data access log above, not a generic audit trail. A future
   mutating route doesn't get logged automatically; it needs its own
   explicit `log_activity()` call the same way the 4 existing ones do.
-- **No billing/monetization of any kind** — there's no `Plan`/
-  `Subscription`/`Invoice` model, no usage limits, no trial, no payment
-  integration for charging an ARAMAL customer (MercadoPago exists only as
-  a connector reading a *merchant's own* sales data). Every account
-  created via `POST /auth/register` has full, permanent, unmetered
-  access. This is the one gap flagged as blocking self-serve growth,
-  not just a missing feature — see the separate billing proposal.
+- **Billing is wired but not switched on** — the Mercado Pago checkout,
+  webhook, invoices and "Mi plan" exist (see "Billing with Mercado Pago
+  Suscripciones (Phase 2)"), but no plan has a price, registration still
+  grants Scale, and there's no trial, no downgrade on cancel/non-payment,
+  and no volume-limit enforcement (Phase 3). All of that waits on the
+  billing proposal's business decisions, not on code. Still the one gap
+  blocking self-serve growth.
+- **Mercado Libre / Mercado Pago never ran against real accounts** — no
+  app registered on either platform yet, so OAuth, orders, Product Ads and
+  payments are verified only against stubbed responses built from their
+  docs (the Mercado Ads daily-per-campaign response shape in particular is
+  ambiguous in the docs; the parser accepts both a bare list and a
+  `results` wrapper). Two known data gaps: what the seller pays for Mercado
+  Envíos free shipping (`/shipments/{id}/costs`, one call per order) isn't
+  fetched, so `shipping_fee` is 0 on Mercado Libre orders; and the
+  Mercado Pago fee fill-in on Shopify/Tiendanube stores assumes their
+  checkouts put the platform's order id in `external_reference` —
+  unverified, and a non-match just leaves the fee at 0. There's no UI
+  button to run a backfill sync yet (same as the other connectors — API
+  only).
 
 Note for `docker compose` users: `FRONTEND_URL`, `SMTP_*`, and `VAPID_*`
 must be set in a root-level `.env` (not `backend/.env`) — `docker-compose.yml`'s `backend`

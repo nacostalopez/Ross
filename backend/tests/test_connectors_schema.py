@@ -5,13 +5,14 @@ set. Shopify feeds the orders table and must satisfy OrderCreate. HTTP calls
 are mocked — these are schema/shape checks, not live integration tests.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.connectors.google import GoogleAdsConnector
 from app.connectors.linkedin import LinkedInConnector
+from app.connectors.mercadolibre import MercadoLibreConnector
 from app.connectors.mercadopago import MercadoPagoConnector
 from app.connectors.meta import MetaConnector
 from app.connectors.shopify import ShopifyConnector
@@ -51,6 +52,29 @@ def _mock_response(payload):
     response.json.return_value = payload
     response.raise_for_status = MagicMock()
     return response
+
+
+def _recent_window():
+    """Mercado Ads only reports the last 90 days, so its tests can't use fixed 2026-01 dates."""
+    end = datetime.now(timezone.utc)
+    return end - timedelta(days=10), end
+
+
+def _mercadolibre_ads_responses():
+    """Campaign list (one campaign that spent, one idle) then that campaign's daily metrics."""
+    day = (datetime.now(timezone.utc) - timedelta(days=3)).date().isoformat()
+    return [
+        _mock_response(
+            {
+                "paging": {"total": 2, "offset": 0, "limit": 50},
+                "results": [
+                    {"id": 77, "name": "Crecimiento A", "metrics": {"cost": 12.5}},
+                    {"id": 78, "name": "Idle", "metrics": {"cost": 0}},
+                ],
+            }
+        ),
+        _mock_response([{"date": day, "cost": 12.5, "prints": 1000, "clicks": 20}]),
+    ]
 
 
 @pytest.mark.connector
@@ -109,32 +133,18 @@ class TestAdSpendSchemaConsistency:
         assert AD_SPEND_REQUIRED_FIELDS.issubset(records[0].keys())
         assert records[0]["platform"] == "google"
 
-    def test_mercadopago_ad_spend_record_shape(self):
-        connector = MercadoPagoConnector(store_id="store-1", seller_id="seller-123")
-        response = _mock_response(
-            {
-                "results": [
-                    {
-                        "campaign_id": "1",
-                        "campaign_name": "Test Campaign",
-                        "adset_id": "10",
-                        "spend": 12.50,
-                        "impressions": 1000,
-                        "clicks": 20,
-                        "date": "2026-01-01",
-                    }
-                ],
-            }
-        )
-        with patch("app.connectors.mercadopago.requests.get", return_value=response):
-            records = connector.fetch_ad_spend(
-                "fake-token",
-                datetime(2026, 1, 1, tzinfo=timezone.utc),
-                datetime(2026, 1, 31, tzinfo=timezone.utc),
-            )
+    def test_mercadolibre_ad_spend_record_shape(self):
+        connector = MercadoLibreConnector(store_id="store-1", seller_id="seller-123")
+        start, end = _recent_window()
+        with patch("app.connectors.mercadolibre.requests.get", side_effect=_mercadolibre_ads_responses()):
+            records = connector.fetch_ad_spend("fake-token", start, end, advertiser_id="adv-1")
         assert len(records) == 1
         assert AD_SPEND_REQUIRED_FIELDS.issubset(records[0].keys())
-        assert records[0]["platform"] == "mercadopago"
+        assert records[0]["platform"] == "mercadolibre"
+        assert records[0]["campaign_id"] == "77"
+        assert records[0]["campaign_name"] == "Crecimiento A"
+        assert records[0]["spend"] == 12.5
+        assert records[0]["impressions"] == 1000
 
     def test_tiktok_ad_spend_record_shape(self):
         connector = TikTokConnector(store_id="store-1", advertiser_id="adv-123")
@@ -198,7 +208,7 @@ class TestAdSpendSchemaConsistency:
         """Whatever field one ad-spend connector adds, the others must too."""
         meta_connector = MetaConnector(store_id="store-1", ad_account_id="act_123")
         google_connector = GoogleAdsConnector(store_id="store-1", customer_id="123")
-        mercadopago_connector = MercadoPagoConnector(store_id="store-1", seller_id="seller-123")
+        mercadolibre_connector = MercadoLibreConnector(store_id="store-1", seller_id="seller-123")
 
         meta_response = _mock_response(
             {
@@ -228,22 +238,6 @@ class TestAdSpendSchemaConsistency:
                 ],
             }
         )
-        mercadopago_response = _mock_response(
-            {
-                "results": [
-                    {
-                        "campaign_id": "1",
-                        "campaign_name": "C",
-                        "adset_id": "10",
-                        "spend": 1,
-                        "impressions": 1,
-                        "clicks": 1,
-                        "date": "2026-01-01",
-                    }
-                ],
-            }
-        )
-
         with patch("app.connectors.meta.requests.get", return_value=meta_response):
             meta_records = meta_connector.fetch_ad_spend(
                 "t", datetime(2026, 1, 1, tzinfo=timezone.utc), datetime(2026, 1, 31, tzinfo=timezone.utc)
@@ -252,12 +246,10 @@ class TestAdSpendSchemaConsistency:
             google_records = google_connector.fetch_ad_spend(
                 "t", datetime(2026, 1, 1, tzinfo=timezone.utc), datetime(2026, 1, 31, tzinfo=timezone.utc)
             )
-        with patch("app.connectors.mercadopago.requests.get", return_value=mercadopago_response):
-            mercadopago_records = mercadopago_connector.fetch_ad_spend(
-                "t", datetime(2026, 1, 1, tzinfo=timezone.utc), datetime(2026, 1, 31, tzinfo=timezone.utc)
-            )
+        with patch("app.connectors.mercadolibre.requests.get", side_effect=_mercadolibre_ads_responses()):
+            mercadolibre_records = mercadolibre_connector.fetch_ad_spend("t", *_recent_window(), advertiser_id="adv-1")
 
-        assert set(meta_records[0].keys()) == set(google_records[0].keys()) == set(mercadopago_records[0].keys())
+        assert set(meta_records[0].keys()) == set(google_records[0].keys()) == set(mercadolibre_records[0].keys())
 
 
 CREATIVE_PERFORMANCE_REQUIRED_FIELDS = {
@@ -571,3 +563,80 @@ class TestOrderSchemaConsistency:
         assert result["customer_email"] == "buyer@example.com"
         assert result["customer_phone"] == "+5491112345678"
         assert result["external_customer_id"] == "321"
+
+    def test_mercadolibre_order_shape(self):
+        connector = MercadoLibreConnector(store_id="store-1", seller_id="207035636")
+        ml_order = {
+            "id": 1068825849,
+            "status": "paid",
+            "date_created": "2026-02-25T15:53:38.000-04:00",
+            "currency_id": "ARS",
+            "total_amount": 1500,
+            "order_items": [
+                {"item": {"id": "MLA1"}, "sale_fee": 150.0, "quantity": 2, "unit_price": 500},
+                {"item": {"id": "MLA2"}, "sale_fee": 50.0, "quantity": 1, "unit_price": 500},
+            ],
+            "buyer": {"id": 207040551, "nickname": "TETE"},
+        }
+        result = connector.process_webhook("orders_v2", ml_order)
+        assert ORDER_REQUIRED_FIELDS.issubset(result.keys())
+        assert result["order_id"] == "1068825849"
+        assert result["gross_amount"] == 1500
+        # sale_fee is per unit: 150*2 + 50*1
+        assert result["payment_gateway_fee"] == 350
+        assert result["attribution_utm_source"] == "mercadolibre"
+        assert result["customer_email"] is None
+        assert result["external_customer_id"] == "ml:207040551"
+
+    def test_mercadopago_payment_to_order_shape(self):
+        connector = MercadoPagoConnector(store_id="store-1", seller_id="seller-1")
+        payment = {
+            "id": 555,
+            "status": "approved",
+            "date_approved": "2026-03-01T10:00:00.000-03:00",
+            "currency_id": "ARS",
+            "transaction_amount": 1000,
+            "transaction_amount_refunded": 100,
+            "fee_details": [
+                {"type": "mercadopago_fee", "amount": 60.5, "fee_payer": "collector"},
+                {"type": "financing_fee", "amount": 99, "fee_payer": "payer"},
+            ],
+            "payer": {"id": 42, "email": "buyer@example.com"},
+        }
+        result = connector.process_webhook("payment", payment)
+        assert ORDER_REQUIRED_FIELDS.issubset(result.keys())
+        assert result["order_id"] == "mp:555"
+        assert result["payment_gateway_fee"] == 60.5  # the payer's financing fee isn't the merchant's cost
+        assert result["discounts"] == 100
+        assert result["customer_email"] == "buyer@example.com"
+        assert result["external_customer_id"] == "mp:42"
+
+    def test_mercadopago_fee_falls_back_to_net_received(self):
+        payment = {"transaction_amount": 1000, "transaction_details": {"net_received_amount": 930}}
+        assert MercadoPagoConnector.processing_fee(payment) == 70
+
+    def test_mercadopago_detects_mercadolibre_payments(self):
+        assert MercadoPagoConnector.is_mercadolibre_payment({"order": {"type": "mercadolibre", "id": 1}})
+        assert not MercadoPagoConnector.is_mercadolibre_payment({"order": {"type": "mercadopago"}})
+        assert not MercadoPagoConnector.is_mercadolibre_payment({})
+
+
+@pytest.mark.connector
+class TestMercadoLibreAdsWindow:
+    def test_clamps_to_90_day_lookback(self):
+        connector = MercadoLibreConnector(store_id="store-1")
+        now = datetime.now(timezone.utc)
+        start, end = connector.ads_window(now - timedelta(days=400), now)
+        assert start == (now - timedelta(days=90)).date()
+        assert end == now.date()
+
+    def test_window_entirely_too_old_is_none(self):
+        connector = MercadoLibreConnector(store_id="store-1")
+        now = datetime.now(timezone.utc)
+        assert connector.ads_window(now - timedelta(days=400), now - timedelta(days=200)) is None
+
+    def test_no_product_ads_means_no_records(self):
+        connector = MercadoLibreConnector(store_id="store-1")
+        not_enabled = MagicMock(status_code=404)
+        with patch("app.connectors.mercadolibre.requests.get", return_value=not_enabled):
+            assert connector.fetch_ad_spend("t", *_recent_window()) == []

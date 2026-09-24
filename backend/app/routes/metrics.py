@@ -221,8 +221,10 @@ LTV_COHORTS_SQL = text(
 # whoever built the ad, so it's normalized against the small set of aliases
 # real campaigns actually use; anything else falls into 'other', which
 # correctly gets no spend/CAC since ad_spend only has 'meta'/'google'/
-# 'tiktok'/'linkedin'/'mercadopago' rows (see connectors' fetch_ad_spend) —
-# no data to divide by. Instagram and YouTube aren't separate ad_spend
+# 'tiktok'/'linkedin'/'mercadolibre' rows (see connectors' fetch_ad_spend) —
+# no data to divide by. Mercado Libre orders carry utm_source
+# 'mercadolibre' (set by its connector — a marketplace order has no UTMs),
+# pairing them with that channel's Product Ads spend. Instagram and YouTube aren't separate ad_spend
 # platforms: both run through their parent's own ads account/API (Meta's
 # Graph API insights, Google Ads' GAQL) and land as 'meta'/'google' spend
 # already, so 'instagram'/'youtube' utm_source values map onto those, not a
@@ -245,6 +247,7 @@ CAC_BY_CHANNEL_SQL = text(
                 WHEN 'tiktok' THEN 'tiktok'
                 WHEN 'tiktokads' THEN 'tiktok'
                 WHEN 'linkedin' THEN 'linkedin'
+                WHEN 'mercadolibre' THEN 'mercadolibre'
                 ELSE 'other'
             END AS channel
         FROM orders o
@@ -327,6 +330,7 @@ ATTRIBUTION_BY_CHANNEL_SQL = text(
                 WHEN 'tiktok' THEN 'tiktok'
                 WHEN 'tiktokads' THEN 'tiktok'
                 WHEN 'linkedin' THEN 'linkedin'
+                WHEN 'mercadolibre' THEN 'mercadolibre'
                 ELSE 'other'
             END AS channel
         FROM orders o

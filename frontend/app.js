@@ -1138,7 +1138,7 @@ async function refreshConnectorHealth() {
 function renderConnectorGrid(health) {
   const grid = document.getElementById("connector-status");
   if (!grid) return;
-  const providers = ["shopify", "meta", "google", "tiktok", "linkedin"];
+  const providers = ["shopify", "meta", "google", "tiktok", "linkedin", "mercadolibre", "mercadopago"];
 
   grid.innerHTML = providers
     .map((provider) => {
@@ -1162,7 +1162,7 @@ function renderConnectorGrid(health) {
         : "";
       return `
         <div class="connector-card">
-          <div class="connector-name"><span class="connector-dot ${dotClass}"></span>${provider}</div>
+          <div class="connector-name"><span class="connector-dot ${dotClass}"></span>${PROVIDER_CONNECT_CONFIG[provider]?.label || provider}</div>
           <div class="muted">${statusText}</div>
           ${connectBtn}
         </div>
@@ -1176,13 +1176,13 @@ function renderConnectorGrid(health) {
 }
 
 // ---------------------------------------------------------------------------
-// Connect flow (Shopify/Meta/Google/TikTok/LinkedIn OAuth) — button ->
+// Connect flow (Shopify/Meta/Google/TikTok/LinkedIn/Mercado Libre/Mercado Pago OAuth) — button ->
 // auth-url -> redirect to the provider -> provider redirects back to
 // index.html?connector=... -> handleConnectorCallback() picks it up in
 // boot(). No dedicated backend callback page: nginx here serves static
 // files with no SPA fallback, so the OAuth redirect_uri points straight at
 // index.html (see backend/app/connectors/{shopify,meta,google,tiktok,
-// linkedin}.py's *_redirect_uri).
+// linkedin,mercadolibre,mercadopago}.py's *_redirect_uri).
 // ---------------------------------------------------------------------------
 
 const PROVIDER_CONNECT_CONFIG = {
@@ -1221,6 +1221,17 @@ const PROVIDER_CONNECT_CONFIG = {
     fieldPlaceholder: "512345678",
     hint: "Podés completarlo ahora o más adelante volviendo a conectar.",
   },
+  // No extra id to ask for: the seller/collector id comes back with the token.
+  mercadolibre: {
+    label: "Mercado Libre",
+    noField: true,
+    hint: "Trae tus ventas del marketplace y el gasto en Product Ads. Vas a iniciar sesión en Mercado Libre para autorizarlo.",
+  },
+  mercadopago: {
+    label: "Mercado Pago",
+    noField: true,
+    hint: "Trae tus cobros y las comisiones que te descuenta Mercado Pago. Las ventas de Mercado Libre no se duplican.",
+  },
 };
 
 function openConnectModal(provider) {
@@ -1228,11 +1239,12 @@ function openConnectModal(provider) {
   const modal = document.getElementById("connect-provider-modal");
   document.getElementById("connect-provider-title").textContent = `Conectar ${cfg.label}`;
   document.getElementById("connect-provider-hint").textContent = cfg.hint;
-  document.getElementById("connect-provider-field-label").textContent = cfg.fieldLabel;
+  document.getElementById("connect-provider-field-wrap").hidden = Boolean(cfg.noField);
+  document.getElementById("connect-provider-field-label").textContent = cfg.fieldLabel || "";
   const field = document.getElementById("connect-provider-field");
   field.value = "";
-  field.placeholder = cfg.fieldPlaceholder;
-  field.required = cfg.fieldRequired;
+  field.placeholder = cfg.fieldPlaceholder || "";
+  field.required = Boolean(cfg.fieldRequired);
   modal.dataset.provider = provider;
   modal.hidden = false;
 }
@@ -1381,7 +1393,14 @@ function renderLtvCohortsTable(rows) {
 // each customer's first order instead of blended across all of them.
 // ---------------------------------------------------------------------------
 
-const CHANNEL_LABELS = { meta: "Meta", google: "Google", tiktok: "TikTok", linkedin: "LinkedIn", other: "Otro" };
+const CHANNEL_LABELS = {
+  meta: "Meta",
+  google: "Google",
+  tiktok: "TikTok",
+  linkedin: "LinkedIn",
+  mercadolibre: "Mercado Libre",
+  other: "Otro",
+};
 
 async function refreshCacByChannel() {
   if (!document.getElementById("cac-by-channel-table")) return;
@@ -1603,7 +1622,7 @@ async function refreshPnl() {
 // Creative performance (ad-level: spend/CTR/CPC/CPM per creative, ranked)
 // ---------------------------------------------------------------------------
 
-const PLATFORM_LABELS = { meta: "Meta", google: "Google", tiktok: "TikTok", linkedin: "LinkedIn" };
+const PLATFORM_LABELS = { meta: "Meta", google: "Google", tiktok: "TikTok", linkedin: "LinkedIn", mercadolibre: "Mercado Libre" };
 
 async function refreshCreativePerformance() {
   // creative_performance widget not on the current layout — don't even fetch.
@@ -2044,6 +2063,7 @@ async function loadProfilePanel() {
   renderPushDevices(devices);
   const activity = await api("/accounts/activity?limit=10");
   renderActivityLog(activity);
+  await loadPlanPanel();
 
   // GET /accounts/members is owner/admin-only on the backend — same
   // boundary as the "Equipo" nav item itself (hidden for viewers).
@@ -2052,6 +2072,114 @@ async function loadProfilePanel() {
   if (!teamPanel.hidden) {
     const members = await api("/accounts/members");
     renderTeamSummary(members);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mi plan — Mercado Pago Suscripciones (backend/app/routes/billing.py).
+// "Suscribirme" sends the owner to Mercado Pago's checkout; the plan only
+// changes once Mercado Pago's webhook confirms it, so coming back
+// (?billing=return) just says so rather than assuming it went through.
+// ---------------------------------------------------------------------------
+
+const SUBSCRIPTION_STATUS_LABELS = {
+  active: "Activo",
+  trialing: "En prueba",
+  past_due: "Pago pendiente",
+  canceled: "Cancelado",
+};
+
+const INVOICE_STATUS_LABELS = { paid: "Pagada", open: "Pendiente", void: "Anulada" };
+
+function fmtPlanPrice(plan) {
+  if (plan.monthly_price === null) return "Precio a definir";
+  const amount = new Intl.NumberFormat("es-AR", { style: "currency", currency: plan.currency, maximumFractionDigits: 0 })
+    .format(plan.monthly_price);
+  return `${amount} / mes`;
+}
+
+async function loadPlanPanel() {
+  const [plans, sub] = await Promise.all([api("/billing/plans"), api("/billing/subscription")]);
+  const isOwner = state.currentUser.role === "owner";
+  const current = plans.find((p) => p.id === sub.plan_id);
+  const paid = sub.payment_provider === "mercadopago";
+
+  const renewal = paid && sub.current_period_end && sub.status === "active"
+    ? ` · próximo cobro ${fmtDate(sub.current_period_end)}`
+    : "";
+  document.getElementById("plan-summary").innerHTML = `
+    <div class="plan-current">
+      <strong>${current ? current.name : sub.plan_id}</strong>
+      <span class="role-badge">${SUBSCRIPTION_STATUS_LABELS[sub.status] || sub.status}</span>
+      <span class="muted">${paid ? `Pagás con Mercado Pago${renewal}` : "Sin cobro activo"}</span>
+    </div>
+    ${sub.status === "past_due" ? '<p class="error-text">Mercado Pago no pudo cobrar la última cuota. Revisá tu medio de pago en Mercado Pago.</p>' : ""}
+  `;
+
+  const options = document.getElementById("plan-options");
+  if (!isOwner) {
+    options.innerHTML = '<p class="muted">Solo el owner de la cuenta puede cambiar el plan.</p>';
+    document.getElementById("plan-invoices").innerHTML = "";
+    return;
+  }
+
+  options.innerHTML = plans
+    .map((plan) => {
+      const isCurrent = paid && plan.id === sub.plan_id && sub.status !== "canceled";
+      const action = isCurrent
+        ? '<span class="muted">Tu plan actual</span>'
+        : plan.purchasable
+          ? `<button type="button" class="btn btn-primary" data-checkout-plan="${plan.id}">Suscribirme</button>`
+          : '<span class="muted">Disponible pronto</span>';
+      return `
+        <div class="plan-option${isCurrent ? " current" : ""}">
+          <div class="plan-option-name">${plan.name}</div>
+          <div class="plan-option-price">${fmtPlanPrice(plan)}</div>
+          ${action}
+        </div>
+      `;
+    })
+    .join("") + (paid && sub.status !== "canceled"
+      ? '<button type="button" class="link-danger" id="plan-cancel">Cancelar suscripción</button>'
+      : "");
+
+  options.querySelectorAll("[data-checkout-plan]").forEach((btn) => {
+    btn.addEventListener("click", () => startCheckout(btn.dataset.checkoutPlan, btn));
+  });
+  document.getElementById("plan-cancel")?.addEventListener("click", cancelSubscription);
+
+  const invoices = await api("/billing/invoices");
+  document.getElementById("plan-invoices").innerHTML = invoices.length
+    ? `<h4>Facturas</h4>${invoices
+      .map((inv) => `
+        <div class="invoice-row">
+          <span>${fmtDate(inv.paid_at || inv.issued_at)}</span>
+          <span>${new Intl.NumberFormat("es-AR", { style: "currency", currency: inv.currency }).format(inv.amount)}</span>
+          <span class="muted">${INVOICE_STATUS_LABELS[inv.status] || inv.status}</span>
+        </div>
+      `)
+      .join("")}`
+    : "";
+}
+
+async function startCheckout(planId, btn) {
+  btn.disabled = true;
+  try {
+    const { checkout_url: checkoutUrl } = await api("/billing/checkout", { method: "POST", body: { plan_id: planId } });
+    window.location.href = checkoutUrl;
+  } catch (err) {
+    btn.disabled = false;
+    reportError("No se pudo iniciar el pago", err.message);
+  }
+}
+
+async function cancelSubscription() {
+  if (!confirm("¿Cancelar la suscripción? Mercado Pago deja de cobrarte a partir de ahora.")) return;
+  try {
+    await api("/billing/cancel", { method: "POST" });
+    await loadPlanPanel();
+  } catch (err) {
+    reportError("No se pudo cancelar la suscripción", err.message);
   }
 }
 
@@ -2446,6 +2574,13 @@ async function refreshFirstSteps() {
 
   if (!state.token && !state.refreshToken) return;
   if (connectorProvider) await handleConnectorCallback(connectorProvider);
+  const billingReturn = getUrlToken("billing");
+  if (billingReturn) {
+    history.replaceState(null, "", window.location.pathname);
+    // The plan changes when Mercado Pago's webhook confirms the payment,
+    // usually within seconds — not on this redirect.
+    alert("Recibimos tu suscripción. Tu plan se actualiza apenas Mercado Pago confirme el pago.");
+  }
   try {
     await enterDashboard();
   } catch (err) {

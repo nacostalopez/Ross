@@ -4,6 +4,7 @@ import pytest
 from app.connectors import BaseConnector
 from app.connectors.google import GoogleAdsConnector
 from app.connectors.linkedin import LinkedInConnector
+from app.connectors.mercadolibre import MercadoLibreConnector
 from app.connectors.mercadopago import MercadoPagoConnector
 from app.connectors.meta import MetaConnector
 from app.connectors.shopify import ShopifyConnector
@@ -28,6 +29,7 @@ class TestConnectorInterface:
             GoogleAdsConnector,
             TiendanubeConnector,
             MercadoPagoConnector,
+            MercadoLibreConnector,
             TikTokConnector,
             LinkedInConnector,
         ],
@@ -61,4 +63,8 @@ class TestConnectorInterface:
 
     def test_linkedin_conforms_to_interface(self):
         connector = LinkedInConnector(store_id="store-1")
+        assert connector.get_oauth_url("state").startswith("https://")
+
+    def test_mercadolibre_conforms_to_interface(self):
+        connector = MercadoLibreConnector(store_id="store-1")
         assert connector.get_oauth_url("state").startswith("https://")

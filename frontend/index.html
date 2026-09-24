@@ -356,6 +356,13 @@
             <div id="profile-team-summary"></div>
           </div>
 
+          <div class="panel" id="plan-panel">
+            <h3>Mi plan</h3>
+            <div id="plan-summary"></div>
+            <div id="plan-options" class="plan-options"></div>
+            <div id="plan-invoices"></div>
+          </div>
+
           <div class="panel">
             <h3>Notificaciones</h3>
             <p class="widget-info">Elegí por qué canal querés recibir cada aviso. Sin guardar nada, las dos columnas quedan activadas por defecto.</p>
@@ -393,7 +400,8 @@
           <select id="new-store-platform">
             <option value="shopify">Shopify</option>
             <option value="tiendanube">Tiendanube</option>
-            <option value="mercadolibre">MercadoLibre</option>
+            <option value="mercadolibre">Mercado Libre</option>
+            <option value="mercadopago">Mercado Pago (links de pago, QR, checkout propio)</option>
           </select>
         </label>
         <label>Moneda
@@ -499,13 +507,13 @@
     </div>
   </div>
 
-  <!-- Connect provider modal (Shopify/Meta/Google/TikTok/LinkedIn OAuth) -->
+  <!-- Connect provider modal (Shopify/Meta/Google/TikTok/LinkedIn/Mercado Libre/Mercado Pago OAuth) -->
   <div id="connect-provider-modal" class="modal" hidden>
     <div class="modal-card">
       <h3 id="connect-provider-title">Conectar</h3>
       <p id="connect-provider-hint" class="muted"></p>
       <form id="connect-provider-form">
-        <label>
+        <label id="connect-provider-field-wrap">
           <span id="connect-provider-field-label"></span>
           <input type="text" id="connect-provider-field" placeholder="" />
         </label>

@@ -16,6 +16,7 @@ from app.routes import (
     ad_spend,
     alerts,
     auth,
+    billing,
     connectors,
     creative_performance,
     dashboard,
@@ -77,6 +78,7 @@ app.include_router(pixel_events.router)
 app.include_router(ad_spend.router)
 app.include_router(creative_performance.router)
 app.include_router(metrics.router)
+app.include_router(billing.router)
 app.include_router(connectors.router)
 app.include_router(connectors.health_router)
 app.include_router(dashboard.router)

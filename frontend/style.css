@@ -590,6 +590,29 @@ a:hover { text-decoration: underline; }
 .connector-card .connector-name { font-weight: 600; text-transform: capitalize; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
 .connector-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
+/* Mi plan (Perfil) */
+.plan-current { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; font-size: 13.5px; }
+.plan-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  align-items: stretch;
+}
+.plan-option {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 13px;
+}
+.plan-option.current { border-color: var(--primary); background: var(--highlight); }
+.plan-option-name { font-weight: 600; }
+.plan-option-price { color: var(--muted); }
+.plan-option .btn { margin-top: auto; }
+.plan-options > .link-danger { grid-column: 1 / -1; justify-self: start; }
+#plan-invoices h4 { margin: 16px 0 4px; font-size: 13px; }
+#plan-invoices .invoice-row { justify-content: space-between; font-size: 13px; }
+
 /* Members / invites */
 .members-panel .panel:last-child { margin-bottom: 0; }
 .member-row, .invite-row {
