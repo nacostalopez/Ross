@@ -6,7 +6,7 @@ app/services/alerts.py's module docstring for why) — this script is meant
 to be invoked by a real cron instead:
 
     # crontab -e, once a day at 09:00
-    0 9 * * * cd /path/to/escal && python scripts/run_alert_checks.py
+    0 9 * * * cd /path/to/ross && python scripts/run_alert_checks.py
 
 On Windows (this project's dev machine), use Task Scheduler with the action
 `python C:\\path\\to\\Ross\\scripts\\run_alert_checks.py`, trigger daily.

@@ -364,7 +364,7 @@ by `scripts/run_alert_checks.py`, meant to run from a real cron (or Windows
 Task Scheduler, since that's this project's dev machine):
 
 ```
-0 9 * * * cd /path/to/escal && python scripts/run_alert_checks.py
+0 9 * * * cd /path/to/ross && python scripts/run_alert_checks.py
 ```
 
 The dashboard's "Alertas" button (next to "Personalizar") opens a small

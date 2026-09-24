@@ -576,7 +576,7 @@ SQL views in `db/init/004_continuous_aggregates.sql` provide:
 
 2. Test connection:
    ```bash
-   psql -h localhost -p 5433 -U test -d escal_test
+   psql -h localhost -p 5433 -U test -d ross_test
    ```
 
 3. Recreate test database:

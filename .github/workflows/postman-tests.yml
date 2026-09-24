@@ -17,9 +17,9 @@ jobs:
       postgres:
         image: timescale/timescaledb:latest-pg16
         env:
-          POSTGRES_USER: escal
-          POSTGRES_PASSWORD: escal
-          POSTGRES_DB: escal
+          POSTGRES_USER: ross
+          POSTGRES_PASSWORD: ross
+          POSTGRES_DB: ross
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -44,19 +44,19 @@ jobs:
     
     - name: Initialize database
       env:
-        DATABASE_URL: postgresql+psycopg2://escal:escal@localhost:5432/escal
+        DATABASE_URL: postgresql+psycopg2://ross:ross@localhost:5432/ross
       run: |
         cd backend
         # Run migrations/init scripts if needed
-        psql postgresql://escal:escal@localhost:5432/escal < ../db/init/001_extensions.sql
-        psql postgresql://escal:escal@localhost:5432/escal < ../db/init/002_relational_tables.sql
-        psql postgresql://escal:escal@localhost:5432/escal < ../db/init/003_hypertables.sql
-        psql postgresql://escal:escal@localhost:5432/escal < ../db/init/004_continuous_aggregates.sql
-        psql postgresql://escal:escal@localhost:5432/escal < ../db/init/005_users.sql
+        psql postgresql://ross:ross@localhost:5432/ross < ../db/init/001_extensions.sql
+        psql postgresql://ross:ross@localhost:5432/ross < ../db/init/002_relational_tables.sql
+        psql postgresql://ross:ross@localhost:5432/ross < ../db/init/003_hypertables.sql
+        psql postgresql://ross:ross@localhost:5432/ross < ../db/init/004_continuous_aggregates.sql
+        psql postgresql://ross:ross@localhost:5432/ross < ../db/init/005_users.sql
     
     - name: Start API server
       env:
-        DATABASE_URL: postgresql+psycopg2://escal:escal@localhost:5432/escal
+        DATABASE_URL: postgresql+psycopg2://ross:ross@localhost:5432/ross
         JWT_SECRET: test-secret-key
         CREDENTIALS_ENCRYPTION_KEY: Qxsu0Kb675R0dWY-WeAE-1hvcXLTQj74_pJrlsr_kG4=
       run: |

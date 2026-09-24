@@ -11,7 +11,7 @@ _INSECURE_DEFAULTS = {
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql+psycopg2://escal:escal@localhost:5432/escal"
+    database_url: str = "postgresql+psycopg2://ross:ross@localhost:5432/ross"
 
     jwt_secret: str = "dev-only-secret-change-me"
     jwt_algorithm: str = "HS256"

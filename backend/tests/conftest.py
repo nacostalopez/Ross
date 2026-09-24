@@ -16,7 +16,7 @@ from app.security import encrypt_secret, hash_password
 # Use test database (via docker-compose test-db service)
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
-    "postgresql+psycopg2://test:test@localhost:5433/escal_test",
+    "postgresql+psycopg2://test:test@localhost:5433/ross_test",
 )
 
 
@@ -34,45 +34,46 @@ def _reset_rate_limiter():
 def test_db_engine():
     """Create test database engine and initialize schema."""
     engine = create_engine(TEST_DATABASE_URL, echo=False)
-    
+
     # Create all tables
     Base.metadata.create_all(bind=engine)
 
-    # Reference data db/init/028_billing.sql seeds in real Postgres — the
-    # test DB's schema comes from these models, not that SQL file, so it
-    # needs seeding here instead. Same 3 plans, same feature lists.
+    # Reference data db/init/028_billing.sql seeds in real Postgres. A test DB
+    # whose container ran db/init (docker-compose's test-db, CI) already has
+    # these rows and one built only from the models doesn't, so merge()
+    # (upsert by primary key) rather than add — adding fails with a duplicate
+    # key on a freshly initialized test DB. Same 3 plans, same feature lists.
     with sessionmaker(bind=engine)() as seed_session:
-        seed_session.add_all(
-            [
-                Plan(id="starter", name="Starter", max_stores=1, max_orders_per_month=500, max_users=2, features=[]),
-                Plan(
-                    id="growth",
-                    name="Growth",
-                    max_stores=5,
-                    max_orders_per_month=5000,
-                    max_users=5,
-                    features=["weekly_report", "ltv_cohorts", "cac_by_channel", "attribution_by_channel", "forecast"],
-                ),
-                Plan(
-                    id="scale",
-                    name="Scale",
-                    features=[
-                        "weekly_report",
-                        "ltv_cohorts",
-                        "cac_by_channel",
-                        "attribution_by_channel",
-                        "forecast",
-                        "creative_performance",
-                        "store_role_overrides",
-                        "audit_log",
-                    ],
-                ),
-            ]
-        )
+        for plan in (
+            Plan(id="starter", name="Starter", max_stores=1, max_orders_per_month=500, max_users=2, features=[]),
+            Plan(
+                id="growth",
+                name="Growth",
+                max_stores=5,
+                max_orders_per_month=5000,
+                max_users=5,
+                features=["weekly_report", "ltv_cohorts", "cac_by_channel", "attribution_by_channel", "forecast"],
+            ),
+            Plan(
+                id="scale",
+                name="Scale",
+                features=[
+                    "weekly_report",
+                    "ltv_cohorts",
+                    "cac_by_channel",
+                    "attribution_by_channel",
+                    "forecast",
+                    "creative_performance",
+                    "store_role_overrides",
+                    "audit_log",
+                ],
+            ),
+        ):
+            seed_session.merge(plan)
         seed_session.commit()
 
     yield engine
-    
+
     # Cleanup
     Base.metadata.drop_all(bind=engine)
     engine.dispose()
@@ -115,14 +116,15 @@ def test_db_session(test_db_engine):
 @pytest.fixture
 def client(test_db_session):
     """Provide a test client with overridden database dependency."""
+
     def override_get_db():
         yield test_db_session
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
+
     with TestClient(app) as test_client:
         yield test_client
-    
+
     app.dependency_overrides.clear()
 
 

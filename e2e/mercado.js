@@ -32,7 +32,7 @@ const { chromium } = require("playwright");
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3100";
 const API_URL = process.env.API_URL || `${new URL(FRONTEND_URL).protocol}//${new URL(FRONTEND_URL).hostname}:8100`;
 const APP = `${FRONTEND_URL.replace(/\/$/, "")}/index.html`;
-const PSQL = process.env.PSQL_CMD || 'wsl -e docker exec escal-db-1 psql -U escal -d escal -c';
+const PSQL = process.env.PSQL_CMD || 'wsl -e docker exec ross-db-1 psql -U ross -d ross -c';
 
 const problems = [];
 let total = 0;

@@ -1,18 +1,21 @@
+# Fixed project name so containers are ross-* whatever the checkout folder is called.
+name: ross
+
 services:
   db:
     image: timescale/timescaledb:latest-pg16
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-escal}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-escal}
-      POSTGRES_DB: ${POSTGRES_DB:-escal}
+      POSTGRES_USER: ${POSTGRES_USER:-ross}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ross}
+      POSTGRES_DB: ${POSTGRES_DB:-ross}
     ports:
       - "5432:5432"
     volumes:
-      - escal_db_data:/var/lib/postgresql/data
+      - ross_db_data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-escal}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ross}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -23,7 +26,7 @@ services:
     environment:
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
-      POSTGRES_DB: escal_test
+      POSTGRES_DB: ross_test
     ports:
       - "5433:5432"
     volumes:
@@ -38,7 +41,7 @@ services:
     build: ./backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-escal}:${POSTGRES_PASSWORD:-escal}@db:5432/${POSTGRES_DB:-escal}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-ross}:${POSTGRES_PASSWORD:-ross}@db:5432/${POSTGRES_DB:-ross}
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me}
       CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY:-Qxsu0Kb675R0dWY-WeAE-1hvcXLTQj74_pJrlsr_kG4=}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3100}
@@ -112,4 +115,7 @@ services:
       - backend
 
 volumes:
-  escal_db_data:
+  # Explicit name: without it Compose would prefix the project name (ross_ross_db_data).
+  # Created on 2026-09-24 as a copy of the old escal_escal_db_data volume, kept as a backup.
+  ross_db_data:
+    name: ross_db_data

@@ -6,7 +6,7 @@ app/services/reports.py's module docstring) — meant to be invoked by a
 real cron instead:
 
     # crontab -e, every Monday at 09:00
-    0 9 * * 1 cd /path/to/escal && python scripts/send_weekly_reports.py
+    0 9 * * 1 cd /path/to/ross && python scripts/send_weekly_reports.py
 
 On Windows (this project's dev machine), use Task Scheduler with the action
 `python C:\\path\\to\\Ross\\scripts\\send_weekly_reports.py`, trigger weekly.

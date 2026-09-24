@@ -15,7 +15,7 @@ jobs:
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
-          POSTGRES_DB: escal_test
+          POSTGRES_DB: ross_test
         ports:
           - 5433:5432
         options: >-
@@ -25,8 +25,8 @@ jobs:
           --health-retries 10
 
     env:
-      DATABASE_URL: postgresql+psycopg2://test:test@localhost:5433/escal_test
-      TEST_DATABASE_URL: postgresql+psycopg2://test:test@localhost:5433/escal_test
+      DATABASE_URL: postgresql+psycopg2://test:test@localhost:5433/ross_test
+      TEST_DATABASE_URL: postgresql+psycopg2://test:test@localhost:5433/ross_test
       JWT_SECRET: ci-test-secret
       CREDENTIALS_ENCRYPTION_KEY: Qxsu0Kb675R0dWY-WeAE-1hvcXLTQj74_pJrlsr_kG4=
 
@@ -63,7 +63,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y postgresql-client
           for f in db/init/*.sql; do
             echo "Applying $f"
-            PGPASSWORD=test psql -h localhost -p 5433 -U test -d escal_test -f "$f"
+            PGPASSWORD=test psql -h localhost -p 5433 -U test -d ross_test -f "$f"
           done
 
       - name: Validate connector implementations match BaseConnector
