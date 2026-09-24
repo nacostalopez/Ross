@@ -1,13 +1,13 @@
 #!/bin/bash
-# Escal API - Postman Test Runner
+# Ross API - Postman Test Runner
 # Usage: ./run-postman-tests.sh [format] [folder]
 # Example: ./run-postman-tests.sh html AUTH
 
 set -e
 
 # Configuration
-COLLECTION="./Escal-API-Tests.postman_collection.json"
-ENVIRONMENT="./Escal-Env-Local.postman_environment.json"
+COLLECTION="./Ross-API-Tests.postman_collection.json"
+ENVIRONMENT="./Ross-Env-Local.postman_environment.json"
 RESULTS_DIR="./test-results"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
@@ -25,7 +25,7 @@ NC='\033[0m' # No Color
 mkdir -p "$RESULTS_DIR"
 
 echo -e "${YELLOW}================================${NC}"
-echo -e "${YELLOW}Escal API - Postman Test Suite${NC}"
+echo -e "${YELLOW}Ross API - Postman Test Suite${NC}"
 echo -e "${YELLOW}================================${NC}"
 echo ""
 

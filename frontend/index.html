@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ARAMAL</title>
+  <title>ROSS</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#2263A2" />
   <link rel="icon" href="icons/favicon-32.png" sizes="32x32" />
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="ARAMAL" />
+  <meta name="apple-mobile-web-app-title" content="ROSS" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
@@ -43,7 +43,7 @@
       <button id="sidebar-toggle" class="btn btn-ghost sidebar-toggle" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="dashboard-sidebar" hidden>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
       </button>
-      <div class="brand">ARAMAL</div>
+      <div class="brand">ROSS</div>
     </div>
     <div class="topbar-right">
       <button id="theme-toggle" class="btn btn-ghost theme-toggle" type="button" aria-label="Cambiar tema" title="Cambiar tema">
@@ -81,7 +81,7 @@
           <circle cx="460" cy="520" r="3.5" fill="#2263A2"/>
         </svg>
         <div class="auth-hero-content">
-          <div class="auth-hero-brand">ARAMAL</div>
+          <div class="auth-hero-brand">ROSS</div>
           <h1 class="auth-hero-title">Conectá tu operación.<br />Controlá el resultado.</h1>
           <p class="auth-hero-sub">Gestión, ventas, caja y datos en tiempo real — en una sola plataforma que conecta cada parte de tu negocio.</p>
 
@@ -127,7 +127,7 @@
             <p>Va a reemplazar tu contraseña actual en todos tus dispositivos.</p>
           </div>
           <div id="invite-heading" class="auth-card-heading" hidden>
-            <h2>Te invitaron a ARAMAL</h2>
+            <h2>Te invitaron a ROSS</h2>
             <p>Elegí una contraseña para activar tu cuenta.</p>
           </div>
 
@@ -235,7 +235,7 @@
           <p id="auth-error" class="error-text" hidden></p>
           <p id="auth-success" class="success-text" hidden></p>
         </div>
-        <p class="auth-formside-footer">ARAMAL · Conexión en flujo.</p>
+        <p class="auth-formside-footer">ROSS · Conexión en flujo.</p>
       </div>
     </section>
 
@@ -548,6 +548,33 @@
     </div>
   </div>
 
+  <script>
+    // The app was ARAMAL (and Escal before that) until 2026-09-24: carry this browser's session,
+    // theme and agent flags over to the ROSS keys once, so the rename logs nobody out. Runs before
+    // the scripts below because they read their keys as soon as they load.
+    (function migrateStorageKeys() {
+      const renamed = {
+        escal_token: "ross_token",
+        escal_refresh_token: "ross_refresh_token",
+        aramal_theme: "ross_theme",
+        aramal_ya_ingreso: "ross_ya_ingreso",
+        aramal_agents_paused: "ross_agents_paused",
+      };
+      try {
+        for (const key of Object.keys(localStorage)) {
+          if (key.startsWith("aramal_first_steps_hidden_")) renamed[key] = key.replace("aramal_", "ross_");
+        }
+        for (const [oldKey, newKey] of Object.entries(renamed)) {
+          const value = localStorage.getItem(oldKey);
+          if (value === null) continue;
+          if (localStorage.getItem(newKey) === null) localStorage.setItem(newKey, value);
+          localStorage.removeItem(oldKey);
+        }
+      } catch (err) {
+        // Storage blocked (private mode, disabled cookies): nothing to carry over.
+      }
+    })();
+  </script>
   <script src="agentes/agentes.js"></script>
   <script src="agentes/mascota.js"></script>
   <script src="app.js"></script>

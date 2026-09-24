@@ -1,6 +1,6 @@
-# Development Guide - Escal Backend
+# Development Guide - Ross Backend
 
-This document describes how to develop, test, and deploy the Escal backend.
+This document describes how to develop, test, and deploy the Ross backend.
 
 ## Getting Started
 
@@ -131,7 +131,7 @@ in a later, unrelated test.
 
 ### Postman Collection
 
-`postman/escal.postman_collection.json` covers the full request lifecycle
+`postman/ross.postman_collection.json` covers the full request lifecycle
 against a running stack (`docker compose up`): register/login, store
 CRUD, order/ad-spend ingestion, metrics math, and the Shopify webhook
 (valid + invalid signature, computed in a pre-request script via
@@ -139,7 +139,7 @@ CRUD, order/ad-spend ingestion, metrics math, and the Shopify webhook
 
 ```bash
 npm install -g newman
-newman run postman/escal.postman_collection.json
+newman run postman/ross.postman_collection.json
 ```
 
 ## Continuous Integration
@@ -619,7 +619,7 @@ The `sync_google_ad_spend` endpoint automatically refreshes expired tokens.
 10. ✅ Tiendanube connector (webhook-based, same pattern as Shopify)
 11. ✅ MercadoPago connector (pull-based, same pattern as Meta/Google)
 12. ✅ Multi-user accounts / Owner-Admin-Viewer role-based permissions
-13. ✅ Real frontend design pass (ARAMAL brand system, light/dark mode,
+13. ✅ Real frontend design pass (ROSS brand system, light/dark mode,
     Spanish localization, bento dashboard, team management screen)
 14. ✅ Invite-link landing flow + forgot/reset-password flow on the frontend
 15. ✅ Hover tooltips on the daily revenue-vs-spend chart

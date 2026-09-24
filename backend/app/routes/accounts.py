@@ -26,7 +26,7 @@ from app.security import hash_password, hash_token
 from app.services.activity_log import log_activity
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
-logger = logging.getLogger("escal.accounts")
+logger = logging.getLogger("ross.accounts")
 
 INVITE_EXPIRY_DAYS = 7
 
@@ -40,10 +40,10 @@ def _send_invite_email(invite: AccountInvite, inviter: User, raw_token: str, *, 
     try:
         send_email(
             to=invite.email,
-            subject=f"{subject_prefix}ou've been invited to {inviter.account.name} on Escal",
+            subject=f"{subject_prefix}ou've been invited to {inviter.account.name} on Ross",
             body=(
                 f"{inviter.email} invited you to join {inviter.account.name} "
-                f"on Escal as {invite.role}.\n\n"
+                f"on Ross as {invite.role}.\n\n"
                 f"Accept your invite: {invite_url}\n\n"
                 f"Or use this token directly: {raw_token}\n\n"
                 f"This invite expires in {INVITE_EXPIRY_DAYS} days."

@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "escal-api-tests-2026",
-    "name": "Escal API - Endpoint Tests",
-    "description": "Complete test suite for Escal e-commerce analytics backend. Tests all endpoints with assertions.",
+    "_postman_id": "ross-api-tests-2026",
+    "name": "Ross API - Endpoint Tests",
+    "description": "Complete test suite for Ross e-commerce analytics backend. Tests all endpoints with assertions.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

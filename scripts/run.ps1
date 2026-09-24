@@ -1,5 +1,5 @@
 <#
-Launches the Escal stack (Postgres/Timescale + FastAPI backend) via Docker
+Launches the Ross stack (Postgres/Timescale + FastAPI backend) via Docker
 Compose. Plain deterministic wrapper, no AI involved.
 
 Usage (from any directory):

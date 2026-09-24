@@ -1,10 +1,10 @@
-# Aramal agents: sprite generator
+# Ross agents: sprite generator
 
-Generates the pixel-art agents of the Aramal frontend (one animated agent per module, and one
+Generates the pixel-art agents of the Ross frontend (one animated agent per module, and one
 uniform per account role) and exports them into `frontend/agentes/`. You only need to run it
 when a drawing, the palette or a uniform changes: the exported files are committed.
 
-Adapted from the generator built for TERXPERIENCE_APP (same engine, English code, Aramal's
+Adapted from the generator built for TERXPERIENCE_APP (same engine, English code, Ross's
 palette and roles). Python 3 standard library only.
 
 ## Use
@@ -33,7 +33,7 @@ stale. `frontend/agentes/agentes.js` and `agentes.css` are hand-written (the run
   each `x` too), which gzips about 28% smaller than SVG path text. The runtime rebuilds the paths in
   `rects()` of `agentes.js`: if you change the encoding, change both (`pytest` decodes the numbers
   and compares them to the grid, and the pixel output can be compared before and after in a browser).
-- `palette.py`: role to color. Aramal's base theme is light, so `LIGHT` has every role and `DARK`
+- `palette.py`: role to color. Ross's base theme is light, so `LIGHT` has every role and `DARK`
   only the ones that change.
 - `agent.py`: the 12x21 agent with three uniforms (`suit`, `coat`, `shirt`) and accessories.
 - `scenes.py`: the scenes, module heads and portraits; `ROLES` maps each API role to its uniform.
@@ -59,14 +59,14 @@ Each person gets one of 4 skin/hair variants, always the same one for the same u
 ## Rules
 
 - **No text inside a sprite.** The pixel font of the original generator has no accents, no `Ñ`,
-  no comma, no `$` and no parentheses, so 16 of 23 real Aramal phrases broke. Every label lives in
+  no comma, no `$` and no parentheses, so 16 of 23 real Ross phrases broke. Every label lives in
   HTML; a sprite may carry at most an acronym such as ROAS or CAC.
 - **Sprites have no background.** They stand on the app's `--panel`, so one drawing serves both
   themes and only outlines, uniforms and whites change between them.
 - **Weight budget** (gzip, enforced by `export.py`): 4 KB per scene and 25 KB for all of
   `frontend/agentes/`, hand-written files included.
 - **Motion:** `prefers-reduced-motion` stops every animation, and the topbar button pauses them
-  (`aramal_agents_paused` in `localStorage`).
+  (`ross_agents_paused` in `localStorage`).
 
 ## Adding a scene
 

@@ -22,7 +22,7 @@ from app.routes.metrics import CAC_BY_CHANNEL_SQL, DAILY_SQL
 from app.schemas.alerts import AlertCheckResult
 from app.services.notifications import send_to_store
 
-logger = logging.getLogger("escal.alerts")
+logger = logging.getLogger("ross.alerts")
 
 
 def _already_sent(
@@ -70,7 +70,7 @@ def check_cac_alerts(db: Session, store: Store, prefs: StoreAlertPreference, now
         send_to_store(
             db,
             store,
-            subject=f"[ARAMAL] CAC alto en {store.name} — canal {row['channel']}",
+            subject=f"[ROSS] CAC alto en {store.name} — canal {row['channel']}",
             body=(
                 f"El CAC del canal '{row['channel']}' en {store.name} este mes es "
                 f"${float(row['cac']):.2f}, por encima del umbral configurado "
@@ -113,7 +113,7 @@ def check_roas_alert(db: Session, store: Store, prefs: StoreAlertPreference, now
     send_to_store(
         db,
         store,
-        subject=f"[ARAMAL] True ROAS bajo en {store.name}",
+        subject=f"[ROSS] True ROAS bajo en {store.name}",
         body=(
             f"{store.name} lleva {days_n} días con true ROAS por debajo de "
             f"{float(prefs.roas_threshold):.2f}x. Revisá el desglose de gasto por canal en el dashboard."

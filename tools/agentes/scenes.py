@@ -1,4 +1,4 @@
-"""Scenes and portraits of the Aramal agents.
+"""Scenes and portraits of the Ross agents.
 
 Scenes have no background of their own: the agent and its props stand on the app's panel,
 so the same drawing works in the light and dark themes. No text is ever drawn inside a

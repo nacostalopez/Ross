@@ -1,4 +1,4 @@
-"""Populate a running Escal API (default http://localhost:8100) with demo
+"""Populate a running Ross API (default http://localhost:8100) with demo
 data so you can immediately see revenue, ad spend and True ROAS.
 
 Usage:

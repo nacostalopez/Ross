@@ -1,4 +1,4 @@
-const CACHE_NAME = "aramal-shell-v6";
+const CACHE_NAME = "ross-shell-v7";
 
 // Agent scenes (agentes/escenas/*.json) are not listed on purpose: they are fetched on
 // demand and cached by the stale-while-revalidate handler below on first use.
@@ -84,7 +84,7 @@ self.addEventListener("fetch", (event) => {
 // ---------------------------------------------------------------------------
 
 self.addEventListener("push", (event) => {
-  let payload = { title: "ARAMAL", body: "" };
+  let payload = { title: "ROSS", body: "" };
   try {
     if (event.data) payload = event.data.json();
   } catch (err) {
@@ -93,7 +93,7 @@ self.addEventListener("push", (event) => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(payload.title || "ARAMAL", {
+    self.registration.showNotification(payload.title || "ROSS", {
       body: payload.body || "",
       icon: "icons/icon-192.png",
       badge: "icons/icon-192.png",

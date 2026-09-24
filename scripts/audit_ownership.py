@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Ownership/encryption integrity audit for Escal.
+"""Ownership/encryption integrity audit for Ross.
 
 Run locally against a live database (needs DATABASE_URL / .env set up same
 as the backend):

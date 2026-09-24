@@ -46,7 +46,7 @@ async function register() {
   const res = await fetch(`${API_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ account_name: "Menu QA", email: `menu-qa-${Date.now()}@example.com`, password: "Aramal-QA-2026!xQ7" }),
+    body: JSON.stringify({ account_name: "Menu QA", email: `menu-qa-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7" }),
   });
   if (!res.ok) throw new Error(`register -> ${res.status} ${await res.text()}`);
   return res.json();
@@ -56,8 +56,8 @@ async function open(browser, viewport, tokens) {
   const context = await browser.newContext({ viewport, serviceWorkers: "block" });
   if (tokens) {
     await context.addInitScript((t) => {
-      localStorage.setItem("escal_token", t.access_token);
-      localStorage.setItem("escal_refresh_token", t.refresh_token);
+      localStorage.setItem("ross_token", t.access_token);
+      localStorage.setItem("ross_refresh_token", t.refresh_token);
     }, tokens);
   }
   const page = await context.newPage();

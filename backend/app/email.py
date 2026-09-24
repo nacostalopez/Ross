@@ -11,7 +11,7 @@ from email.message import EmailMessage
 
 from pydantic_settings import BaseSettings
 
-logger = logging.getLogger("escal.email")
+logger = logging.getLogger("ross.email")
 
 
 class EmailSettings(BaseSettings):

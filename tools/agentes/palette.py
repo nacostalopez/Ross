@@ -1,6 +1,6 @@
-"""Color roles for the Aramal agents.
+"""Color roles for the Ross agents.
 
-Aramal's base theme is light and dark is the exception (`:root[data-theme="dark"]`), so
+Ross's base theme is light and dark is the exception (`:root[data-theme="dark"]`), so
 LIGHT holds every role and DARK only the roles that change. Sprites have no background of
 their own (they sit on the app's --panel), so only outlines, uniforms and whites move
 between themes; skin, hair and the functional teal/gold/blue stay the same.
@@ -8,25 +8,25 @@ between themes; skin, hair and the functional teal/gold/blue stay the same.
 
 LIGHT = {
     # neutrals
-    "K": "#0C1730",  # outline (Aramal --tinta)
+    "K": "#0C1730",  # outline (Ross --tinta)
     "D": "#0b1630",  # dark screens and plate dots (same in both themes)
     "N": "#3a5386",  # mid navy: hardware bodies, portrait plate
     "M": "#7a8bad",  # headset
     "L": "#c9d3e3",  # light grey-blue: coat shading, plugs
     "W": "#fbfcfe",  # white: shirts, coats, highlights
     "x": "#c6d2e4",  # floor line
-    # functional teal (Aramal --positive)
+    # functional teal (Ross --positive)
     "G": "#0EB596", "g": "#0a8a72", "e": "#066352", "l": "#9be8d8",
     # gold: insignia, ties, hard hat, seals
     "Y": "#d9a92a", "y": "#a17a10",
-    # alert red (Aramal --danger, softened for sprites) and its highlight
+    # alert red (Ross --danger, softened for sprites) and its highlight
     "R": "#f0625a", "r": "#a3312b", "P": "#f2c25c",
-    # brand blues (Aramal --celeste / --primary)
+    # brand blues (Ross --celeste / --primary)
     "B": "#6fb0d6", "b": "#2263A2", "w": "#cfe8f5",
     # skin tones and hair (identical in both themes)
     "a": "#f1cba5", "A": "#c98f6a", "c": "#c68a5c", "C": "#94603c", "d": "#8b5a3b", "E": "#5a3624",
     "h": "#5b3a29", "j": "#d9b45b",
-    # suit navy and lapel (Aramal --navy)
+    # suit navy and lapel (Ross --navy)
     "S": "#1A2B4A", "T": "#2a4470",
 }
 

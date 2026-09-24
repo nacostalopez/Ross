@@ -59,8 +59,8 @@ function setGrowthPrice(value) {
 async function open(browser, tokens, path = "") {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: "block" });
   await context.addInitScript((t) => {
-    localStorage.setItem("escal_token", t.access_token);
-    localStorage.setItem("escal_refresh_token", t.refresh_token);
+    localStorage.setItem("ross_token", t.access_token);
+    localStorage.setItem("ross_refresh_token", t.refresh_token);
   }, tokens);
   const page = await context.newPage();
   const errors = [];
@@ -78,7 +78,7 @@ async function open(browser, tokens, path = "") {
   const browser = await chromium.launch();
   const tokens = await apiCall("/auth/register", {
     method: "POST",
-    body: { account_name: "Mercado QA", email: `mercado-qa-${Date.now()}@example.com`, password: "Aramal-QA-2026!xQ7" },
+    body: { account_name: "Mercado QA", email: `mercado-qa-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7" },
   });
   const store = await apiCall("/stores", {
     method: "POST",

@@ -1,4 +1,4 @@
-// Aramal agents — renders the pixel-art scenes, module heads and role portraits that
+// Ross agents — renders the pixel-art scenes, module heads and role portraits that
 // tools/agentes/export.py generates into this folder. Classic script (the frontend has no
 // build step); exposes window.Agents. Everything here is decorative: a failed fetch is
 // logged and the app carries on without the drawing.
@@ -12,7 +12,7 @@
   "use strict";
 
   const BASE = new URL("./", document.currentScript.src).href;
-  const PAUSE_KEY = "aramal_agents_paused";
+  const PAUSE_KEY = "ross_agents_paused";
 
   const cache = new Map();
 

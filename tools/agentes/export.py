@@ -1,4 +1,4 @@
-"""Export the Aramal agents to frontend/agentes/ and enforce the weight budget.
+"""Export the Ross agents to frontend/agentes/ and enforce the weight budget.
 
     python tools/agentes/export.py            # write files, print gzip sizes, fail if over budget
     python tools/agentes/export.py OUT_DIR    # write somewhere else

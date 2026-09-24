@@ -9,7 +9,7 @@ to be invoked by a real cron instead:
     0 9 * * * cd /path/to/escal && python scripts/run_alert_checks.py
 
 On Windows (this project's dev machine), use Task Scheduler with the action
-`python C:\\path\\to\\Escal\\scripts\\run_alert_checks.py`, trigger daily.
+`python C:\\path\\to\\Ross\\scripts\\run_alert_checks.py`, trigger daily.
 
 Requires the same environment the backend container runs with (DATABASE_URL,
 SMTP_* — see backend/.env.example), since it talks to the DB and sends

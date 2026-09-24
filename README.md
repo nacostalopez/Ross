@@ -1,4 +1,4 @@
-# ARAMAL
+# ROSS
 
 E-commerce analytics backend (Triple Whale / Scalify style) — True ROAS, net profit,
 and ad spend consolidation across stores. Standalone project, independent of any
@@ -212,7 +212,7 @@ storing anything decryptable:
 - None of LTV-by-cohort, CAC payback, or product journeys need to *display*
   an actual email anywhere — a stable hash fully covers dedup.
 - Storing zero reversible PII means no "right to erasure" complexity for a
-  product whose merchants' end-customers never consented to Escal
+  product whose merchants' end-customers never consented to Ross
   specifically.
 
 `orders.customer_id` intentionally has **no FK constraint** to
@@ -573,7 +573,7 @@ one now — there's no shared middleware doing this generically.
 ### PWA (mobile install + offline shell)
 
 `frontend/` is now an installable Progressive Web App — "Agregar a
-pantalla de inicio" on iOS/Android puts ARAMAL on the home screen with its
+pantalla de inicio" on iOS/Android puts ROSS on the home screen with its
 own icon, no app-store listing required. `frontend/manifest.json` declares
 name/colors/icons (`frontend/icons/`, generated at brand primary `#2263A2`
 — `icon-192.png`/`icon-512.png` for `purpose: any`, plus a padded
@@ -788,7 +788,7 @@ proposal's Stripe.
 ### Billing with Mercado Pago Suscripciones (Phase 2)
 
 `app/routes/billing.py` + `app/services/billing_mercadopago.py`, acting as
-ARAMAL's own Mercado Pago account (`MERCADOPAGO_BILLING_ACCESS_TOKEN`) —
+ROSS's own Mercado Pago account (`MERCADOPAGO_BILLING_ACCESS_TOKEN`) —
 unrelated to the merchant connector above. `POST /billing/checkout`
 (owner only) creates a monthly preapproval without an associated plan
 (`external_reference = <account_id>:<plan_id>`, amount from
@@ -813,7 +813,7 @@ is purchasable (the UI says "Disponible pronto") and registration still
 pins new accounts to Scale. Going live needs the proposal's business
 decisions: prices, trial length, what a canceled or never-paid account
 drops to (canceling today stops the charges but keeps the plan), and
-ARAMAL's own Mercado Pago account.
+ROSS's own Mercado Pago account.
 
 ### Pricing page (`frontend/pricing.html`)
 
@@ -865,7 +865,7 @@ what the person is doing:
 
 | Situation | What it does |
 | --- | --- |
-| First visit in this browser (no `aramal_ya_ingreso` in `localStorage`, set by the first successful ingress) | Points at the "Crear cuenta" tab, with a message box ("Ross · ¿Primera vez? Creá tu cuenta") that opens it |
+| First visit in this browser (no `ross_ya_ingreso` in `localStorage`, set by the first successful ingress) | Points at the "Crear cuenta" tab, with a message box ("Ross · ¿Primera vez? Creá tu cuenta") that opens it |
 | Login tab at rest | Rests, waves, blinks |
 | Password field focused | Covers its eyes |
 | A failed login or registration | Shakes its head (until the person edits the form) |
@@ -1043,11 +1043,11 @@ role overrides (see "Per-store roles"), a customer-data access log (see
 "CAPI feedback loop"), a working Connect flow for Shopify/Meta/Google/
 TikTok/LinkedIn/Mercado Libre/Mercado Pago (see "Connect flow (Shopify,
 Meta, Google, TikTok, LinkedIn)"), and the Mercado Pago Suscripciones
-checkout for ARAMAL's own billing (see "Billing with Mercado Pago
+checkout for ROSS's own billing (see "Billing with Mercado Pago
 Suscripciones (Phase 2)" — wired but inert until prices exist) are done.
 
 The frontend (`frontend/`, plain HTML/CSS/JS, no build step) has been carried
-well past "just enough to see real numbers": ARAMAL brand system with light/
+well past "just enough to see real numbers": ROSS brand system with light/
 dark mode, a Spanish (`vos`-register, es-AR-formatted) UI throughout, a
 user-configurable summary board (add/remove/reorder widgets, pick which stat
 is the 2x2 hero, plus opt-in creative-analytics, LTV-by-cohort,

@@ -3,8 +3,8 @@ const API_BASE = window.location.hostname === "" || window.location.protocol ===
   : `${window.location.protocol}//${window.location.hostname}:8100`;
 
 const state = {
-  token: localStorage.getItem("escal_token") || null,
-  refreshToken: localStorage.getItem("escal_refresh_token") || null,
+  token: localStorage.getItem("ross_token") || null,
+  refreshToken: localStorage.getItem("ross_refresh_token") || null,
   account: null,
   currentUser: null,
   stores: [],
@@ -68,10 +68,10 @@ const STAT_FIELD_MAP = {
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
-  localStorage.setItem("aramal_theme", theme);
+  localStorage.setItem("ross_theme", theme);
 }
 
-applyTheme(localStorage.getItem("aramal_theme") || "light");
+applyTheme(localStorage.getItem("ross_theme") || "light");
 
 // ---------------------------------------------------------------------------
 // Agents — pixel-art scenes and role portraits (see frontend/agentes/agentes.js,
@@ -518,10 +518,10 @@ function sessionExpired() {
 function setTokens(accessToken, refreshToken) {
   state.token = accessToken;
   state.refreshToken = refreshToken;
-  if (accessToken) localStorage.setItem("escal_token", accessToken);
-  else localStorage.removeItem("escal_token");
-  if (refreshToken) localStorage.setItem("escal_refresh_token", refreshToken);
-  else localStorage.removeItem("escal_refresh_token");
+  if (accessToken) localStorage.setItem("ross_token", accessToken);
+  else localStorage.removeItem("ross_token");
+  if (refreshToken) localStorage.setItem("ross_refresh_token", refreshToken);
+  else localStorage.removeItem("ross_refresh_token");
 }
 
 // ---------------------------------------------------------------------------
@@ -1266,7 +1266,7 @@ document.getElementById("connect-provider-form").addEventListener("submit", asyn
     const { auth_url: authUrl } = await api(`/connectors/${provider}/auth-url?${params}`, { method: "POST" });
 
     sessionStorage.setItem(
-      "escal_pending_connect",
+      "ross_pending_connect",
       JSON.stringify({ storeId, provider, extraId: fieldValue || null }),
     );
     window.location.href = authUrl;
@@ -1285,8 +1285,8 @@ async function handleConnectorCallback(provider) {
   // already-consumed (and now invalid) state token.
   history.replaceState(null, "", window.location.pathname);
 
-  const pendingRaw = sessionStorage.getItem("escal_pending_connect");
-  sessionStorage.removeItem("escal_pending_connect");
+  const pendingRaw = sessionStorage.getItem("ross_pending_connect");
+  sessionStorage.removeItem("ross_pending_connect");
   const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
 
   if (!code || !pending || pending.provider !== provider) {
@@ -2481,7 +2481,7 @@ async function seedDemoData(storeId) {
 // First steps (the card is drawn by agentes/mascota.js)
 // ---------------------------------------------------------------------------
 
-const firstStepsKey = () => `aramal_first_steps_hidden_${state.currentUser.id}`;
+const firstStepsKey = () => `ross_first_steps_hidden_${state.currentUser.id}`;
 
 function firstStepsHidden() {
   try {

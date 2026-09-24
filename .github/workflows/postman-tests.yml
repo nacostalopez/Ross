@@ -1,4 +1,4 @@
-name: Escal API - Postman Tests
+name: Ross API - Postman Tests
 
 on:
   push:
@@ -74,8 +74,8 @@ jobs:
     
     - name: Run Postman tests
       run: |
-        newman run Escal-API-Tests.postman_collection.json \
-          -e Escal-Env-Local.postman_environment.json \
+        newman run Ross-API-Tests.postman_collection.json \
+          -e Ross-Env-Local.postman_environment.json \
           --reporters cli,json,html \
           --reporter-json-export test-results.json \
           --reporter-html-export test-results.html \

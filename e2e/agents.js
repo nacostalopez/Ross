@@ -120,9 +120,9 @@ async function open(browser, { theme, viewport, tokens, reducedMotion, role }) {
   // Service workers stay blocked so a cached shell from an earlier run can't hide a regression.
   const context = await browser.newContext({ viewport, reducedMotion: reducedMotion || "no-preference", serviceWorkers: "block" });
   await context.addInitScript(({ theme, tokens }) => {
-    localStorage.setItem("aramal_theme", theme);
-    localStorage.setItem("escal_token", tokens.access_token);
-    localStorage.setItem("escal_refresh_token", tokens.refresh_token);
+    localStorage.setItem("ross_theme", theme);
+    localStorage.setItem("ross_token", tokens.access_token);
+    localStorage.setItem("ross_refresh_token", tokens.refresh_token);
   }, { theme, tokens });
   const page = await context.newPage();
   const errors = [];
@@ -145,7 +145,7 @@ async function shot(page, name, options = {}) {
 
 (async () => {
   const browser = await chromium.launch();
-  const account = { account_name: "Agentes QA", email: `agentes-qa-${Date.now()}@example.com`, password: "Aramal-QA-2026!xQ7" };
+  const account = { account_name: "Agentes QA", email: `agentes-qa-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7" };
   const tokens = await post("/auth/register", account);
   console.log(`Registered ${account.email} on ${API_URL}`);
 
@@ -189,7 +189,7 @@ async function shot(page, name, options = {}) {
     const read = () => page.evaluate(() => ({
       play: getComputedStyle(document.querySelector("#empty-state .pxa-st")).animationPlayState,
       pressed: document.getElementById("agents-pause").getAttribute("aria-pressed"),
-      stored: localStorage.getItem("aramal_agents_paused"),
+      stored: localStorage.getItem("ross_agents_paused"),
     }));
     let s = await read();
     check("pause: starts running", s.play === "running" && s.pressed === "false", JSON.stringify(s));
@@ -322,9 +322,9 @@ async function shot(page, name, options = {}) {
     const openLogin = async ({ viewport = VIEWPORTS.desktop, visited = false, theme = "light", reducedMotion = "no-preference", tokens: bad = null } = {}) => {
       const context = await browser.newContext({ viewport, reducedMotion, serviceWorkers: "block" });
       await context.addInitScript(({ visited, theme, bad }) => {
-        localStorage.setItem("aramal_theme", theme);
-        if (visited) localStorage.setItem("aramal_ya_ingreso", "1");
-        if (bad) { localStorage.setItem("escal_token", bad); localStorage.setItem("escal_refresh_token", bad); }
+        localStorage.setItem("ross_theme", theme);
+        if (visited) localStorage.setItem("ross_ya_ingreso", "1");
+        if (bad) { localStorage.setItem("ross_token", bad); localStorage.setItem("ross_refresh_token", bad); }
       }, { visited, theme, bad });
       const page = await context.newPage();
       const errors = [];
@@ -371,9 +371,9 @@ async function shot(page, name, options = {}) {
       const type = async (value) => { await page.fill("#register-password", ""); await page.locator("#register-password").pressSequentially(value); };
       await type("abc123");
       check("[login agent] a very weak password worries it", await sceneIs(page, "login-preocupada"));
-      await type("aramal12345");
+      await type("rossapp1234");
       check("[login agent] an acceptable password: it rests", await sceneIs(page, "login-reposo"));
-      await type("Aramal-2026-Xq!7");
+      await type("Rossapp-2026-Xq!7");
       check("[login agent] a strong password: thumbs up", await sceneIs(page, "login-aprueba"));
       await page.fill("#register-password", "");
       check("[login agent] an emptied password: back to rest", await sceneIs(page, "login-reposo"));
@@ -386,13 +386,13 @@ async function shot(page, name, options = {}) {
       await page.click("#tab-register");
       await page.fill("#register-account-name", "Bienvenida QA");
       await page.fill("#register-email", `bienvenida-${reducedMotion}-${Date.now()}@example.com`);
-      await page.fill("#register-password", "Aramal-2026-Xq!7");
+      await page.fill("#register-password", "Rossapp-2026-Xq!7");
       const start = Date.now();
       await page.click('#register-form button[type="submit"]');
       const celebrated = await sceneIs(page, "login-festeja");
       await page.waitForSelector("#dashboard-view:not([hidden])", { timeout: 10000 });
       const ms = Date.now() - start;
-      const remembered = await page.evaluate(() => localStorage.getItem("aramal_ya_ingreso") === "1");
+      const remembered = await page.evaluate(() => localStorage.getItem("ross_ya_ingreso") === "1");
       await context.close();
       return { celebrated, ms, remembered };
     };
@@ -442,7 +442,7 @@ async function shot(page, name, options = {}) {
 
   // 8) App mascot: True ROAS mood, loading block, error toast.
   {
-    const seeded = await post("/auth/register", { account_name: "Mascota QA", email: `mascota-qa-${Date.now()}@example.com`, password: "Aramal-QA-2026!xQ7" });
+    const seeded = await post("/auth/register", { account_name: "Mascota QA", email: `mascota-qa-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7" });
     const store = await post("/stores", { name: "Local QA", platform: "shopify", currency: "ARS" }, seeded.access_token);
     {
       const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens: seeded });
@@ -567,7 +567,7 @@ async function shot(page, name, options = {}) {
   {
     // Registering is limited to 5 a minute per address: wait for the window instead of failing.
     const fresh = async (label, { store = true } = {}) => {
-      const body = { account_name: `${label} QA`, email: `${label.toLowerCase().replace(/\W/g, "-")}-${Date.now()}@example.com`, password: "Aramal-QA-2026!xQ7" };
+      const body = { account_name: `${label} QA`, email: `${label.toLowerCase().replace(/\W/g, "-")}-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7" };
       let tokensFor;
       for (;;) {
         try {

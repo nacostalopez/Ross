@@ -30,7 +30,7 @@ from app.security import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-logger = logging.getLogger("escal.auth")
+logger = logging.getLogger("ross.auth")
 
 RESET_TOKEN_EXPIRY_MINUTES = 60
 
@@ -157,9 +157,9 @@ def forgot_password(request: Request, payload: ForgotPasswordIn, db: Session = D
     try:
         send_email(
             to=user.email,
-            subject="Reset your Escal password",
+            subject="Reset your Ross password",
             body=(
-                f"We received a request to reset your Escal password.\n\n"
+                f"We received a request to reset your Ross password.\n\n"
                 f"Reset it here: {reset_url}\n\n"
                 f"Or use this token directly: {raw_token}\n\n"
                 f"This link expires in {RESET_TOKEN_EXPIRY_MINUTES} minutes. "

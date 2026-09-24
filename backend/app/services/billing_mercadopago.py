@@ -1,8 +1,8 @@
-"""Charging ARAMAL's own customers through Mercado Pago Suscripciones.
+"""Charging ROSS's own customers through Mercado Pago Suscripciones.
 
 Not to be confused with app/connectors/mercadopago.py, which reads a
-*merchant's* payments with their OAuth token. This module acts as ARAMAL
-itself: one fixed access token (ARAMAL's own Mercado Pago account) and its
+*merchant's* payments with their OAuth token. This module acts as ROSS
+itself: one fixed access token (ROSS's own Mercado Pago account) and its
 own webhook secret, both separate env vars.
 
 Uses subscriptions "sin plan asociado" (POST /preapproval, status pending):
@@ -20,13 +20,13 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 import requests
 from pydantic_settings import BaseSettings
 
-logger = logging.getLogger("escal.billing")
+logger = logging.getLogger("ross.billing")
 
 API_BASE = "https://api.mercadopago.com"
 
 
 class BillingSettings(BaseSettings):
-    # ARAMAL's own production (or test) access token — Tus integraciones >
+    # ROSS's own production (or test) access token — Tus integraciones >
     # Credenciales. Not an OAuth token of any merchant.
     mercadopago_billing_access_token: str = ""
     # The webhook "clave secreta" of the app that receives billing
@@ -78,7 +78,7 @@ def create_checkout(account_id, plan, payer_email: str, settings: Optional[Billi
     """Create a pending monthly preapproval for `plan`; returns its id and checkout URL."""
     settings = settings or BillingSettings()
     body = {
-        "reason": f"ARAMAL {plan.name}",
+        "reason": f"ROSS {plan.name}",
         "external_reference": external_reference(account_id, plan.id),
         "payer_email": payer_email,
         "auto_recurring": {

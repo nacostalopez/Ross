@@ -87,7 +87,7 @@ async function clickBellUntilSubscribed(page) {
 }
 
 async function main() {
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "escal-push-e2e-"));
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ross-push-e2e-"));
   const context = await chromium.launchPersistentContext(userDataDir, { channel: "chrome" });
   await context.grantPermissions(["notifications"], { origin: FRONTEND_URL });
   const page = context.pages()[0] || (await context.newPage());

@@ -32,9 +32,9 @@ from app.routes import (
 
 settings.validate_production_ready()
 configure_logging(settings.log_level)
-logger = logging.getLogger("escal.request")
+logger = logging.getLogger("ross.request")
 
-app = FastAPI(title="Escal", version="0.1.0")
+app = FastAPI(title="Ross", version="0.1.0")
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

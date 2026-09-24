@@ -1,4 +1,4 @@
-/* Aramal agents: pixel-art scenes drawn with SVG and animated with steps().
+/* Ross agents: pixel-art scenes drawn with SVG and animated with steps().
    Fills come from paleta.css (generated); this file is hand-written. */
 
 /* A sprite is drawn at an integer scale: --w/--h are its size in art pixels, --s the scale. */
@@ -104,9 +104,11 @@ html[data-agents-paused] .pxa .pxa-st {
 .store-panel-header > .pxa-scene { flex: none; width: min(160px, 40vw); }
 
 /* Login welcome agent (mascota.js): peeks out from behind the top edge of the login card. The form
-   side clips what sticks out, so phones get room above the card. */
+   side clips what sticks out, so its space above the card is reserved at every width (the sprite is
+   ~105 px tall), and "safe center" keeps the card from riding up into the clip when the window is
+   short (e.g. a laptop at 125% zoom): the column grows and the page scrolls instead. */
 .auth-mascot { bottom: calc(100% - 1px); left: 50%; position: absolute; transform: translateX(-50%); }
-@media (max-width: 860px) { .auth-formside { padding-top: 124px; } }
+.auth-formside { justify-content: safe center; padding-bottom: 24px; padding-top: 124px; }
 
 /* Ross's message box. The login bubble, the error toast and the True ROAS note are one design: a card in the
    app's own colors (1 px border, 8 px corners), "Ross" as a small label over the message, and a thin stripe on

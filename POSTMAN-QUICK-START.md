@@ -11,8 +11,8 @@ npm install -g newman
 
 ### Step 2: Import Collections
 Open Postman and import these files:
-- `Escal-API-Tests.postman_collection.json` (test requests)
-- `Escal-Env-Local.postman_environment.json` (variables)
+- `Ross-API-Tests.postman_collection.json` (test requests)
+- `Ross-Env-Local.postman_environment.json` (variables)
 
 ### Step 3: Start API
 ```bash
@@ -30,8 +30,8 @@ uvicorn app.main:app --reload
 ### Option A: Postman UI (Most Visual)
 1. Open Postman
 2. Click **Collection Runner** (top left)
-3. Select: **"Escal API - Endpoint Tests"**
-4. Select: **"Escal - Local Dev"**
+3. Select: **"Ross API - Endpoint Tests"**
+4. Select: **"Ross - Local Dev"**
 5. Click **"Run"**
 6. Watch tests execute ✅
 
@@ -44,8 +44,8 @@ uvicorn app.main:app --reload
 ./run-postman-tests.sh
 
 # Or direct Newman
-newman run Escal-API-Tests.postman_collection.json \
-  -e Escal-Env-Local.postman_environment.json
+newman run Ross-API-Tests.postman_collection.json \
+  -e Ross-Env-Local.postman_environment.json
 ```
 
 ### Option C: Generate HTML Report

@@ -30,7 +30,7 @@ class _FakeResponse:
 
 @pytest.fixture(autouse=True)
 def _billing_env(monkeypatch):
-    monkeypatch.setenv("MERCADOPAGO_BILLING_ACCESS_TOKEN", "APP_USR-aramal")
+    monkeypatch.setenv("MERCADOPAGO_BILLING_ACCESS_TOKEN", "APP_USR-ross")
     monkeypatch.setenv("MERCADOPAGO_BILLING_WEBHOOK_SECRET", "billing-secret")
 
 
@@ -104,7 +104,7 @@ class TestCheckout:
         assert body["auto_recurring"]["transaction_amount"] == 49000
         assert body["auto_recurring"]["currency_id"] == "ARS"
         assert body["status"] == "pending"
-        assert post.call_args.kwargs["headers"]["Authorization"] == "Bearer APP_USR-aramal"
+        assert post.call_args.kwargs["headers"]["Authorization"] == "Bearer APP_USR-ross"
         # Starting a checkout changes nothing until Mercado Pago confirms it.
         assert test_db_session.query(Subscription).filter_by(account_id=test_user.account_id).count() == 0
 

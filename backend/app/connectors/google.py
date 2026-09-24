@@ -282,7 +282,7 @@ class GoogleAdsConnector(BaseConnector):
         ad_personalization_consent: Optional[str] = None,
     ) -> None:
         """Upload an Enhanced Conversion for Leads — hashed user_identifiers,
-        no gclid required, matching how Escal captures orders today (no
+        no gclid required, matching how Ross captures orders today (no
         click-id tracking). Request shape follows
         https://developers.google.com/google-ads/api/samples/upload-enhanced-conversions-for-leads
 

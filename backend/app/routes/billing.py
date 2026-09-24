@@ -24,7 +24,7 @@ from app.models import Account, Invoice, Plan, Subscription, User
 from app.rate_limit import limiter
 from app.services import billing_mercadopago as mp_billing
 
-logger = logging.getLogger("escal.billing")
+logger = logging.getLogger("ross.billing")
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 

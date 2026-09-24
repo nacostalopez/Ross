@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.models import PushSubscription
 
-logger = logging.getLogger("escal.push")
+logger = logging.getLogger("ross.push")
 
 
 class PushSettings(BaseSettings):

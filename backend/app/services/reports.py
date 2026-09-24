@@ -16,7 +16,7 @@ from app.models import Store, StoreReportPreference
 from app.routes.metrics import CAC_BY_CHANNEL_SQL, SUMMARY_SQL
 from app.services.notifications import send_to_store
 
-logger = logging.getLogger("escal.reports")
+logger = logging.getLogger("ross.reports")
 
 
 def build_weekly_summary(db: Session, store: Store, now: datetime) -> str:
@@ -52,7 +52,7 @@ def build_weekly_summary(db: Session, store: Store, now: datetime) -> str:
 def send_weekly_report(db: Session, store: Store, now: datetime) -> str:
     body = build_weekly_summary(db, store, now)
     send_to_store(
-        db, store, subject=f"[ARAMAL] Resumen semanal — {store.name}", body=body, event_type="weekly_report"
+        db, store, subject=f"[ROSS] Resumen semanal — {store.name}", body=body, event_type="weekly_report"
     )
     return body
 

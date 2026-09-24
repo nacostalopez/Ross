@@ -1,4 +1,4 @@
-/* ARAMAL brand system — see Brand Book & Design System ed. 2026 v1.0.
+/* ROSS brand system — see Brand Book & Design System ed. 2026 v1.0.
    Navy = base institucional, Azul acción = acento único, Celeste = highlight
    puntual; verde/amarillo/rojo/aqua son funcionales, nunca decorativos. */
 :root {
@@ -159,7 +159,9 @@ a:hover { text-decoration: underline; }
 /* Auth */
 .auth-view {
   display: flex;
-  min-height: calc(100vh - 57px);
+  /* 66 px = the topbar's height (38 px buttons + 2 x 14 px padding); 57 px was an older topbar
+     and left the login page scrolling by 9 px. */
+  min-height: calc(100vh - 66px);
 }
 
 .auth-hero {

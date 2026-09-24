@@ -1,4 +1,4 @@
-// Aramal mascot (Ross) — what the agents do beyond decoration. Classic script; exposes window.Mascot.
+// Ross mascot (Ross) — what the agents do beyond decoration. Classic script; exposes window.Mascot.
 //   - the login welcome agent, which reacts to the form: it invites first-time visitors to create an
 //     account, covers its eyes on the password field, shakes its head on an error, reacts to the
 //     strength of the password being chosen and celebrates a new account;
@@ -17,7 +17,7 @@
   // The mascot's name. Keep any copy that mentions it grammatically neutral ("Ross está…", never an
   // adjective or article that carries a gender): the name is meant to work for anyone.
   const NAME = "Ross";
-  const VISITED_KEY = "aramal_ya_ingreso";
+  const VISITED_KEY = "ross_ya_ingreso";
   const $ = (id) => document.getElementById(id);
   const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 

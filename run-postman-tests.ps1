@@ -1,4 +1,4 @@
-# Escal API - Postman Test Runner (Windows PowerShell)
+# Ross API - Postman Test Runner (Windows PowerShell)
 # Usage: .\run-postman-tests.ps1 -Format "html" -Folder "AUTH"
 
 param(
@@ -7,8 +7,8 @@ param(
 )
 
 # Configuration
-$Collection = ".\Escal-API-Tests.postman_collection.json"
-$Environment = ".\Escal-Env-Local.postman_environment.json"
+$Collection = ".\Ross-API-Tests.postman_collection.json"
+$Environment = ".\Ross-Env-Local.postman_environment.json"
 $ResultsDir = ".\test-results"
 $Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 
@@ -18,7 +18,7 @@ if (-not (Test-Path $ResultsDir)) {
 }
 
 Write-Host "================================" -ForegroundColor Yellow
-Write-Host "Escal API - Postman Test Suite" -ForegroundColor Yellow
+Write-Host "Ross API - Postman Test Suite" -ForegroundColor Yellow
 Write-Host "================================" -ForegroundColor Yellow
 Write-Host ""
 

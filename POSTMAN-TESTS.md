@@ -1,6 +1,6 @@
-# Escal API - Postman Test Suite
+# Ross API - Postman Test Suite
 
-Complete API endpoint testing suite for Escal using Postman. Tests cover authentication, stores, orders, ad spend, metrics, and security scoping.
+Complete API endpoint testing suite for Ross using Postman. Tests cover authentication, stores, orders, ad spend, metrics, and security scoping.
 
 ## Quick Start
 
@@ -10,8 +10,8 @@ Complete API endpoint testing suite for Escal using Postman. Tests cover authent
 - Open Postman
 - Click "Import" (top left)
 - Select both files:
-  - `Escal-API-Tests.postman_collection.json`
-  - `Escal-Env-Local.postman_environment.json`
+  - `Ross-API-Tests.postman_collection.json`
+  - `Ross-Env-Local.postman_environment.json`
 - Collection appears in left sidebar
 
 **Option B: CLI Import**
@@ -20,8 +20,8 @@ Complete API endpoint testing suite for Escal using Postman. Tests cover authent
 npm install -g newman
 
 # Run full test suite
-newman run Escal-API-Tests.postman_collection.json \
-  -e Escal-Env-Local.postman_environment.json \
+newman run Ross-API-Tests.postman_collection.json \
+  -e Ross-Env-Local.postman_environment.json \
   --reporters cli,json \
   --reporter-json-export test-results.json
 ```
@@ -30,7 +30,7 @@ newman run Escal-API-Tests.postman_collection.json \
 
 In Postman:
 1. Click "Environment" dropdown (top right)
-2. Select "Escal - Local Dev"
+2. Select "Ross - Local Dev"
 3. Edit values:
    - `base_url`: `http://localhost:8100` (your API URL)
    - `login_email`: Your test email
@@ -40,25 +40,25 @@ In Postman:
 
 **In Postman UI:**
 1. Click "Runner" button (or Cmd+Shift+E)
-2. Select collection: "Escal API - Endpoint Tests"
-3. Select environment: "Escal - Local Dev"
+2. Select collection: "Ross API - Endpoint Tests"
+3. Select environment: "Ross - Local Dev"
 4. Click "Run" button
 5. Watch tests execute and get results
 
 **Via CLI (Newman):**
 ```bash
 # Run all tests
-newman run Escal-API-Tests.postman_collection.json \
-  -e Escal-Env-Local.postman_environment.json
+newman run Ross-API-Tests.postman_collection.json \
+  -e Ross-Env-Local.postman_environment.json
 
 # Run specific folder (e.g., AUTH tests only)
-newman run Escal-API-Tests.postman_collection.json \
-  -e Escal-Env-Local.postman_environment.json \
+newman run Ross-API-Tests.postman_collection.json \
+  -e Ross-Env-Local.postman_environment.json \
   --folder AUTH
 
 # Export results as HTML
-newman run Escal-API-Tests.postman_collection.json \
-  -e Escal-Env-Local.postman_environment.json \
+newman run Ross-API-Tests.postman_collection.json \
+  -e Ross-Env-Local.postman_environment.json \
   --reporters cli,html \
   --reporter-html-export test-results.html
 ```
@@ -205,16 +205,16 @@ Every request includes automatic tests:
 
 ### JSON Report
 ```bash
-newman run Escal-API-Tests.postman_collection.json \
-  -e Escal-Env-Local.postman_environment.json \
+newman run Ross-API-Tests.postman_collection.json \
+  -e Ross-Env-Local.postman_environment.json \
   --reporters json \
   --reporter-json-export results.json
 ```
 
 ### HTML Report
 ```bash
-newman run Escal-API-Tests.postman_collection.json \
-  -e Escal-Env-Local.postman_environment.json \
+newman run Ross-API-Tests.postman_collection.json \
+  -e Ross-Env-Local.postman_environment.json \
   --reporters html \
   --reporter-html-export results.html
 ```
@@ -225,8 +225,8 @@ newman run Escal-API-Tests.postman_collection.json \
 - name: API Tests
   run: |
     npm install -g newman
-    newman run Escal-API-Tests.postman_collection.json \
-      -e Escal-Env-Local.postman_environment.json \
+    newman run Ross-API-Tests.postman_collection.json \
+      -e Ross-Env-Local.postman_environment.json \
       --reporters json
       --reporter-json-export results.json
     

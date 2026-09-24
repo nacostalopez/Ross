@@ -41,7 +41,7 @@ from app.services.capi import send_google_purchase_conversion, send_meta_purchas
 from app.services.connector_status import _upsert_connector_status
 from app.services.customers import resolve_customer_id
 
-logger = logging.getLogger("escal.connectors")
+logger = logging.getLogger("ross.connectors")
 
 router = APIRouter(prefix="/connectors", tags=["connectors"])
 

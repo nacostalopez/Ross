@@ -4,14 +4,14 @@
   },
   "entities": {
     "environments": [
-      "..\\Escal-Env-Local.postman_environment.json"
+      "..\\Ross-Env-Local.postman_environment.json"
     ],
     "flows": [],
     "globals": [],
     "mocks": [],
     "specs": [],
     "collections": [
-      "..\\Escal-API-Tests.postman_collection.json"
+      "..\\Ross-API-Tests.postman_collection.json"
     ]
   }
 }

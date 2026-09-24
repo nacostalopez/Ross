@@ -206,7 +206,7 @@ class TiendanubeConnector(BaseConnector):
         headers = {
             "Authentication": f"bearer {access_token}",
             "Content-Type": "application/json",
-            "User-Agent": "Escal (support@escal.app)",
+            "User-Agent": "Ross (support@escal.app)",
         }
 
         orders = []

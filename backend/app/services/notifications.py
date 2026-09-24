@@ -15,7 +15,7 @@ from app.email import send_email
 from app.models import NotificationChannelPreference, Store, User
 from app.services.push import send_push_to_user
 
-logger = logging.getLogger("escal.notifications")
+logger = logging.getLogger("ross.notifications")
 
 EventType = Literal["cac_alert", "roas_alert", "weekly_report"]
 

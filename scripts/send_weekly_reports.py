@@ -9,7 +9,7 @@ real cron instead:
     0 9 * * 1 cd /path/to/escal && python scripts/send_weekly_reports.py
 
 On Windows (this project's dev machine), use Task Scheduler with the action
-`python C:\\path\\to\\Escal\\scripts\\send_weekly_reports.py`, trigger weekly.
+`python C:\\path\\to\\Ross\\scripts\\send_weekly_reports.py`, trigger weekly.
 
 Requires the same environment the backend container runs with (DATABASE_URL,
 SMTP_* — see backend/.env.example), since it talks to the DB and sends
