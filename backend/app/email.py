@@ -19,7 +19,7 @@ class EmailSettings(BaseSettings):
     smtp_port: int = 587
     smtp_username: str = ""
     smtp_password: str = ""
-    smtp_from_email: str = "noreply@escal.app"
+    smtp_from_email: str = "ross@aramal.co"
     smtp_use_tls: bool = True
 
     class Config:

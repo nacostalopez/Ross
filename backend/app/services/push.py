@@ -21,7 +21,7 @@ logger = logging.getLogger("ross.push")
 class PushSettings(BaseSettings):
     vapid_private_key: str = ""  # empty = not configured, send_push_to_user() no-ops (logs only)
     vapid_public_key: str = ""
-    vapid_claim_email: str = "admin@escal.app"
+    vapid_claim_email: str = "ross@aramal.co"
 
     class Config:
         env_file = ".env"

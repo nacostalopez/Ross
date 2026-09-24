@@ -15,7 +15,7 @@ BASE_URL = "http://localhost:8100"
 
 
 def main():
-    email = f"demo-{uuid.uuid4().hex[:8]}@escal.dev"
+    email = f"demo-{uuid.uuid4().hex[:8]}@ross.dev"
     auth = requests.post(
         f"{BASE_URL}/auth/register",
         json={"account_name": "Demo Account", "email": email, "password": "demo-password-123"},

@@ -46,11 +46,11 @@ services:
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@escal.app}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-ross@aramal.co}
       SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
-      VAPID_CLAIM_EMAIL: ${VAPID_CLAIM_EMAIL:-admin@escal.app}
+      VAPID_CLAIM_EMAIL: ${VAPID_CLAIM_EMAIL:-ross@aramal.co}
       # Connector OAuth credentials — each *_ID/*_SECRET/*_TOKEN defaults to
       # empty (same as its connector's own Python default), so leaving them
       # unset in .env changes nothing; setting a real value here is what

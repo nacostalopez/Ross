@@ -18,7 +18,7 @@ class TestSendEmail:
         monkeypatch.setenv("SMTP_PORT", "587")
         monkeypatch.setenv("SMTP_USERNAME", "user@example.com")
         monkeypatch.setenv("SMTP_PASSWORD", "secret")
-        monkeypatch.setenv("SMTP_FROM_EMAIL", "noreply@escal.app")
+        monkeypatch.setenv("SMTP_FROM_EMAIL", "ross@aramal.co")
 
         mock_server = MagicMock()
         mock_server.__enter__.return_value = mock_server
@@ -34,7 +34,7 @@ class TestSendEmail:
         sent_message = mock_server.send_message.call_args[0][0]
         assert sent_message["To"] == "someone@example.com"
         assert sent_message["Subject"] == "Hi"
-        assert sent_message["From"] == "noreply@escal.app"
+        assert sent_message["From"] == "ross@aramal.co"
 
 
 @pytest.mark.db

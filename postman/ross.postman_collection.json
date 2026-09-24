@@ -46,7 +46,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\"account_name\": \"Postman Test Account\", \"email\": \"postman-{{runId}}@escal-postman.dev\", \"password\": \"Postman12345!\"}"
+          "raw": "{\"account_name\": \"Postman Test Account\", \"email\": \"postman-{{runId}}@ross-postman.dev\", \"password\": \"Postman12345!\"}"
         },
         "url": "{{baseUrl}}/auth/register"
       }
@@ -71,7 +71,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\"email\": \"postman-{{runId}}@escal-postman.dev\", \"password\": \"Postman12345!\"}"
+          "raw": "{\"email\": \"postman-{{runId}}@ross-postman.dev\", \"password\": \"Postman12345!\"}"
         },
         "url": "{{baseUrl}}/auth/login"
       }
@@ -84,7 +84,7 @@
           "script": {
             "exec": [
               "pm.test('status 200', () => pm.response.to.have.status(200));",
-              "pm.test('email matches', () => pm.expect(pm.response.json().email).to.eql('postman-' + pm.collectionVariables.get('runId') + '@escal-postman.dev'));"
+              "pm.test('email matches', () => pm.expect(pm.response.json().email).to.eql('postman-' + pm.collectionVariables.get('runId') + '@ross-postman.dev'));"
             ]
           }
         }
