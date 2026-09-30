@@ -122,7 +122,17 @@ Tests are marked `auth`, `ownership`, `encryption`, `connector`, `webhook`,
 `integration`, `slow`, and — importantly — `db` for anything needing a live
 database connection (`docker compose up test-db -d` first). Run just the
 offline ones with `pytest -m "not db"` (this is what the pre-commit hook
-runs); run everything with a plain `pytest`.
+runs); run everything with a plain `pytest`. CI runs the two sets as
+separate steps.
+
+You don't have to remember the `db` marker: `conftest.py` adds it
+automatically to any test that depends on `test_db_engine`, directly or
+through `client`, `test_user`, `auth_header`, etc. An explicit
+`@pytest.mark.db` is still fine as documentation.
+
+Deprecation warnings raised from `app.*` code fail the run (see
+`filterwarnings` in `pytest.ini`); ones from third-party packages stay
+warnings.
 
 The rate limiter (see below) is process-global, in-memory storage — the
 `_reset_rate_limiter` autouse fixture in `conftest.py` clears it before every

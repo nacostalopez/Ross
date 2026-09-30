@@ -139,4 +139,4 @@ class TestResetPassword:
         test_db_session.commit()
 
         response = client.post("/auth/reset-password", json={"token": raw_token, "password": "short"})
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT

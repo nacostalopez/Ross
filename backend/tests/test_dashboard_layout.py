@@ -52,7 +52,7 @@ class TestSetLayout:
             headers=auth_header,
             json={"widgets": [{"type": "stat_roas"}, {"type": "stat_roas"}]},
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_unknown_widget_type_rejected(self, client, auth_header):
         response = client.put(
@@ -60,7 +60,7 @@ class TestSetLayout:
             headers=auth_header,
             json={"widgets": [{"type": "not_a_real_widget"}]},
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_empty_layout_is_allowed(self, client, auth_header):
         response = client.put("/dashboard/layout", headers=auth_header, json={"widgets": []})

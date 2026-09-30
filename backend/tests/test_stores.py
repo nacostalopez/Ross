@@ -27,7 +27,7 @@ class TestStoreCurrencyValidation:
             headers=auth_header,
             json={"name": "Tienda Mala", "platform": "shopify", "currency": "AR$"},
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_lowercase_currency_is_rejected(self, client, auth_header):
         response = client.post(
@@ -35,7 +35,7 @@ class TestStoreCurrencyValidation:
             headers=auth_header,
             json={"name": "Tienda Minuscula", "platform": "shopify", "currency": "usd"},
         )
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_default_currency_is_usd(self, client, auth_header):
         response = client.post(
