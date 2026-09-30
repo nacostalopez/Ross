@@ -70,6 +70,10 @@ jobs:
         working-directory: backend
         run: pytest tests/test_connectors_interface.py -v
 
-      - name: Run test suite
+      - name: Run offline tests (no database)
         working-directory: backend
-        run: pytest -v
+        run: pytest -m "not db"
+
+      - name: Run database tests (test DB)
+        working-directory: backend
+        run: pytest -m db

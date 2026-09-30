@@ -10,6 +10,7 @@ from app.models import PushSubscription
 from app.services.push import send_push_to_user
 
 
+@pytest.mark.db
 class TestSendPushToUser:
     def test_no_vapid_key_configured_does_not_attempt_to_send(self, monkeypatch, test_db_session, test_user):
         monkeypatch.setenv("VAPID_PRIVATE_KEY", "")

@@ -20,6 +20,17 @@ TEST_DATABASE_URL = os.getenv(
 )
 
 
+def pytest_collection_modifyitems(items):
+    """Mark every test that reaches the database as `db`, whether or not its
+    author remembered the explicit @pytest.mark.db — anything depending on
+    test_db_engine (directly or via client/test_user/auth_header/...) needs
+    the live test-db, so `pytest -m "not db"` must never select it.
+    """
+    for item in items:
+        if "test_db_engine" in getattr(item, "fixturenames", ()):
+            item.add_marker(pytest.mark.db)
+
+
 @pytest.fixture(autouse=True)
 def _reset_rate_limiter():
     """The limiter's in-memory storage is process-global and TestClient
@@ -114,13 +125,21 @@ def test_db_session(test_db_engine):
 
 
 @pytest.fixture
-def client(test_db_session):
+def client(test_db_session, monkeypatch):
     """Provide a test client with overridden database dependency."""
 
     def override_get_db():
         yield test_db_session
 
     app.dependency_overrides[get_db] = override_get_db
+
+    # Order ingestion schedules capi.send_*_purchase_* as background tasks,
+    # which open their own SessionLocal() — bound to DATABASE_URL, not the
+    # test DB (they only coincide in CI). Point them at this test's session
+    # instead (close() neutered so it doesn't detach the test's fixtures),
+    # same as test_capi.py's _capi_uses_test_session.
+    monkeypatch.setattr(test_db_session, "close", lambda: None)
+    monkeypatch.setattr("app.services.capi.SessionLocal", lambda: test_db_session)
 
     with TestClient(app) as test_client:
         yield test_client

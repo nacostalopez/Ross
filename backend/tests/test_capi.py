@@ -16,7 +16,7 @@ from app.services.capi import send_google_purchase_conversion, send_meta_purchas
 
 
 @pytest.fixture(autouse=True)
-def _capi_uses_test_session(test_db_session, monkeypatch):
+def _capi_uses_test_session(request, monkeypatch):
     """send_meta_purchase_event/send_google_purchase_conversion open their
     own SessionLocal() in production (see capi.py's module docstring) —
     that would otherwise point at DATABASE_URL, not the test database. Data
@@ -29,6 +29,12 @@ def _capi_uses_test_session(test_db_session, monkeypatch):
     the test still needs afterward, so close() is neutered here; commit()
     is left alone since that's exactly what the SAVEPOINT-restart listener
     is designed to survive."""
+    # Only DB-marked tests get a session: requesting test_db_session here
+    # unconditionally would drag the database into TestGoogleConsentMode,
+    # which calls the connector directly and needs none.
+    if request.node.get_closest_marker("db") is None:
+        return
+    test_db_session = request.getfixturevalue("test_db_session")
     monkeypatch.setattr(test_db_session, "close", lambda: None)
     monkeypatch.setattr("app.services.capi.SessionLocal", lambda: test_db_session)
 
