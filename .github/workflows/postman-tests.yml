@@ -37,10 +37,10 @@ jobs:
       CREDENTIALS_ENCRYPTION_KEY: Qxsu0Kb675R0dWY-WeAE-1hvcXLTQj74_pJrlsr_kG4=
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         # Same version as backend/Dockerfile, ci.yml and ruff's target-version.
         python-version: '3.12'
@@ -78,9 +78,9 @@ jobs:
         exit 1
 
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v7
       with:
-        node-version: '20'
+        node-version: '24'
 
     - name: Install Newman
       run: npm install -g newman newman-reporter-html
@@ -100,7 +100,7 @@ jobs:
 
     - name: Upload test results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: postman-test-results
         path: |
@@ -112,7 +112,7 @@ jobs:
     - name: Comment PR with results
       # Fork PRs get a read-only token, so skip rather than fail there.
       if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && hashFiles('test-results.json') != ''
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9
       with:
         script: |
           const fs = require('fs');
