@@ -3,7 +3,7 @@
 import hashlib
 import hmac
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 import requests
@@ -163,7 +163,7 @@ class MetaConnector(BaseConnector):
 
             for insight in data.get("data", []):
                 record = {
-                    "time": datetime.fromisoformat(insight.get("date_start", datetime.utcnow().isoformat())),
+                    "time": datetime.fromisoformat(insight.get("date_start", datetime.now(timezone.utc).isoformat())),
                     "platform": "meta",
                     "campaign_id": str(insight.get("campaign_id", "")),
                     "campaign_name": insight.get("campaign_name", ""),
@@ -238,7 +238,7 @@ class MetaConnector(BaseConnector):
             for insight in data.get("data", []):
                 records.append(
                     {
-                        "time": datetime.fromisoformat(insight.get("date_start", datetime.utcnow().isoformat())),
+                        "time": datetime.fromisoformat(insight.get("date_start", datetime.now(timezone.utc).isoformat())),
                         "platform": "meta",
                         "campaign_id": str(insight.get("campaign_id", "")),
                         "campaign_name": insight.get("campaign_name", ""),

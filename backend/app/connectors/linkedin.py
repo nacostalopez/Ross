@@ -86,7 +86,7 @@ class LinkedInConnector(BaseConnector):
 
         expires_at = None
         if "expires_in" in data:
-            expires_at = datetime.utcnow() + timedelta(seconds=data["expires_in"])
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=data["expires_in"])
 
         return OAuthToken(
             access_token=data["access_token"],
@@ -110,7 +110,7 @@ class LinkedInConnector(BaseConnector):
 
         expires_at = None
         if "expires_in" in data:
-            expires_at = datetime.utcnow() + timedelta(seconds=data["expires_in"])
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=data["expires_in"])
 
         return OAuthToken(
             access_token=data["access_token"],
@@ -260,5 +260,5 @@ def _element_date(element: dict) -> datetime:
     granularity makes start == end, so the range's start is the record's day."""
     start = element.get("dateRange", {}).get("start")
     if not start:
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
     return datetime(start["year"], start["month"], start["day"], tzinfo=timezone.utc)

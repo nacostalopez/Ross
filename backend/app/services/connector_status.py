@@ -5,7 +5,7 @@ the route layer and app/services/capi.py's background tasks can call it
 without a routes -> services -> routes import cycle.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -29,7 +29,7 @@ def _upsert_connector_status(
     Only the columns implied by the call are touched — a plain OAuth connect
     (synced=False) doesn't overwrite last_synced_at from an unrelated sync.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     values = {"store_id": store_id, "provider": provider, "last_error": error}
     if synced:
         values["last_synced_at"] = now

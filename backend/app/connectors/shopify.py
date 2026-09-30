@@ -3,7 +3,7 @@
 import base64
 import hashlib
 import hmac
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import parse_qs, urlencode
 
@@ -180,7 +180,7 @@ class ShopifyConnector(BaseConnector):
 
         return {
             "order_id": str(shopify_order["id"]),
-            "time": shopify_order.get("created_at", datetime.utcnow().isoformat()),
+            "time": shopify_order.get("created_at", datetime.now(timezone.utc).isoformat()),
             "gross_amount": gross_amount,
             "discounts": discounts,
             "shipping_fee": shipping_fee,

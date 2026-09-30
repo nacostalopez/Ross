@@ -222,7 +222,7 @@ class MercadoPagoConnector(BaseConnector):
 
         return {
             "order_id": f"mp:{payment['id']}",
-            "time": payment.get("date_approved") or payment.get("date_created") or datetime.utcnow().isoformat(),
+            "time": payment.get("date_approved") or payment.get("date_created") or datetime.now(timezone.utc).isoformat(),
             "gross_amount": float(payment.get("transaction_amount") or 0),
             # A partial refund leaves the payment "approved"; it's money
             # given back, which is what discounts already means on the P&L.

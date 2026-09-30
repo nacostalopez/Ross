@@ -1,7 +1,7 @@
 """TikTok Ads connector for ad spend tracking."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 import requests
@@ -185,7 +185,7 @@ class TikTokConnector(BaseConnector):
                 # "2026-01-01 00:00:00" -> keep just the date part.
                 stat_day = dims.get("stat_time_day", "").split(" ")[0]
                 record = {
-                    "time": datetime.fromisoformat(stat_day) if stat_day else datetime.utcnow(),
+                    "time": datetime.fromisoformat(stat_day) if stat_day else datetime.now(timezone.utc),
                     "platform": "tiktok",
                     "campaign_id": str(mets.get("campaign_id", "")),
                     "campaign_name": mets.get("campaign_name", ""),

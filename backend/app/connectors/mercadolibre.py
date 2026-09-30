@@ -160,7 +160,7 @@ class MercadoLibreConnector(BaseConnector):
 
         return {
             "order_id": str(ml_order["id"]),
-            "time": ml_order.get("date_created") or ml_order.get("date_closed") or datetime.utcnow().isoformat(),
+            "time": ml_order.get("date_created") or ml_order.get("date_closed") or datetime.now(timezone.utc).isoformat(),
             "gross_amount": float(ml_order.get("total_amount") or 0),
             "discounts": 0,
             "shipping_fee": 0,

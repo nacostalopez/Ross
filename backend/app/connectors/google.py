@@ -75,7 +75,7 @@ class GoogleAdsConnector(BaseConnector):
         # Google returns refresh token on first auth
         expires_at = None
         if "expires_in" in data:
-            expires_at = datetime.utcnow() + timedelta(seconds=data["expires_in"])
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=data["expires_in"])
 
         return OAuthToken(
             access_token=data["access_token"],
@@ -107,7 +107,7 @@ class GoogleAdsConnector(BaseConnector):
 
         expires_at = None
         if "expires_in" in data:
-            expires_at = datetime.utcnow() + timedelta(seconds=data["expires_in"])
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=data["expires_in"])
 
         return OAuthToken(
             access_token=data["access_token"],
@@ -170,7 +170,7 @@ class GoogleAdsConnector(BaseConnector):
 
         for result in data.get("results", []):
             record = {
-                "time": datetime.fromisoformat(result.get("segments", {}).get("date", datetime.utcnow().isoformat())),
+                "time": datetime.fromisoformat(result.get("segments", {}).get("date", datetime.now(timezone.utc).isoformat())),
                 "platform": "google",
                 "campaign_id": str(result.get("campaign", {}).get("id", "")),
                 "campaign_name": result.get("campaign", {}).get("name", ""),
@@ -239,7 +239,7 @@ class GoogleAdsConnector(BaseConnector):
             records.append(
                 {
                     "time": datetime.fromisoformat(
-                        result.get("segments", {}).get("date", datetime.utcnow().isoformat())
+                        result.get("segments", {}).get("date", datetime.now(timezone.utc).isoformat())
                     ),
                     "platform": "google",
                     "campaign_id": str(result.get("campaign", {}).get("id", "")),
