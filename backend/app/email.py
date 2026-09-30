@@ -9,7 +9,7 @@ import logging
 import smtplib
 from email.message import EmailMessage
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger("ross.email")
 
@@ -22,8 +22,7 @@ class EmailSettings(BaseSettings):
     smtp_from_email: str = "ross@aramal.co"
     smtp_use_tls: bool = True
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 def send_email(to: str, subject: str, body: str) -> None:

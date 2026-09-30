@@ -8,7 +8,7 @@ from typing import Optional
 from urllib.parse import parse_qs, urlencode
 
 import requests
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.connectors import BaseConnector, OAuthToken
 from app.connectors.attribution import extract_click_id
@@ -25,8 +25,7 @@ class ShopifySettings(BaseSettings):
     shopify_redirect_uri: str = "http://localhost:3100/index.html?connector=shopify"
     shopify_scopes: str = "read_orders,write_orders,read_products,write_products"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 class ShopifyConnector(BaseConnector):

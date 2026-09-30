@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import requests
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.connectors import BaseConnector, OAuthToken
 
@@ -20,8 +20,7 @@ class LinkedInSettings(BaseSettings):
     linkedin_redirect_uri: str = "http://localhost:3100/index.html?connector=linkedin"
     linkedin_scopes: str = "r_ads,r_ads_reporting"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 class LinkedInConnector(BaseConnector):

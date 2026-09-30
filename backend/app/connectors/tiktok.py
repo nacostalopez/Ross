@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List, Optional
 
 import requests
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.connectors import BaseConnector, OAuthToken
 
@@ -20,8 +20,7 @@ class TikTokSettings(BaseSettings):
     # fallback, so a path like /auth/tiktok/callback would 404.
     tiktok_redirect_uri: str = "http://localhost:3100/index.html?connector=tiktok"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 class TikTokConnector(BaseConnector):

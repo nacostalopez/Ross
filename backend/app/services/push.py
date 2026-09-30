@@ -9,7 +9,7 @@ import json
 import logging
 from uuid import UUID
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pywebpush import WebPushException, webpush
 from sqlalchemy.orm import Session
 
@@ -23,8 +23,7 @@ class PushSettings(BaseSettings):
     vapid_public_key: str = ""
     vapid_claim_email: str = "ross@aramal.co"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 def send_push_to_user(db: Session, user_id: UUID, title: str, body: str) -> None:

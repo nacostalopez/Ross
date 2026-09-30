@@ -11,7 +11,7 @@ from typing import List, Optional
 from urllib.parse import urlencode
 
 import requests
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.connectors import BaseConnector, OAuthToken
 
@@ -27,8 +27,7 @@ class MercadoLibreSettings(BaseSettings):
     # the API itself is the same host for every country.
     mercadolibre_auth_domain: str = "auth.mercadolibre.com.ar"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 # Orders in these states never became a sale (or stopped being one) —

@@ -24,7 +24,7 @@ from typing import List, Optional
 from urllib.parse import urlencode
 
 import requests
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.connectors import BaseConnector, OAuthToken
 
@@ -42,8 +42,7 @@ class MercadoPagoSettings(BaseSettings):
     # client secret. Mercado Pago signs notifications with this one.
     mercadopago_webhook_secret: str = ""
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 def build_signature_manifest(data_id: Optional[str], request_id: Optional[str], ts: str) -> str:

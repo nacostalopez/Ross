@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Secrets that ship with an insecure but functional default so local dev
 # works with zero setup. If ENVIRONMENT=production and one of these is still
@@ -29,8 +29,7 @@ class Settings(BaseSettings):
     environment: str = "development"  # "development" | "test" | "production"
     log_level: str = "INFO"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
     def validate_production_ready(self) -> None:
         """Refuse to boot with dev-only secrets when ENVIRONMENT=production."""

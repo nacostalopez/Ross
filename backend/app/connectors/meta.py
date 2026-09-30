@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import List, Optional
 
 import requests
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.connectors import BaseConnector, OAuthToken
 
@@ -23,8 +23,7 @@ class MetaSettings(BaseSettings):
     meta_redirect_uri: str = "http://localhost:3100/index.html?connector=meta"
     meta_scopes: str = "ads_management,ads_read"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 class MetaConnector(BaseConnector):
