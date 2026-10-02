@@ -151,10 +151,13 @@ def forgot_password(request: Request, payload: ForgotPasswordIn, db: Session = D
     """Always returns the same generic response, whether or not the email is
     registered — otherwise the response itself would let an attacker enumerate
     which emails have accounts."""
-    generic_response = {"message": "If that email is registered, we've sent a password reset link."}
+    generic_response = {"message": "Si el email está registrado, te enviamos un enlace para restablecer tu contraseña."}
 
     user = db.query(User).filter(User.email == payload.email).first()
     if not user:
+        # Logged (without the address) so "the email never arrived" can be told apart from a
+        # mail problem; the response stays the same either way.
+        logger.info("password_reset_unknown_email")
         return generic_response
 
     raw_token = create_password_reset_token()
@@ -171,13 +174,13 @@ def forgot_password(request: Request, payload: ForgotPasswordIn, db: Session = D
     try:
         send_email(
             to=user.email,
-            subject="Reset your Ross password",
+            subject="Restablecé tu contraseña de ROSS",
             body=(
-                f"We received a request to reset your Ross password.\n\n"
-                f"Reset it here: {reset_url}\n\n"
-                f"Or use this token directly: {raw_token}\n\n"
-                f"This link expires in {RESET_TOKEN_EXPIRY_MINUTES} minutes. "
-                f"If you didn't request this, you can ignore this email."
+                f"Recibimos un pedido para restablecer la contraseña de tu cuenta de ROSS.\n\n"
+                f"Elegí una nueva acá: {reset_url}\n\n"
+                f"O usá este código directamente: {raw_token}\n\n"
+                f"El enlace vence en {RESET_TOKEN_EXPIRY_MINUTES} minutos. "
+                f"Si no lo pediste, podés ignorar este email."
             ),
         )
     except Exception:

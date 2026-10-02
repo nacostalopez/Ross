@@ -6,6 +6,7 @@ import pytest
 from fastapi import status
 
 from app.models import PasswordResetToken
+from app.routes import auth as auth_route
 from app.security import hash_token, verify_password
 
 
@@ -29,6 +30,29 @@ class TestForgotPassword:
     def test_unknown_email_creates_no_token(self, client, test_db_session):
         client.post("/auth/forgot-password", json={"email": "nobody@example.com"})
         assert test_db_session.query(PasswordResetToken).count() == 0
+
+    def test_known_email_gets_a_spanish_email_with_a_working_link(self, client, test_user, test_db_session, monkeypatch):
+        sent = []
+        monkeypatch.setattr(auth_route, "send_email", lambda **kw: sent.append(kw))
+
+        response = client.post("/auth/forgot-password", json={"email": "testuser@example.com"})
+
+        assert response.json()["message"].startswith("Si el email está registrado")
+        assert len(sent) == 1
+        assert sent[0]["to"] == "testuser@example.com"
+        assert sent[0]["subject"] == "Restablecé tu contraseña de ROSS"
+        link = next(word for word in sent[0]["body"].split() if "reset_token=" in word)
+        raw_token = link.split("reset_token=", 1)[1]
+        token_row = test_db_session.query(PasswordResetToken).filter_by(user_id=test_user.id).one()
+        assert token_row.token_hash == hash_token(raw_token)
+
+    def test_unknown_email_sends_nothing(self, client, monkeypatch):
+        sent = []
+        monkeypatch.setattr(auth_route, "send_email", lambda **kw: sent.append(kw))
+
+        client.post("/auth/forgot-password", json={"email": "nobody@example.com"})
+
+        assert sent == []
 
 
 @pytest.mark.db
