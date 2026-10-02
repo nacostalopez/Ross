@@ -878,6 +878,15 @@ a:hover { text-decoration: underline; }
   overflow-y: auto;
 }
 
+.demo-banner {
+  display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: center;
+  padding: 10px 16px; background: var(--highlight); color: var(--text); font-size: 13.5px; text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+.demo-banner[hidden] { display: none; }
+.demo-banner a { color: var(--primary); font-weight: 700; }
+:root[data-theme="dark"] .demo-banner a { color: var(--celeste); }
+
 /* Landing de presentación (frontend/landing.html) */
 .l-nav {
   display: flex; align-items: center; justify-content: space-between;
@@ -897,6 +906,7 @@ a:hover { text-decoration: underline; }
 .l-hero-title { font-family: "Inter", sans-serif; font-weight: 700; font-size: 44px; line-height: 1.2; margin: 0 0 18px; }
 .l-hero-sub { font-size: 16px; line-height: 1.6; color: #aebbd6; margin: 0 0 34px; }
 .l-hero-actions { display: flex; gap: 12px; justify-content: center; }
+.l-hero-note { margin: 18px auto 0; max-width: 460px; font-size: 14px; color: #dbe3ee; }
 .btn-ghost-inverse {
   border: 1px solid #2b3f63; color: #ffffff; background: transparent;
   padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;

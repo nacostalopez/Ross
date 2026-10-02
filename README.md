@@ -824,11 +824,34 @@ volume instead of reading a static feature table. A 4-stop slider
 month) drives which of the three plan cards is highlighted as
 recommended, the explanation line above the cards, and a capacity bar
 showing roughly how much of that plan's headroom the volume uses
-(Scale has no bar since it has no order ceiling). All prices show as a
-`[Precio]` placeholder — intentional, since real values aren't decided
-yet (see "Billing scaffolding" above); the "Solicitar demo" CTA is how
-someone gets on the list to hear when pricing lands. Plain HTML/CSS/JS,
-no framework, mirroring `landing.html`'s conventions.
+(Scale has no bar since it has no order ceiling). Prices and store/order
+limits are read from the public `GET /billing/plans`: a plan with a
+`monthly_price` shows it, one without keeps the `[Precio]` marker, so
+setting a price in the `plans` table is all it takes. Every contact
+button goes to the landing's demo form. Plain HTML/CSS/JS, no framework,
+mirroring `landing.html`'s conventions.
+
+### Landing, demo requests and the read-only demo
+
+`frontend/landing.html` tells one story in five blocks (problem, how ROSS
+solves it, the dashboard, verifiable benefits, demo form). The headline is
+a visible `[Frase de posicionamiento]` marker until the business settles
+it. The dashboard image is a real capture with demo data, regenerated with
+`npm run shots:landing` from `e2e/` against the running stack.
+
+- **Demo form** → `POST /demo-requests` (public, 5/minute per IP): saved in
+  `demo_requests`, then emailed to `DEMO_REQUEST_NOTIFY_EMAIL` (default
+  ross@aramal.co). The email is best-effort; the request is kept even if
+  SMTP fails.
+- **"Probar la demo"** → `POST /auth/demo` hands out a session for the
+  viewer user named by `DEMO_VIEWER_EMAIL` (empty = no demo, 404). That
+  user can only read: `get_current_user` refuses any other method from it,
+  so visitors can't change what the next one sees. Create the account, and
+  refresh its data (dated relative to today), daily:
+
+  ```bash
+  0 6 * * * cd /path/to/ross && docker compose exec -T backend python -m app.cli.refresh_demo_account
+  ```
 
 ### Agents (pixel-art identity)
 

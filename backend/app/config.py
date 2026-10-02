@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # Who gets an email for each demo request left on the landing's form.
     demo_request_notify_email: str = "ross@aramal.co"
 
+    # The read-only demo behind the landing's "Ver demo" (app/services/demo_account.py).
+    # Empty = no demo: POST /auth/demo answers 404.
+    demo_viewer_email: str = ""
+
     # Fernet key for encrypting store_credentials at rest. Dev-only default —
     # generate a real one with:
     #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"

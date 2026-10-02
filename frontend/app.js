@@ -533,6 +533,12 @@ function showAuthError(message) {
 }
 
 function showLoggedOut() {
+  document.getElementById("demo-banner").hidden = true;
+  try {
+    localStorage.removeItem("ross_demo");
+  } catch (err) {
+    // storage blocked: nothing to clear
+  }
   state.account = null;
   state.stores = [];
   state.activeStoreId = null;
@@ -553,6 +559,17 @@ function sessionExpired() {
   showAuthMode("login");
   showAuthError("Tu sesión expiró — iniciá sesión de nuevo.");
   authError.dataset.kind = "expired"; // the welcome agent worries instead of shaking its head
+}
+
+// The landing's "Probar la demo" stores the demo session itself and sets ross_demo. It is
+// cleared when that session ends (showLoggedOut: logout or expiry), not in setTokens, which
+// also runs on every token refresh.
+function isDemoSession() {
+  try {
+    return localStorage.getItem("ross_demo") === "1";
+  } catch (err) {
+    return false;
+  }
 }
 
 function setTokens(accessToken, refreshToken) {
@@ -578,6 +595,7 @@ async function enterDashboard() {
   document.getElementById("nav-members").hidden = state.currentUser.role === "viewer";
   topbarAccount.hidden = false;
   sidebarToggle.hidden = false;
+  document.getElementById("demo-banner").hidden = !isDemoSession();
   authView.hidden = true;
   dashboardView.hidden = false;
   switchDashboardView("dashboard");

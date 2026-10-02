@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, is_demo_user
 from app.email import send_email
 from app.models import Account, PasswordResetToken, RefreshToken, Subscription, User
 from app.rate_limit import limiter
@@ -112,6 +112,20 @@ def refresh(request: Request, payload: RefreshIn, db: Session = Depends(get_db))
     token_row.revoked_at = now
     db.commit()
 
+    return issue_tokens(db, user)
+
+
+@router.post("/demo", response_model=TokenOut)
+@limiter.limit("20/minute")
+def demo_session(request: Request, db: Session = Depends(get_db)):
+    """A session on the public read-only demo (the landing's "Ver demo"). 404
+    when no demo is configured; never hands out anything but a viewer."""
+    user = db.query(User).filter(User.email == settings.demo_viewer_email).first() if settings.demo_viewer_email else None
+    if not user or not is_demo_user(user):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="La demo no está disponible")
+    if user.role != "viewer":
+        logger.error("demo_user_not_viewer", extra={"user_id": str(user.id), "role": user.role})
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="La demo no está disponible")
     return issue_tokens(db, user)
 
 

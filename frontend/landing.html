@@ -38,8 +38,9 @@
       <p class="l-hero-sub">ROSS une las ventas de tu tienda online con tu inversión en publicidad y te muestra, día por día, cuánto ganás de verdad: ganancia neta y True ROAS por tienda.</p>
       <div class="l-hero-actions">
         <a href="#demo" class="btn btn-primary">Solicitar demo</a>
-        <a href="#producto" class="btn btn-ghost-inverse">Ver el tablero</a>
+        <button type="button" id="live-demo-btn" class="btn btn-ghost-inverse">Probar la demo</button>
       </div>
+      <p class="l-hero-note" id="live-demo-note" role="status" hidden></p>
     </div>
   </section>
 
@@ -150,6 +151,29 @@
     const API_BASE = window.location.hostname === "" || window.location.protocol === "file:"
       ? "http://localhost:8100"
       : `${window.location.protocol}//${window.location.hostname}:8100`;
+
+    // "Probar la demo": a read-only session on the demo store (POST /auth/demo), straight
+    // into the dashboard. ross_demo tells the app to show its "demo de solo lectura" banner.
+    const liveDemoBtn = document.getElementById("live-demo-btn");
+    const liveDemoNote = document.getElementById("live-demo-note");
+    liveDemoBtn.addEventListener("click", async () => {
+      liveDemoBtn.disabled = true;
+      liveDemoNote.hidden = true;
+      try {
+        const res = await fetch(`${API_BASE}/auth/demo`, { method: "POST" });
+        if (!res.ok) throw new Error(String(res.status));
+        const tokens = await res.json();
+        localStorage.setItem("ross_token", tokens.access_token);
+        localStorage.setItem("ross_refresh_token", tokens.refresh_token);
+        localStorage.setItem("ross_demo", "1");
+        window.location.href = "index.html";
+      } catch (err) {
+        liveDemoNote.textContent = "La demo en vivo no está disponible ahora. Mirá el tablero más abajo o pedí una demo guiada.";
+        liveDemoNote.hidden = false;
+        liveDemoBtn.disabled = false;
+        document.getElementById("producto").scrollIntoView({ behavior: "smooth" });
+      }
+    });
 
     const demoForm = document.getElementById("demo-form");
     const demoError = document.getElementById("demo-error");

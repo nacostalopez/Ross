@@ -1,9 +1,10 @@
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.models import Plan, Store, StoreMembership, Subscription, User
 from app.security import decode_access_token
@@ -11,7 +12,18 @@ from app.security import decode_access_token
 bearer_scheme = HTTPBearer()
 
 
+# The public demo user (POST /auth/demo) may only read: it is one user shared by every
+# visitor, so even what a normal viewer can change about themselves (dashboard layout,
+# notification settings, push devices) would leak into the next visitor's demo.
+_DEMO_ALLOWED_WRITES = {"/auth/logout"}
+
+
+def is_demo_user(user: User) -> bool:
+    return bool(settings.demo_viewer_email) and user.email.lower() == settings.demo_viewer_email.lower()
+
+
 def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> User:
@@ -19,6 +31,12 @@ def get_current_user(
     user = db.get(User, payload["sub"])
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    if (
+        request.method not in ("GET", "HEAD", "OPTIONS")
+        and request.url.path not in _DEMO_ALLOWED_WRITES
+        and is_demo_user(user)
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="La cuenta de demostración es de solo lectura")
     return user
 
 
