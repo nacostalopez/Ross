@@ -846,6 +846,8 @@ a:hover { text-decoration: underline; }
 .l-nav-links { display: flex; align-items: center; gap: 20px; font-size: 14px; }
 .l-nav-links a { color: var(--muted); }
 .l-nav-cta { padding: 9px 16px; }
+.l-nav-links a.btn-primary { color: #ffffff; }
+.l-placeholder { display: inline-block; padding: 2px 14px; border: 2px dashed var(--celeste); border-radius: 10px; color: var(--celeste); }
 
 .l-hero {
   position: relative; overflow: hidden; background: var(--tinta); color: #ffffff;
