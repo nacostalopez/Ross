@@ -7,9 +7,11 @@
     "test:agents": "node agents.js",
     "test:sidebar": "node sidebar-drawer.js",
     "test:mercado": "node mercado.js",
-    "shots:landing": "node landing-screenshots.js"
+    "shots:landing": "node landing-screenshots.js",
+    "test:a11y": "node accessibility.js"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "playwright": "^1.63.0"
   }
 }
