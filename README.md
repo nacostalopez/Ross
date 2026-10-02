@@ -1044,6 +1044,31 @@ All requests are logged as structured JSON (see `DEVELOPMENT.md`) and rate
 limited (200/min default, tighter on `/auth/*` and the Shopify webhook) —
 exceeding a limit returns `429`.
 
+## Going to production (checklist)
+
+ROSS runs only locally (docker compose) today. Before the first deploy:
+
+1. **Secrets and environment**: `ENVIRONMENT=production` with a real
+   `JWT_SECRET` and `CREDENTIALS_ENCRYPTION_KEY` (the app refuses to boot
+   on the dev defaults), `FRONTEND_URL` set to the public URL.
+2. **API location**: the frontend calls the API on the *same host, port
+   8100* (`API_BASE` in `frontend/app.js`, `landing.html`, `pricing.html`).
+   Expose it there, or change that one expression in the three files.
+3. **Database**: `db/init/*.sql` only runs on an empty volume. On a
+   database created before a script was added, apply the missing ones in
+   order (the newest is `030_demo_requests.sql`):
+   `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/init/030_demo_requests.sql`.
+4. **Email**: verify the sending domain in Resend, then set
+   `SMTP_FROM_EMAIL=ross@aramal.co` and point `DEMO_REQUEST_NOTIFY_EMAIL`
+   back to the team inbox. In Resend's test mode mail only reaches the
+   account owner, which is why local dev sends demo requests there.
+5. **Scheduled jobs**: `scripts/run_alert_checks.py` (see "Proactive
+   alerts"), `scripts/send_weekly_reports.py`, and, if the live demo is on
+   (`DEMO_VIEWER_EMAIL`), `python -m app.cli.refresh_demo_account` daily.
+6. **Business decisions still shown as markers**: the landing headline
+   (`[Frase de posicionamiento]`) and plan prices (`[Precio]`, filled from
+   `plans.monthly_price` once set).
+
 ## Status / next steps
 
 Schema, ingestion, profit/ROAS math, auth/credential-encryption,
