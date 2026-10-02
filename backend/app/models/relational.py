@@ -272,3 +272,17 @@ class CapiEvent(Base):
     error = Column(Text)
     sent_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class DemoRequest(Base):
+    """A demo request left on the public landing's form (POST
+    /demo-requests). Kept even when the notification email to the team
+    can't be sent, so no prospect is lost to an SMTP problem."""
+
+    __tablename__ = "demo_requests"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(Text, nullable=False)
+    email = Column(Text, nullable=False)
+    platform = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

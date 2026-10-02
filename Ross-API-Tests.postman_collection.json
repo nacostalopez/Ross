@@ -3088,6 +3088,89 @@
           }
         }
       ]
+    },
+    {
+      "name": "DEMO REQUESTS",
+      "item": [
+        {
+          "name": "Request a Demo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"The request is acknowledged\", function () {",
+                  "    pm.expect(pm.response.json().status).to.equal('received');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Prospecto Postman\",\n  \"email\": \"prospect{{$timestamp}}@example.com\",\n  \"platform\": \"tiendanube\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/demo-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "demo-requests"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Request a Demo - Unknown Platform",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 422\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Prospecto Postman\",\n  \"email\": \"prospect{{$timestamp}}@example.com\",\n  \"platform\": \"amazon\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/demo-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "demo-requests"
+              ]
+            }
+          }
+        }
+      ]
     }
   ],
   "event": [

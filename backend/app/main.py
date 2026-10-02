@@ -20,6 +20,7 @@ from app.routes import (
     connectors,
     creative_performance,
     dashboard,
+    demo_requests,
     metrics,
     notification_preferences,
     orders,
@@ -70,6 +71,7 @@ async def log_requests(request: Request, call_next):
 
 
 app.include_router(auth.router)
+app.include_router(demo_requests.router)
 app.include_router(accounts.router)
 app.include_router(stores.router)
 app.include_router(products.router)

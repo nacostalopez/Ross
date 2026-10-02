@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     # Used to build links in outgoing emails (e.g. invite links).
     frontend_url: str = "http://localhost:3100"
 
+    # Who gets an email for each demo request left on the landing's form.
+    demo_request_notify_email: str = "ross@aramal.co"
+
     # Fernet key for encrypting store_credentials at rest. Dev-only default —
     # generate a real one with:
     #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
