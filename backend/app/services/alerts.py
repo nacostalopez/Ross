@@ -89,9 +89,7 @@ def _roas_streak_is_bad(daily_rows: list, threshold: float, days_n: int) -> bool
     them). A day with no ad_spend is skipped entirely rather than counted
     as good or bad — true ROAS (net_profit / ad_spend) is undefined with
     nothing to divide by. Split out from check_roas_alert as a pure
-    function so it's testable without a live TimescaleDB continuous
-    aggregate (daily_financial_summary only refreshes on its own policy
-    schedule, not synchronously on insert — see db/init/004_*.sql)."""
+    function so the decision rule is testable on its own."""
     spend_days = [r for r in daily_rows if r["ad_spend"] and float(r["ad_spend"]) > 0]
     if len(spend_days) < days_n:
         return False
@@ -101,7 +99,7 @@ def _roas_streak_is_bad(daily_rows: list, threshold: float, days_n: int) -> bool
 
 def check_roas_alert(db: Session, store: Store, prefs: StoreAlertPreference, now: datetime) -> bool:
     days_n = prefs.roas_days_n
-    start = now - timedelta(days=days_n + 7)  # buffer for the continuous aggregate's own lag
+    start = now - timedelta(days=days_n + 7)  # extra days: zero-spend days are skipped, not counted
     rows = db.execute(DAILY_SQL, {"store_id": str(store.id), "start": start, "end": now}).mappings().all()
 
     if not _roas_streak_is_bad(rows, float(prefs.roas_threshold), days_n):

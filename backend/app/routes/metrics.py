@@ -93,12 +93,29 @@ PNL_SQL = text(
     """
 )
 
-# Daily breakdown reads from the daily_financial_summary continuous
-# aggregate (fast, but refreshed on an hourly schedule) joined with daily
-# ad spend.
+# Daily breakdown, straight from orders/ad_spend like SUMMARY_SQL. It used
+# to read the daily_financial_summary continuous aggregate, whose policy
+# refreshes hourly and only looks back 3 days: freshly ingested orders
+# took up to an hour to show, and a backfill (a store's history, the demo
+# data) never showed at all — the daily chart stayed empty and the ROAS
+# alert (app/services/alerts.py) never saw those days. One store over a
+# date range is a small, indexed scan of the hypertable.
 DAILY_SQL = text(
     """
-    WITH ads_by_day AS (
+    WITH orders_by_day AS (
+        SELECT
+            time_bucket('1 day', time) AS day,
+            COUNT(DISTINCT order_id) AS total_orders,
+            SUM(gross_amount) AS total_revenue,
+            SUM(cogs_total) AS total_cogs,
+            SUM(payment_gateway_fee) AS total_gateway_fees,
+            SUM(net_profit) AS total_net_profit
+        FROM orders
+        WHERE store_id = :store_id
+          AND time BETWEEN :start AND :end
+        GROUP BY day
+    ),
+    ads_by_day AS (
         SELECT time_bucket('1 day', time) AS day, SUM(spend) AS spend
         FROM ad_spend
         WHERE store_id = :store_id
@@ -106,18 +123,16 @@ DAILY_SQL = text(
         GROUP BY day
     )
     SELECT
-        f.day,
-        f.total_orders,
-        f.total_revenue,
-        f.total_cogs,
-        f.total_gateway_fees,
-        f.total_net_profit,
+        o.day,
+        o.total_orders,
+        o.total_revenue,
+        o.total_cogs,
+        o.total_gateway_fees,
+        o.total_net_profit,
         COALESCE(a.spend, 0) AS ad_spend
-    FROM daily_financial_summary f
-    LEFT JOIN ads_by_day a ON a.day = f.day
-    WHERE f.store_id = :store_id
-      AND f.day BETWEEN :start AND :end
-    ORDER BY f.day
+    FROM orders_by_day o
+    LEFT JOIN ads_by_day a ON a.day = o.day
+    ORDER BY o.day
     """
 )
 
@@ -371,11 +386,11 @@ ATTRIBUTION_BY_CHANNEL_SQL = text(
 )
 
 
-# Backing query for /forecast. Deliberately reads straight from
-# orders/ad_spend (like SUMMARY_SQL above) rather than the
-# daily_financial_summary continuous aggregate, which only refreshes on an
-# hourly policy — a forecast built on stale/incomplete recent days would be
-# wrong in a way that's hard to notice. generate_series fills in days with
+# Backing query for /forecast. Reads straight from orders/ad_spend (like
+# SUMMARY_SQL and DAILY_SQL above), never the daily_financial_summary
+# continuous aggregate, which only refreshes on an hourly policy — a
+# forecast built on stale/incomplete recent days would be wrong in a way
+# that's hard to notice. generate_series fills in days with
 # no activity as 0 so the day-index used by linear_forecast lines up with
 # real calendar days (a gap would silently compress the timeline).
 FORECAST_HISTORY_SQL = text(

@@ -1,15 +1,12 @@
 """Tests for the proactive CAC/ROAS alert feature (app/services/alerts.py,
 app/routes/alerts.py).
 
-check_roas_alert's own DB fetch (DAILY_SQL, reading from the
-daily_financial_summary continuous aggregate) isn't exercised end-to-end
-here: that view only refreshes on its own policy schedule, not
-synchronously on insert (see db/init/004_continuous_aggregates.sql), and
-no other test in this suite exercises GET /metrics/daily against real data
-either — this is a pre-existing gap, not one this feature introduces.
-_roas_streak_is_bad (the actual decision logic) is a pure function tested
-directly instead; check_roas_alert's own orchestration (dedupe/cooldown/
-email) is tested by monkeypatching that function's result.
+_roas_streak_is_bad (the decision rule) is a pure function tested
+directly; check_roas_alert's orchestration (dedupe/cooldown/email) is
+tested by monkeypatching that function's result; and TestCheckRoasAlert-
+EndToEnd runs the whole thing on real orders and ad spend, now that
+DAILY_SQL reads them directly instead of a continuous aggregate that only
+refreshed on its own schedule.
 """
 from datetime import datetime, timezone
 
@@ -198,9 +195,8 @@ class TestRoasStreakIsBad:
 
 @pytest.mark.db
 class TestCheckRoasAlertOrchestration:
-    """DAILY_SQL's own result is monkeypatched via _roas_streak_is_bad — see
-    this module's docstring for why the continuous aggregate itself isn't
-    exercised here."""
+    """_roas_streak_is_bad is monkeypatched so these isolate dedupe and
+    cooldown; TestCheckRoasAlertEndToEnd covers the real data path."""
 
     def test_sends_and_logs_when_streak_is_bad(self, test_db_session, test_store, monkeypatch):
         monkeypatch.setattr(alerts_service, "_roas_streak_is_bad", lambda *a, **k: True)
@@ -237,6 +233,50 @@ class TestCheckRoasAlertOrchestration:
         prefs = _prefs(test_store.id)
 
         fired = check_roas_alert(test_db_session, test_store, prefs, datetime(2026, 6, 1, tzinfo=timezone.utc))
+
+        assert fired is False
+        assert test_db_session.query(AlertLog).count() == 0
+
+
+@pytest.mark.db
+class TestCheckRoasAlertEndToEnd:
+    """No monkeypatching: orders and ad spend go in through the API and
+    check_roas_alert reads them back through DAILY_SQL."""
+
+    NOW = datetime(2026, 6, 1, tzinfo=timezone.utc)
+
+    def _seed_days(self, client, auth_header, store_id, cogs, spend):
+        days = ["2026-05-29", "2026-05-30", "2026-05-31"]
+        _seed_orders(
+            client,
+            auth_header,
+            store_id,
+            [
+                {"order_id": f"roas-{day}", "time": f"{day}T12:00:00Z", "gross_amount": 100.0, "cogs_total": cogs, "currency": "USD"}
+                for day in days
+            ],
+        )
+        _seed_ad_spend(
+            client,
+            auth_header,
+            store_id,
+            [{"time": f"{day}T12:00:00Z", "platform": "meta", "campaign_id": "c1", "spend": spend} for day in days],
+        )
+
+    def test_fires_on_three_days_below_threshold(self, client, auth_header, test_store, test_db_session):
+        # Net profit 50 against 100 of spend: true ROAS 0.5 each day, under 1.0.
+        self._seed_days(client, auth_header, test_store.id, cogs=50.0, spend=100.0)
+
+        fired = check_roas_alert(test_db_session, test_store, _prefs(test_store.id, roas_days_n=3), self.NOW)
+
+        assert fired is True
+        assert test_db_session.query(AlertLog).filter_by(store_id=test_store.id, alert_type="roas").count() == 1
+
+    def test_quiet_when_roas_is_above_threshold(self, client, auth_header, test_store, test_db_session):
+        # Net profit 80 against 20 of spend: true ROAS 4.0 each day.
+        self._seed_days(client, auth_header, test_store.id, cogs=20.0, spend=20.0)
+
+        fired = check_roas_alert(test_db_session, test_store, _prefs(test_store.id, roas_days_n=3), self.NOW)
 
         assert fired is False
         assert test_db_session.query(AlertLog).count() == 0
