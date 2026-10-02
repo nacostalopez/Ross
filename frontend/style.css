@@ -436,6 +436,17 @@ a:hover { text-decoration: underline; }
 .sync-status-error { color: #b42318; font-weight: 600; }
 :root[data-theme="dark"] .sync-status-error { color: #ff9b94; }
 .more-menu-wrap { position: relative; }
+.metric-help-btn {
+  width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border); background: var(--panel);
+  color: var(--primary); font: 700 12px "Inter", sans-serif; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  position: relative;
+}
+/* 24px drawn, 44px to tap. */
+.metric-help-btn::before { content: ""; position: absolute; inset: -10px; }
+.metric-help-btn[aria-expanded="true"] { background: var(--primary); color: #ffffff; border-color: var(--primary); }
+.metric-help-panel { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--bg); font-size: 13px; line-height: 1.5; color: var(--text); }
+.metric-help-panel p { margin: 0; }
+.metric-help-formula { margin-top: 6px !important; font-weight: 700; color: var(--primary); }
 .more-btn { display: inline-flex; align-items: center; gap: 6px; }
 .more-menu {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 220px;

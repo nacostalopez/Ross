@@ -24,15 +24,55 @@ const state = {
 // AND to WidgetType in backend/app/schemas/dashboard.py.
 // ---------------------------------------------------------------------------
 
+// The one place metric names live, with what each means and how it is computed (the formulas
+// mirror SUMMARY_SQL in backend/app/routes/metrics.py and orders.net_profit's generated column).
+// Every label in the dashboard, the P&L, the forecast and the channel table reads from here, and
+// each stat card's "?" shows the definition and formula.
+const METRIC_GLOSSARY = {
+  revenue: {
+    label: "Ingresos",
+    help: "Lo que cobraste por tus ventas en el período, antes de descontar costos.",
+    formula: "Suma del monto bruto de los pedidos",
+  },
+  net_profit: {
+    label: "Ganancia neta",
+    help: "Lo que te queda de las ventas después de los costos de cada pedido.",
+    formula: "Ingresos − descuentos − envío − comisión de la pasarela − costo de mercadería",
+  },
+  ad_spend: {
+    label: "Gasto en ads",
+    help: "Lo que invertiste en publicidad en el período, en todas las plataformas conectadas.",
+    formula: "Suma del gasto por campaña y día",
+  },
+  real_profit: {
+    label: "Ganancia después de ads",
+    help: "Lo que te queda una vez pagada también la publicidad.",
+    formula: "Ganancia neta − gasto en ads",
+  },
+  roas: {
+    label: "True ROAS",
+    help: "Cuánta ganancia neta trajo cada peso invertido en publicidad. El ROAS habitual usa las ventas; este usa la ganancia.",
+    formula: "Ganancia neta ÷ gasto en ads",
+  },
+};
+
+const STAT_GLOSSARY_KEY = {
+  stat_roas: "roas",
+  stat_revenue: "revenue",
+  stat_net_profit: "net_profit",
+  stat_ad_spend: "ad_spend",
+  stat_real_profit: "real_profit",
+};
+
 const WIDGET_LABELS = {
-  stat_roas: "True ROAS",
-  stat_revenue: "Revenue",
-  stat_net_profit: "Profit neto",
-  stat_ad_spend: "Gasto en ads",
-  stat_real_profit: "Profit real (post-ads)",
+  stat_roas: METRIC_GLOSSARY.roas.label,
+  stat_revenue: METRIC_GLOSSARY.revenue.label,
+  stat_net_profit: METRIC_GLOSSARY.net_profit.label,
+  stat_ad_spend: METRIC_GLOSSARY.ad_spend.label,
+  stat_real_profit: METRIC_GLOSSARY.real_profit.label,
   chart_daily: "Ventas vs. gasto en ads por día",
   connector_status: "Estado de conectores",
-  creative_performance: "Performance por creativo",
+  creative_performance: "Rendimiento por creativo",
   ltv_cohorts: "LTV por cohorte y CAC payback",
   cac_by_channel: "CAC por canal",
   attribution_by_channel: "Atribución multi-touch por canal",
@@ -726,21 +766,40 @@ function renderStatWidgetShell(w) {
         <span id="quick-alert-status" class="quick-alert-status"></span>
       </div>`
     : "";
+  const term = METRIC_GLOSSARY[STAT_GLOSSARY_KEY[w.type]];
+  const helpBtn = `<button type="button" class="metric-help-btn" data-help-for="${w.type}" aria-expanded="false"
+      aria-controls="metric-help-${w.type}" aria-label="Qué es ${term.label}">?</button>`;
+  const helpPanel = `<div class="metric-help-panel" id="metric-help-${w.type}" hidden>
+      <p>${term.help}</p>
+      <p class="metric-help-formula">${term.formula}</p>
+    </div>`;
   return `
     <div class="stat-card ${w.hero ? "stat-hero" : ""}">
       <div class="widget-card-header">
         <span class="stat-label">${WIDGET_LABELS[w.type]}</span>
         <div class="stat-header-actions">
+          ${helpBtn}
           ${quickAlertBtn}
           ${state.dashboardEditMode ? widgetControlsHtml(w.type, { isStat: true, hero: w.hero }) : ""}
         </div>
       </div>
       <span class="stat-value ${w.hero ? "stat-hero-value" : ""}" id="stat-value-${w.type}">—</span>
       <span class="stat-delta" id="stat-delta-${w.type}"></span>
+      ${helpPanel}
       ${quickAlertRow}
     </div>
   `;
 }
+
+// One listener for every stat card's "?" (the cards are re-rendered, the root is not).
+document.getElementById("widgets-root").addEventListener("click", (event) => {
+  const btn = event.target.closest(".metric-help-btn");
+  if (!btn) return;
+  const panel = document.getElementById(btn.getAttribute("aria-controls"));
+  const open = panel.hidden;
+  panel.hidden = !open;
+  btn.setAttribute("aria-expanded", String(open));
+});
 
 async function toggleQuickAlertRow() {
   const row = document.getElementById("quick-alert-row");
@@ -1554,8 +1613,8 @@ function renderAttributionByChannelTable(rows) {
           <th>Canal</th>
           <th>Compras</th>
           <th>Repetidas</th>
-          <th>Revenue</th>
-          <th>Profit neto</th>
+          <th>${METRIC_GLOSSARY.revenue.label}</th>
+          <th>${METRIC_GLOSSARY.net_profit.label}</th>
           <th>Gasto</th>
           <th>ROAS</th>
         </tr>
@@ -1612,11 +1671,11 @@ function renderForecastWidget(data) {
     ${info}
     <div class="forecast-grid">
       <div class="forecast-stat">
-        <span class="stat-label">Revenue proyectado</span>
+        <span class="stat-label">${METRIC_GLOSSARY.revenue.label} proyectados</span>
         <span class="stat-value">${fmtMoney(data.total_revenue, state.activeStoreCurrency)}</span>
       </div>
       <div class="forecast-stat">
-        <span class="stat-label">Profit neto proyectado</span>
+        <span class="stat-label">${METRIC_GLOSSARY.net_profit.label} proyectada</span>
         <span class="stat-value">${fmtMoney(data.total_net_profit, state.activeStoreCurrency)}</span>
       </div>
       <div class="forecast-stat">
@@ -1643,11 +1702,11 @@ function renderPnlTable(data) {
 
   const cur = state.activeStoreCurrency;
   const rows = [
-    { label: "Revenue", value: data.revenue },
+    { label: METRIC_GLOSSARY.revenue.label, value: data.revenue },
     { label: "Descuentos", value: -data.discounts },
     { label: "Envío", value: -data.shipping_fee },
-    { label: "Fees de plataforma", value: -data.payment_gateway_fee },
-    { label: "COGS", value: -data.cogs_total },
+    { label: "Comisión de la pasarela", value: -data.payment_gateway_fee },
+    { label: "Costo de mercadería", value: -data.cogs_total },
     { label: "Gasto en ads", value: -data.total_ad_spend },
   ];
 
@@ -1665,7 +1724,7 @@ function renderPnlTable(data) {
           )
           .join("")}
         <tr class="pnl-total">
-          <td>Profit real (post-ads)</td>
+          <td>${METRIC_GLOSSARY.real_profit.label}</td>
           <td class="${data.real_profit_after_ads < 0 ? "negative" : "positive"}">${fmtMoney(data.real_profit_after_ads, cur)}</td>
         </tr>
       </tbody>

@@ -33,10 +33,10 @@ def build_weekly_summary(db: Session, store: Store, now: datetime) -> str:
     lines = [
         f"Resumen semanal de {store.name} — últimos 7 días",
         "",
-        f"Revenue: ${float(summary['revenue']):.2f}",
-        f"Profit neto: ${float(summary['net_profit']):.2f}",
+        f"Ingresos: ${float(summary['revenue']):.2f}",
+        f"Ganancia neta: ${float(summary['net_profit']):.2f}",
         f"Gasto en ads: ${float(summary['total_ad_spend']):.2f}",
-        f"Profit real (post-ads): ${float(summary['real_profit_after_ads']):.2f}",
+        f"Ganancia después de ads: ${float(summary['real_profit_after_ads']):.2f}",
         f"True ROAS: {summary['true_roas']}x" if summary["true_roas"] is not None else "True ROAS: —",
     ]
 

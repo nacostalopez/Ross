@@ -74,7 +74,7 @@ class TestBuildWeeklySummary:
         summary = build_weekly_summary(test_db_session, test_store, datetime(2026, 3, 6, tzinfo=timezone.utc))
 
         assert test_store.name in summary
-        assert "Revenue: $100.00" in summary
+        assert "Ingresos: $100.00" in summary
         assert "Gasto en ads: $50.00" in summary
         assert "True ROAS: 2.00x" in summary
         assert "CAC por canal este mes:" in summary
@@ -83,7 +83,7 @@ class TestBuildWeeklySummary:
     def test_no_cac_section_when_no_new_customers_this_month(self, client, test_store, test_db_session):
         summary = build_weekly_summary(test_db_session, test_store, datetime(2026, 3, 6, tzinfo=timezone.utc))
         assert "CAC por canal este mes:" not in summary
-        assert "Revenue: $0.00" in summary
+        assert "Ingresos: $0.00" in summary
         assert "True ROAS: —" in summary
 
 
