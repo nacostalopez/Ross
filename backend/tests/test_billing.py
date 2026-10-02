@@ -126,3 +126,17 @@ class TestGatingActuallyBlocksOnStarter:
             f"/stores/{test_store.id}/members/{admin_user.id}", headers=auth_header, json={"role": None}
         )
         assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.db
+class TestPublicPlans:
+    def test_plans_are_listed_without_a_session(self, client):
+        # The pricing page reads them before anyone logs in.
+        response = client.get("/billing/plans")
+
+        assert response.status_code == status.HTTP_200_OK
+        plans = {p["id"]: p for p in response.json()}
+        assert set(plans) == {"starter", "growth", "scale"}
+        assert plans["starter"]["max_stores"] == 1
+        assert plans["growth"]["max_orders_per_month"] == 5000
+        assert plans["scale"]["max_stores"] is None

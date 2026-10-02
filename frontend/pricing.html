@@ -56,9 +56,9 @@
     <div class="pricing-card" id="pricing-card-starter">
       <div class="pricing-recommended-tag" hidden>✓ Te conviene este</div>
       <div class="pricing-card-name">Starter</div>
-      <div><span class="pricing-price-placeholder">[Precio]</span></div>
-      <div class="pricing-feature">✓ 1 tienda</div>
-      <div class="pricing-feature">✓ Hasta 500 pedidos/mes</div>
+      <div><span class="pricing-price-placeholder" data-price="starter">[Precio]</span></div>
+      <div class="pricing-feature" data-limit-stores="starter">✓ 1 tienda</div>
+      <div class="pricing-feature" data-limit-orders="starter">✓ Hasta 500 pedidos/mes</div>
       <div class="pricing-feature">✓ Ganancia neta, True ROAS y P&amp;L</div>
       <div class="pricing-feature">✓ Alertas de CAC y ROAS</div>
       <div class="pricing-capacity-box" hidden>
@@ -71,9 +71,9 @@
     <div class="pricing-card" id="pricing-card-growth">
       <div class="pricing-recommended-tag" hidden>✓ Te conviene este</div>
       <div class="pricing-card-name">Growth</div>
-      <div><span class="pricing-price-placeholder">[Precio]</span></div>
-      <div class="pricing-feature">✓ Hasta 5 tiendas</div>
-      <div class="pricing-feature">✓ Hasta 5.000 pedidos/mes</div>
+      <div><span class="pricing-price-placeholder" data-price="growth">[Precio]</span></div>
+      <div class="pricing-feature" data-limit-stores="growth">✓ Hasta 5 tiendas</div>
+      <div class="pricing-feature" data-limit-orders="growth">✓ Hasta 5.000 pedidos/mes</div>
       <div class="pricing-feature">✓ Reporte semanal</div>
       <div class="pricing-feature">✓ LTV por cohorte + CAC por canal</div>
       <div class="pricing-feature">✓ Atribución por canal + proyección a 30 días</div>
@@ -87,8 +87,9 @@
     <div class="pricing-card" id="pricing-card-scale">
       <div class="pricing-recommended-tag" hidden>✓ Te conviene este</div>
       <div class="pricing-card-name">Scale</div>
-      <div><span class="pricing-price-placeholder">[Precio]</span></div>
-      <div class="pricing-feature">✓ Tiendas y pedidos ilimitados</div>
+      <div><span class="pricing-price-placeholder" data-price="scale">[Precio]</span></div>
+      <div class="pricing-feature" data-limit-stores="scale">✓ Tiendas ilimitadas</div>
+      <div class="pricing-feature" data-limit-orders="scale">✓ Pedidos ilimitados</div>
       <div class="pricing-feature">✓ Todo lo de Growth</div>
       <div class="pricing-feature">✓ Rendimiento por creativo</div>
       <div class="pricing-feature">✓ Roles por tienda + auditoría</div>
@@ -165,6 +166,38 @@
     });
 
     renderPricing();
+
+    // Prices and limits come from the plans table (GET /billing/plans, public), so a
+    // price set there shows up here with no HTML edit. A plan with no price yet keeps
+    // the [Precio] marker; if the API can't be reached the static text above stays.
+    const API_BASE = window.location.hostname === "" || window.location.protocol === "file:"
+      ? "http://localhost:8100"
+      : `${window.location.protocol}//${window.location.hostname}:8100`;
+    const number = new Intl.NumberFormat("es-AR");
+
+    function applyPlan(plan) {
+      const price = document.querySelector(`[data-price="${plan.id}"]`);
+      if (price && plan.monthly_price !== null) {
+        const amount = new Intl.NumberFormat("es-AR", { style: "currency", currency: plan.currency, maximumFractionDigits: 0 });
+        price.textContent = `${amount.format(plan.monthly_price)} /mes`;
+        price.className = "pricing-price";
+      }
+      const stores = document.querySelector(`[data-limit-stores="${plan.id}"]`);
+      if (stores) {
+        stores.textContent = plan.max_stores === null ? "✓ Tiendas ilimitadas"
+          : plan.max_stores === 1 ? "✓ 1 tienda" : `✓ Hasta ${number.format(plan.max_stores)} tiendas`;
+      }
+      const orders = document.querySelector(`[data-limit-orders="${plan.id}"]`);
+      if (orders) {
+        orders.textContent = plan.max_orders_per_month === null ? "✓ Pedidos ilimitados"
+          : `✓ Hasta ${number.format(plan.max_orders_per_month)} pedidos/mes`;
+      }
+    }
+
+    fetch(`${API_BASE}/billing/plans`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((plans) => plans.forEach(applyPlan))
+      .catch(() => {});
   </script>
 </body>
 </html>

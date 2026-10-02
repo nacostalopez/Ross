@@ -2466,6 +2466,40 @@
           }
         },
         {
+          "name": "List Plans - Without Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"The pricing page can read plans before anyone logs in\", function () {",
+                  "    var ids = pm.response.json().map(function (p) { return p.id; });",
+                  "    pm.expect(ids).to.eql(['starter', 'growth', 'scale']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/billing/plans",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "billing",
+                "plans"
+              ]
+            }
+          }
+        },
+        {
           "name": "Get Subscription",
           "event": [
             {

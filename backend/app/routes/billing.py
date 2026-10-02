@@ -49,7 +49,10 @@ def _plan_out(plan: Plan, currency: str) -> dict:
 
 
 @router.get("/plans")
-def list_plans(_: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def list_plans(db: Session = Depends(get_db)):
+    """Public: the pricing page (no session) reads prices and limits from
+    here, so a price set in the plans table shows up there without editing
+    the HTML. Nothing in it is account-specific."""
     currency = mp_billing.BillingSettings().billing_currency
     order = {"starter": 0, "growth": 1, "scale": 2}
     plans = sorted(db.query(Plan).all(), key=lambda p: order.get(p.id, 99))
