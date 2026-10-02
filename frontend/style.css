@@ -907,6 +907,20 @@ a:hover { text-decoration: underline; }
 .l-hero-sub { font-size: 16px; line-height: 1.6; color: #aebbd6; margin: 0 0 34px; }
 .l-hero-actions { display: flex; gap: 12px; justify-content: center; }
 .l-hero-note { margin: 18px auto 0; max-width: 460px; font-size: 14px; color: #dbe3ee; }
+/* Ross, the app's own mascot, greets on the landing too (frontend/agentes). */
+.l-hero-ross { display: flex; align-items: flex-end; justify-content: center; gap: 12px; margin-top: 36px; }
+.l-hero-ross-scene { flex: none; width: 110px; }
+.l-hero-ross-box { margin: 0 0 18px; max-width: 230px; }
+.l-agents-pause {
+  position: absolute; right: 16px; bottom: 16px; width: 44px; height: 44px; border-radius: 10px;
+  border: 1px solid #2b3f63; background: transparent; color: #dbe3ee; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.l-agents-pause:hover, .l-agents-pause:focus-visible { background: rgba(255, 255, 255, 0.08); outline: 2px solid var(--celeste); outline-offset: 2px; }
+.l-agents-pause[aria-pressed="true"] { color: var(--celeste); }
+.l-shot-heading { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 36px; }
+.l-shot-heading .pxa-scene { flex: none; width: min(140px, 30vw); }
+.l-shot-heading .l-section-title { margin: 0; }
 .btn-ghost-inverse {
   border: 1px solid #2b3f63; color: #ffffff; background: transparent;
   padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;
