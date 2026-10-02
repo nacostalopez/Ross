@@ -6,7 +6,8 @@
     "test:push": "node push-notifications.js",
     "test:agents": "node agents.js",
     "test:sidebar": "node sidebar-drawer.js",
-    "test:mercado": "node mercado.js"
+    "test:mercado": "node mercado.js",
+    "shots:landing": "node landing-screenshots.js"
   },
   "devDependencies": {
     "playwright": "^1.63.0"
