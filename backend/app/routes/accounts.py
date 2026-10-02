@@ -29,6 +29,8 @@ router = APIRouter(prefix="/accounts", tags=["accounts"])
 logger = logging.getLogger("ross.accounts")
 
 INVITE_EXPIRY_DAYS = 7
+# The names the app shows for each role (Equipo screen), so the email matches what they'll see.
+ROLE_LABELS = {"owner": "Owner", "admin": "Admin", "viewer": "Viewer"}
 
 
 def _send_invite_email(invite: AccountInvite, inviter: User, raw_token: str, *, reminder: bool = False) -> None:
@@ -36,17 +38,17 @@ def _send_invite_email(invite: AccountInvite, inviter: User, raw_token: str, *, 
     and logged, never raised, since the raw token in the API response is
     still a usable fallback for the caller."""
     invite_url = f"{settings.frontend_url}/index.html?invite_token={raw_token}"
-    subject_prefix = "Reminder: y" if reminder else "Y"
+    subject = f"Te invitaron a {inviter.account.name} en ROSS"
     try:
         send_email(
             to=invite.email,
-            subject=f"{subject_prefix}ou've been invited to {inviter.account.name} on Ross",
+            subject=f"Recordatorio: {subject[0].lower()}{subject[1:]}" if reminder else subject,
             body=(
-                f"{inviter.email} invited you to join {inviter.account.name} "
-                f"on Ross as {invite.role}.\n\n"
-                f"Accept your invite: {invite_url}\n\n"
-                f"Or use this token directly: {raw_token}\n\n"
-                f"This invite expires in {INVITE_EXPIRY_DAYS} days."
+                f"{inviter.email} te invitó a sumarte a {inviter.account.name} "
+                f"en ROSS como {ROLE_LABELS[invite.role]}.\n\n"
+                f"Aceptá la invitación acá: {invite_url}\n\n"
+                f"O usá este código directamente: {raw_token}\n\n"
+                f"La invitación vence en {INVITE_EXPIRY_DAYS} días."
             ),
         )
     except Exception:
