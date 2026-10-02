@@ -1,6 +1,6 @@
 # Ross API - Postman Test Suite
 
-Complete API endpoint testing suite for Ross using Postman. Tests cover authentication, stores, orders, ad spend, metrics, and security scoping.
+Complete API endpoint testing suite for Ross using Postman. Tests cover authentication, stores, orders, ad spend, metrics, security scoping, alerts, account members and invites, billing, and the Mercado Pago / Mercado Libre connectors (66 requests, 123 assertions).
 
 ## Quick Start
 
@@ -104,6 +104,43 @@ newman run Ross-API-Tests.postman_collection.json \
 ### 📁 WEBHOOK SIMULATION (1 test)
 - ✅ Shopify orders/create → acknowledges webhook
 
+### 📁 ALERTS (5 tests)
+- ✅ Defaults → alerts off, ROAS threshold 1, 3-day window
+- ✅ Invalid window (15 days) → 422
+- ✅ Save preferences → echoed back, then persisted
+- ✅ Check now → CAC alerts list + ROAS flag
+
+### 📁 ACCOUNT & MEMBERS (26 tests)
+- ✅ Account and member list (fresh account has only its owner)
+- ✅ Invite → duplicate pending invite 409 → listed without token → accept (logs the member in) → reused token 400
+- ✅ Viewer permissions: can list stores, cannot ingest orders, list members or see invoices (403)
+- ✅ Per-store override: admin override lets the viewer save alert preferences; clearing it blocks them again
+- ✅ Role change, last-owner guard (409), cannot remove yourself (400)
+- ✅ Revoke invite (204), resend a revoked invite (409), remove member (204), removed member's token rejected (401)
+- ✅ Activity feed records `invite_sent`
+
+### 📁 BILLING (7 tests)
+- ✅ Plans (starter, growth, scale) with limits and `purchasable` matching `monthly_price`
+- ✅ New accounts start on an active Scale subscription, with no invoices
+- ✅ Checkout: unknown plan 404, plan without price 409
+- ✅ Cancel without a paid subscription → 409
+- ✅ Billing webhook without signature → 401
+
+### 📁 MERCADO PAGO (3 tests)
+- ✅ OAuth URL points at auth.mercadopago.com with our state
+- ✅ Sync payments on a store that isn't connected → 400
+- ✅ Notification without signature → 401
+
+### 📁 MERCADO LIBRE (4 tests)
+- ✅ OAuth URL points at auth.mercadolibre.com.ar with our state
+- ✅ Sync orders on a store that isn't connected → 400
+- ✅ Notification from an unknown application → 401; invalid JSON → 400
+
+These run without any Mercado Pago / Mercado Libre credentials or webhook
+secrets configured (as in CI), so they cover the rejection paths; the
+signed-webhook and OAuth-callback happy paths are covered by the backend
+pytest suite.
+
 ---
 
 ## Test Flow
@@ -117,6 +154,9 @@ newman run Ross-API-Tests.postman_collection.json \
 5. **METRICS** - Calculate ROAS (validates calculations)
 6. **CONNECTORS** - Test OAuth flows
 7. **SECURITY** - Verify ownership scoping
+8. **ALERTS** - Alert preferences on the store
+9. **ACCOUNT & MEMBERS** - Invite flow and permissions (uses `member_token`)
+10. **BILLING**, **MERCADO PAGO**, **MERCADO LIBRE** - Plans and connector edge cases
 
 **Each test depends on previous variables:**
 ```

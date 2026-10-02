@@ -1109,6 +1109,1951 @@
           }
         }
       ]
+    },
+    {
+      "name": "ALERTS",
+      "item": [
+        {
+          "name": "Get Alert Preferences - Defaults",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"No saved row yet: alerts off with schema defaults\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.enabled).to.equal(false);",
+                  "    pm.expect(jsonData.cac_threshold).to.equal(null);",
+                  "    pm.expect(jsonData.roas_threshold).to.equal(1);",
+                  "    pm.expect(jsonData.roas_days_n).to.equal(3);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/stores/{{store_id}}/alert-preferences",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores",
+                "{{store_id}}",
+                "alert-preferences"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Save Alert Preferences - Invalid Window",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 422\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test(\"roas_days_n above 14 is rejected\", function () {",
+                  "    pm.expect(pm.response.text()).to.include(\"roas_days_n\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true,\n  \"roas_threshold\": 1.5,\n  \"roas_days_n\": 15\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/stores/{{store_id}}/alert-preferences",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores",
+                "{{store_id}}",
+                "alert-preferences"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Save Alert Preferences",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Saved values are echoed back\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.enabled).to.equal(true);",
+                  "    pm.expect(jsonData.cac_threshold).to.equal(30);",
+                  "    pm.expect(jsonData.roas_threshold).to.equal(1.5);",
+                  "    pm.expect(jsonData.roas_days_n).to.equal(5);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true,\n  \"cac_threshold\": 30,\n  \"roas_threshold\": 1.5,\n  \"roas_days_n\": 5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/stores/{{store_id}}/alert-preferences",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores",
+                "{{store_id}}",
+                "alert-preferences"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Alert Preferences - Persisted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Preferences persisted\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.enabled).to.equal(true);",
+                  "    pm.expect(jsonData.cac_threshold).to.equal(30);",
+                  "    pm.expect(jsonData.roas_days_n).to.equal(5);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/stores/{{store_id}}/alert-preferences",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores",
+                "{{store_id}}",
+                "alert-preferences"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Check Alerts Now",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Result lists fired CAC alerts and the ROAS flag\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.cac_alerts_sent).to.be.an('array');",
+                  "    pm.expect(jsonData.roas_alert_sent).to.be.a('boolean');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/stores/{{store_id}}/alert-preferences/check-now",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores",
+                "{{store_id}}",
+                "alert-preferences",
+                "check-now"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ACCOUNT & MEMBERS",
+      "item": [
+        {
+          "name": "Get Account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Account has id and name\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.id).to.be.a('string');",
+                  "    pm.expect(jsonData.name).to.equal(pm.environment.get('account_name'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/accounts/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Members - Only Owner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Fresh account has exactly one member, the owner\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.lengthOf(1);",
+                  "    pm.expect(jsonData[0].role).to.equal('owner');",
+                  "    pm.environment.set('owner_id', jsonData[0].id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/accounts/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "members"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Invite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Invite is pending and carries a one-time token\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.equal('pending');",
+                  "    pm.expect(jsonData.role).to.equal('viewer');",
+                  "    pm.expect(jsonData.token).to.be.a('string');",
+                  "    pm.environment.set('invite_id', jsonData.id);",
+                  "    pm.environment.set('invite_email', jsonData.email);",
+                  "    pm.environment.set('invite_token', jsonData.token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"member{{$timestamp}}@example.com\",\n  \"role\": \"viewer\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/accounts/invites",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "invites"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Invite - Duplicate Pending",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{invite_email}}\",\n  \"role\": \"viewer\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/accounts/invites",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "invites"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Pending Invites",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Pending invite is listed without its token\", function () {",
+                  "    var invite = pm.response.json().find(function (i) { return i.id === pm.environment.get('invite_id'); });",
+                  "    pm.expect(invite).to.be.an('object');",
+                  "    pm.expect(invite.token).to.equal(null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/accounts/invites",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "invites"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Accept Invite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Accepting logs the new member in\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.access_token).to.be.a('string');",
+                  "    pm.environment.set('member_token', jsonData.access_token);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{invite_token}}\",\n  \"password\": \"MemberPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/accounts/invites/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "invites",
+                "accept"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Accept Invite - Token Already Used",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{invite_token}}\",\n  \"password\": \"MemberPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/accounts/invites/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "invites",
+                "accept"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Viewer - Can List Stores As Viewer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"The account's store is visible with role viewer\", function () {",
+                  "    var store = pm.response.json().find(function (s) { return s.id === pm.environment.get('store_id'); });",
+                  "    pm.expect(store).to.be.an('object');",
+                  "    pm.expect(store.effective_role).to.equal('viewer');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/stores",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Viewer - Cannot Ingest Orders",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"order_id\": \"viewer_{{$timestamp}}\",\n    \"time\": \"2026-08-31T16:00:00Z\",\n    \"gross_amount\": 10.00,\n    \"currency\": \"USD\"\n  }\n]"
+            },
+            "url": {
+              "raw": "{{base_url}}/stores/{{store_id}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores",
+                "{{store_id}}",
+                "orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Viewer - Cannot List Members",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/accounts/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "members"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Viewer - Cannot See Invoices",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/billing/invoices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "billing",
+                "invoices"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Members - After Accept",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"The invited user joined as viewer\", function () {",
+                  "    var member = pm.response.json().find(function (m) { return m.email === pm.environment.get('invite_email'); });",
+                  "    pm.expect(member).to.be.an('object');",
+                  "    pm.expect(member.role).to.equal('viewer');",
+                  "    pm.environment.set('member_id', member.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/accounts/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "members"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Store Members - List",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Member has no per-store override yet\", function () {",
+                  "    var member = pm.response.json().find(function (m) { return m.id === pm.environment.get('member_id'); });",
+                  "    pm.expect(member.account_role).to.equal('viewer');",
+                  "    pm.expect(member.store_role).to.equal(null);",
+                  "    pm.expect(member.effective_role).to.equal('viewer');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/stores/{{store_id}}/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores",
+                "{{store_id}}",
+                "members"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Store Members - Grant Admin Override",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Override raises the effective role on this store only\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.account_role).to.equal('viewer');",
+                  "    pm.expect(jsonData.store_role).to.equal('admin');",
+                  "    pm.expect(jsonData.effective_role).to.equal('admin');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/stores/{{store_id}}/members/{{member_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores",
+                "{{store_id}}",
+                "members",
+                "{{member_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Override - Member Can Save Alert Preferences",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true,\n  \"cac_threshold\": 30,\n  \"roas_threshold\": 1.5,\n  \"roas_days_n\": 5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/stores/{{store_id}}/alert-preferences",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores",
+                "{{store_id}}",
+                "alert-preferences"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Store Members - Clear Override",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Clearing falls back to the account role\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.store_role).to.equal(null);",
+                  "    pm.expect(jsonData.effective_role).to.equal('viewer');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/stores/{{store_id}}/members/{{member_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores",
+                "{{store_id}}",
+                "members",
+                "{{member_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Override Cleared - Member Blocked Again",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enabled\": true,\n  \"cac_threshold\": 30,\n  \"roas_threshold\": 1.5,\n  \"roas_days_n\": 5\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/stores/{{store_id}}/alert-preferences",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "stores",
+                "{{store_id}}",
+                "alert-preferences"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Member Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Member is now an admin\", function () {",
+                  "    pm.expect(pm.response.json().role).to.equal('admin');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/accounts/members/{{member_id}}/role",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "members",
+                "{{member_id}}",
+                "role"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cannot Demote Last Owner",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"viewer\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/accounts/members/{{owner_id}}/role",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "members",
+                "{{owner_id}}",
+                "role"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cannot Remove Yourself",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/accounts/members/{{owner_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "members",
+                "{{owner_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Invite To Revoke",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.environment.set('revoke_invite_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"revoke{{$timestamp}}@example.com\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/accounts/invites",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "invites"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Revoke Invite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/accounts/invites/{{revoke_invite_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "invites",
+                "{{revoke_invite_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Resend Revoked Invite",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/accounts/invites/{{revoke_invite_id}}/resend",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "invites",
+                "{{revoke_invite_id}}",
+                "resend"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove Member",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/accounts/members/{{member_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "members",
+                "{{member_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Removed Member - Token Rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{member_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Activity Feed",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Sent invites show up in the owner's feed\", function () {",
+                  "    var actions = pm.response.json().map(function (e) { return e.action; });",
+                  "    pm.expect(actions).to.include('invite_sent');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/accounts/activity",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "accounts",
+                "activity"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "BILLING",
+      "item": [
+        {
+          "name": "List Plans",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"The three plans, cheapest first\", function () {",
+                  "    var ids = pm.response.json().map(function (p) { return p.id; });",
+                  "    pm.expect(ids).to.eql(['starter', 'growth', 'scale']);",
+                  "});",
+                  "",
+                  "pm.test(\"Plans expose currency and limits\", function () {",
+                  "    pm.response.json().forEach(function (p) {",
+                  "        pm.expect(p.currency).to.be.a('string');",
+                  "        pm.expect(p).to.have.property('max_stores');",
+                  "        pm.expect(p.features).to.be.an('array');",
+                  "        pm.expect(p.purchasable).to.equal(p.monthly_price !== null);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/billing/plans",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "billing",
+                "plans"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Subscription",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"New accounts start on an active Scale plan\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.plan_id).to.equal('scale');",
+                  "    pm.expect(jsonData.status).to.equal('active');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/billing/subscription",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "billing",
+                "subscription"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Invoices",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"No invoices without a paid subscription\", function () {",
+                  "    pm.expect(pm.response.json()).to.eql([]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/billing/invoices",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "billing",
+                "invoices"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Checkout - Unknown Plan",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_id\": \"does-not-exist\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/billing/checkout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "billing",
+                "checkout"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Checkout - Plan Without Price",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "pm.test(\"Unpriced plans can't be bought\", function () {",
+                  "    pm.expect(pm.response.json().detail).to.include('precio');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_id\": \"growth\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/billing/checkout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "billing",
+                "checkout"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Cancel - No Paid Subscription",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/billing/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "billing",
+                "cancel"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Billing Webhook - Missing Signature",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"subscription_preapproval\",\n  \"data\": {\n    \"id\": \"123\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/billing/webhooks/mercadopago?type=subscription_preapproval&data.id=123",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "billing",
+                "webhooks",
+                "mercadopago"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "subscription_preapproval"
+                },
+                {
+                  "key": "data.id",
+                  "value": "123"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "MERCADO PAGO",
+      "item": [
+        {
+          "name": "Mercado Pago - Get OAuth URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Returns the provider's authorization URL with our state\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.auth_url.indexOf('https://auth.mercadopago.com/authorization')).to.equal(0);",
+                  "    pm.expect(jsonData.state).to.be.a('string').and.not.empty;",
+                  "    pm.expect(jsonData.auth_url).to.include('state=' + encodeURIComponent(jsonData.state));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/connectors/mercadopago/auth-url?store_id={{store_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "connectors",
+                "mercadopago",
+                "auth-url"
+              ],
+              "query": [
+                {
+                  "key": "store_id",
+                  "value": "{{store_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mercado Pago - Sync Payments Not Connected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Explains the store isn't connected\", function () {",
+                  "    pm.expect(pm.response.json().detail).to.include('credentials not configured');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/connectors/mercadopago/sync-payments?store_id={{store_id}}&start_date={{range_start}}&end_date={{range_end}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "connectors",
+                "mercadopago",
+                "sync-payments"
+              ],
+              "query": [
+                {
+                  "key": "store_id",
+                  "value": "{{store_id}}"
+                },
+                {
+                  "key": "start_date",
+                  "value": "{{range_start}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{range_end}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mercado Pago - Notification Missing Signature",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"payment\",\n  \"user_id\": 1,\n  \"data\": {\n    \"id\": \"123\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/connectors/mercadopago/notifications?type=payment&data.id=123",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "connectors",
+                "mercadopago",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "payment"
+                },
+                {
+                  "key": "data.id",
+                  "value": "123"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "MERCADO LIBRE",
+      "item": [
+        {
+          "name": "Mercado Libre - Get OAuth URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Returns the provider's authorization URL with our state\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.auth_url.indexOf('https://auth.mercadolibre.com.ar/authorization')).to.equal(0);",
+                  "    pm.expect(jsonData.state).to.be.a('string').and.not.empty;",
+                  "    pm.expect(jsonData.auth_url).to.include('state=' + encodeURIComponent(jsonData.state));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/connectors/mercadolibre/auth-url?store_id={{store_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "connectors",
+                "mercadolibre",
+                "auth-url"
+              ],
+              "query": [
+                {
+                  "key": "store_id",
+                  "value": "{{store_id}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mercado Libre - Sync Orders Not Connected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Explains the store isn't connected\", function () {",
+                  "    pm.expect(pm.response.json().detail).to.include('credentials not configured');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/connectors/mercadolibre/sync-orders?store_id={{store_id}}&start_date={{range_start}}&end_date={{range_end}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "connectors",
+                "mercadolibre",
+                "sync-orders"
+              ],
+              "query": [
+                {
+                  "key": "store_id",
+                  "value": "{{store_id}}"
+                },
+                {
+                  "key": "start_date",
+                  "value": "{{range_start}}"
+                },
+                {
+                  "key": "end_date",
+                  "value": "{{range_end}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mercado Libre - Notification Unknown Application",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topic\": \"orders_v2\",\n  \"resource\": \"/orders/123\",\n  \"user_id\": 1,\n  \"application_id\": 999\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/connectors/mercadolibre/notifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "connectors",
+                "mercadolibre",
+                "notifications"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mercado Libre - Notification Invalid JSON",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "not json"
+            },
+            "url": {
+              "raw": "{{base_url}}/connectors/mercadolibre/notifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "connectors",
+                "mercadolibre",
+                "notifications"
+              ]
+            }
+          }
+        }
+      ]
     }
   ],
   "event": [
