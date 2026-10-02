@@ -432,6 +432,24 @@ a:hover { text-decoration: underline; }
 .muted { color: var(--muted); font-size: 13px; }
 
 .store-panel-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sync-status { font-size: 13px; color: var(--muted); padding: 0 4px; }
+.sync-status-error { color: #b42318; font-weight: 600; }
+:root[data-theme="dark"] .sync-status-error { color: #ff9b94; }
+.more-menu-wrap { position: relative; }
+.more-btn { display: inline-flex; align-items: center; gap: 6px; }
+.more-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 220px;
+  display: flex; flex-direction: column; padding: 6px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 32px rgba(12, 23, 48, 0.16);
+}
+.more-menu[hidden] { display: none; }
+@media (max-width: 600px) { .more-menu { right: auto; left: 0; } }
+.more-menu button {
+  min-height: 40px; padding: 0 12px; text-align: left; border: none; border-radius: 7px;
+  background: transparent; color: var(--text); font: inherit; font-size: 14px; cursor: pointer;
+}
+.more-menu button:hover, .more-menu button:focus-visible { background: var(--bg); outline: none; }
+.more-menu button:disabled { color: var(--muted); cursor: default; }
 .store-panel-actions select {
   padding: 8px 10px;
   border: 1px solid var(--border);

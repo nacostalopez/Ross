@@ -53,6 +53,13 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
+// Reports, members, audit, customize and the demo loader sit in the store header's "Más" menu.
+async function clickInMoreMenu(page, selector) {
+  if (await page.isHidden("#more-menu")) await page.click("#more-btn");
+  await page.click(selector);
+}
+
+
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3100";
 const MAX_SUBSCRIBE_CLICKS = 6;
 const SUBSCRIBE_POLL_MS = 300;
@@ -128,7 +135,7 @@ async function main() {
     await page.waitForSelector("#store-panel:not([hidden])");
 
     log('triggering a real send via the existing "Enviar ahora" button');
-    await page.click("#reports-btn");
+    await clickInMoreMenu(page, "#reports-btn");
     await page.waitForSelector("#report-preferences-modal:not([hidden])");
     await page.click("#report-preferences-send-now");
     await page.waitForSelector("#report-preview:not([hidden])", { timeout: 10000 });

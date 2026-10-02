@@ -22,6 +22,12 @@ const API_URL = process.env.API_URL || `${new URL(FRONTEND_URL).protocol}//${new
 const APP = `${FRONTEND_URL.replace(/\/$/, "")}/index.html`;
 const OUT_DIR = path.join(__dirname, "..", "frontend", "img");
 
+// Reports, members, audit, customize and the demo loader sit in the store header's "Más" menu.
+async function clickInMoreMenu(page, selector) {
+  if (await page.isHidden("#more-menu")) await page.click("#more-btn");
+  await page.click(selector);
+}
+
 async function post(url, body, token) {
   const res = await fetch(API_URL + url, {
     method: "POST",
@@ -43,7 +49,7 @@ async function capture(browser, tokens, theme, seed) {
   await page.goto(APP, { waitUntil: "networkidle" });
   await page.waitForSelector("#store-panel:not([hidden])");
   if (seed) {
-    await page.click("#seed-btn");
+    await clickInMoreMenu(page, "#seed-btn");
     await page.waitForFunction(() => !document.getElementById("seed-btn").disabled, null, { timeout: 120000 });
   }
   await page.selectOption("#range-select", "30");

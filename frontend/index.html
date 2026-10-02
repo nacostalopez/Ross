@@ -289,12 +289,22 @@
                   <option value="30">Últimos 30 días</option>
                   <option value="90">Últimos 90 días</option>
                 </select>
-                <button id="seed-btn" class="btn btn-ghost">Cargar datos de demo</button>
-                <button id="alerts-btn" class="btn btn-ghost">Alertas</button>
-                <button id="reports-btn" class="btn btn-ghost">Reportes</button>
-                <button id="store-members-btn" class="btn btn-ghost">Miembros</button>
-                <button id="audit-log-btn" class="btn btn-ghost">Auditoría</button>
-                <button id="customize-btn" class="btn btn-ghost">Personalizar</button>
+                <span id="sync-status" class="sync-status" hidden></span>
+                <button id="customize-btn" class="btn btn-primary" hidden>Listo</button>
+                <button id="alerts-btn" class="btn btn-primary">Alertas</button>
+                <div class="more-menu-wrap">
+                  <button id="more-btn" class="btn btn-ghost more-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="more-menu">
+                    Más
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8l5 5 5-5"/></svg>
+                  </button>
+                  <div id="more-menu" class="more-menu" role="menu" aria-labelledby="more-btn" hidden>
+                    <button id="reports-btn" type="button" role="menuitem">Reportes</button>
+                    <button id="store-members-btn" type="button" role="menuitem">Miembros</button>
+                    <button id="audit-log-btn" type="button" role="menuitem">Auditoría</button>
+                    <button id="customize-menu-item" type="button" role="menuitem">Personalizar tablero</button>
+                    <button id="seed-btn" type="button" role="menuitem">Cargar datos de demo</button>
+                  </div>
+                </div>
               </div>
             </div>
 

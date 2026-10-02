@@ -66,11 +66,11 @@ async function goTo(page, navSelector) {
 // only downloaded once its surface is shown (agentes.js paints on un-hide), which is checked too.
 const MODULE_SURFACES = [
   { name: "alertas", open: (page) => page.click("#alerts-btn"), host: "#alert-preferences-modal", card: ".modal-card" },
-  { name: "reportes", open: (page) => page.click("#reports-btn"), host: "#report-preferences-modal", card: ".modal-card" },
+  { name: "reportes", open: (page) => clickInMoreMenu(page, "#reports-btn"), host: "#report-preferences-modal", card: ".modal-card" },
   // shown on its own once the store's metrics load, so there is no "before it is shown" moment to check
   { name: "dashboard", open: async () => {}, host: "#metrics-empty", card: ".agents-empty-frame", lazy: false },
   { name: "perfil", open: (page) => goTo(page, "#nav-profile"), host: "#profile-panel", card: ".store-panel-header" },
-  { name: "auditoria", open: (page) => page.click("#audit-log-btn"), host: "#audit-log-modal", card: ".modal-card" },
+  { name: "auditoria", open: (page) => clickInMoreMenu(page, "#audit-log-btn"), host: "#audit-log-modal", card: ".modal-card" },
   {
     name: "equipo", open: (page) => goTo(page, "#nav-members"), host: "#members-panel", card: ".store-panel-header",
     extra: async (page, tag) => {
@@ -94,6 +94,12 @@ function check(name, ok, detail = "") {
   total += 1;
   if (!ok) problems.push(`${name} ${detail}`);
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? "  — " + detail : ""}`);
+}
+
+// Reports, members, audit, customize and the demo loader sit in the store header's "Más" menu.
+async function clickInMoreMenu(page, selector) {
+  if (await page.isHidden("#more-menu")) await page.click("#more-btn");
+  await page.click(selector);
 }
 
 async function post(url, body, token) {
@@ -448,7 +454,7 @@ async function shot(page, name, options = {}) {
       const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens: seeded });
       await page.goto(APP);
       await page.waitForSelector("#store-panel:not([hidden])");
-      await page.click("#seed-btn");
+      await clickInMoreMenu(page, "#seed-btn");
       await page.waitForFunction(() => document.getElementById("metrics-empty").hidden === true, null, { timeout: 30000 });
       await context.close();
     }
@@ -536,7 +542,7 @@ async function shot(page, name, options = {}) {
       await page.route(/\/stores\/[^/]+\/products$/, (route) => route.abort());
       await page.goto(APP);
       await page.waitForSelector("#store-panel:not([hidden])");
-      await page.click("#seed-btn");
+      await clickInMoreMenu(page, "#seed-btn");
       const toast = await page.waitForSelector("#mascot-toast:not([hidden]) svg", { timeout: 8000 }).then(() => true, () => false);
       const tag = `toast/${vp}/${theme}`;
       check(`[${tag}] a failed action shows the mascot's toast`, toast);
@@ -555,7 +561,7 @@ async function shot(page, name, options = {}) {
       if (vp === "desktop") await shot(page, "toast.png", { clip: { x: 760, y: 560, width: 520, height: 240 } });
       await page.click("#mascot-toast .btn");
       check(`[${tag}] Cerrar dismisses it`, !(await page.isVisible("#mascot-toast")));
-      await page.click("#seed-btn");
+      await clickInMoreMenu(page, "#seed-btn");
       await page.waitForSelector("#mascot-toast:not([hidden])", { timeout: 8000 });
       await page.keyboard.press("Escape");
       check(`[${tag}] Escape dismisses it`, !(await page.isVisible("#mascot-toast")));

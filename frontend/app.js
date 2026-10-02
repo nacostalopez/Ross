@@ -627,13 +627,57 @@ async function selectStore(storeId) {
 // Dashboard widget rendering (shells) + customize mode
 // ---------------------------------------------------------------------------
 
-document.getElementById("customize-btn").addEventListener("click", () => {
+// "Personalizar tablero" lives in the header's "Más" menu; while the dashboard is being edited a
+// visible "Listo" button (#customize-btn) takes its place so the way out is never hidden.
+function toggleDashboardEditMode() {
   state.dashboardEditMode = !state.dashboardEditMode;
-  const btn = document.getElementById("customize-btn");
-  btn.textContent = state.dashboardEditMode ? "Listo" : "Personalizar";
-  btn.classList.toggle("btn-primary", state.dashboardEditMode);
-  btn.classList.toggle("btn-ghost", !state.dashboardEditMode);
+  document.getElementById("customize-btn").hidden = !state.dashboardEditMode;
   renderWidgetsRoot();
+}
+document.getElementById("customize-btn").addEventListener("click", toggleDashboardEditMode);
+document.getElementById("customize-menu-item").addEventListener("click", toggleDashboardEditMode);
+
+// ---------------------------------------------------------------------------
+// Header "Más" menu: the store's secondary actions (reports, members, audit, customize, demo
+// data), so the period, the sync status and Alertas are what the header shows first.
+// ---------------------------------------------------------------------------
+
+const moreBtn = document.getElementById("more-btn");
+const moreMenu = document.getElementById("more-menu");
+
+function setMoreMenu(open, { focusFirst = false } = {}) {
+  moreMenu.hidden = !open;
+  moreBtn.setAttribute("aria-expanded", String(open));
+  if (open && focusFirst) moreMenu.querySelector("[role=menuitem]").focus();
+}
+
+moreBtn.addEventListener("click", () => setMoreMenu(moreMenu.hidden));
+moreBtn.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    setMoreMenu(true, { focusFirst: true });
+  }
+});
+// Choosing an item runs its own listener (registered where each modal lives) and closes the menu.
+moreMenu.addEventListener("click", (event) => {
+  if (event.target.closest("[role=menuitem]")) setMoreMenu(false);
+});
+moreMenu.addEventListener("keydown", (event) => {
+  const items = [...moreMenu.querySelectorAll("[role=menuitem]")];
+  const index = items.indexOf(document.activeElement);
+  if (event.key === "Escape") {
+    setMoreMenu(false);
+    moreBtn.focus();
+  } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    const step = event.key === "ArrowDown" ? 1 : -1;
+    items.at((index + step) % items.length).focus();
+  } else if (event.key === "Tab") {
+    setMoreMenu(false);
+  }
+});
+document.addEventListener("click", (event) => {
+  if (!moreMenu.hidden && !event.target.closest(".more-menu-wrap")) setMoreMenu(false);
 });
 
 function renderWidgetsRoot() {
@@ -1128,11 +1172,31 @@ function attachChartTooltips(container, daily, colorRevenue, colorSpend) {
 // ---------------------------------------------------------------------------
 
 async function refreshConnectorHealth() {
-  // connector_status widget not on the current layout — don't even fetch.
-  if (!document.getElementById("connector-status")) return;
+  // Fetched even without the connector_status widget: the header's sync status reads it too.
   const health = await api(`/stores/${state.activeStoreId}/connectors/health`);
   state.lastConnectorHealth = health;
+  renderSyncStatus(health);
   renderConnectorGrid(health);
+}
+
+// One line in the store header: the most recent sync across connectors, or what's wrong.
+function renderSyncStatus(health) {
+  const el = document.getElementById("sync-status");
+  const connected = Object.entries(health || {}).filter(([, info]) => info);
+  const failing = connected.filter(([, info]) => info.last_error);
+  const synced = connected.map(([, info]) => info.last_synced_at).filter(Boolean).sort();
+  el.classList.toggle("sync-status-error", failing.length > 0);
+  if (!connected.length) {
+    el.textContent = "Sin conectores";
+  } else if (failing.length) {
+    const names = failing.map(([provider]) => PROVIDER_CONNECT_CONFIG[provider]?.label || provider).join(", ");
+    el.textContent = `Error de sincronización: ${names}`;
+  } else if (synced.length) {
+    el.textContent = `Sincronizado ${new Date(synced.at(-1)).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" })}`;
+  } else {
+    el.textContent = "Conectado, sin sincronizar aún";
+  }
+  el.hidden = false;
 }
 
 function renderConnectorGrid(health) {
