@@ -52,6 +52,8 @@ class ConnectorStatus(Base):
     last_synced_at = Column(DateTime(timezone=True))
     last_success_at = Column(DateTime(timezone=True))
     last_error = Column(Text)
+    last_sync_status = Column(String(20))
+    last_sync_error = Column(Text)
 
 
 class AlertLog(Base):

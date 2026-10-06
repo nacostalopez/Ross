@@ -1248,6 +1248,8 @@ function attachChartTooltips(container, daily, colorRevenue, colorSpend) {
 // Connector health
 // ---------------------------------------------------------------------------
 
+const CONNECTOR_STATUS_PROVIDERS = ["shopify", "tiendanube", "meta", "google", "tiktok", "linkedin", "mercadolibre", "mercadopago"];
+
 async function refreshConnectorHealth() {
   // Fetched even without the connector_status widget: the header's sync status reads it too.
   const health = await api(`/stores/${state.activeStoreId}/connectors/health`);
@@ -1259,52 +1261,67 @@ async function refreshConnectorHealth() {
 // One line in the store header: the most recent sync across connectors, or what's wrong.
 function renderSyncStatus(health) {
   const el = document.getElementById("sync-status");
-  const connected = Object.entries(health || {}).filter(([, info]) => info);
-  const failing = connected.filter(([, info]) => info.last_error);
+  const providers = CONNECTOR_STATUS_PROVIDERS.map((provider) => [provider, health?.[provider]]).filter(([, info]) => info);
+  const connected = providers.filter(([, info]) => info.connected);
+  const failing = providers.filter(([, info]) =>
+    info.last_sync_status === "error" || (!info.connected && info.last_error),
+  );
   const synced = connected.map(([, info]) => info.last_synced_at).filter(Boolean).sort();
   el.classList.toggle("sync-status-error", failing.length > 0);
-  if (!connected.length) {
-    el.textContent = "Sin conectores";
-  } else if (failing.length) {
+  if (failing.length) {
     const names = failing.map(([provider]) => PROVIDER_CONNECT_CONFIG[provider]?.label || provider).join(", ");
-    el.textContent = `Error de sincronización: ${names}`;
+    el.textContent = `Error en la última actualización: ${names}`;
+  } else if (!connected.length) {
+    el.textContent = "Sin conectores";
   } else if (synced.length) {
-    el.textContent = `Sincronizado ${new Date(synced.at(-1)).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" })}`;
+    el.textContent = `Última actualización ${new Date(synced.at(-1)).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" })}`;
   } else {
     el.textContent = "Conectado, sin sincronizar aún";
   }
   el.hidden = false;
 }
 
+function escapeConnectorStatusText(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[char]);
+}
+
 function renderConnectorGrid(health) {
   const grid = document.getElementById("connector-status");
   if (!grid) return;
-  const providers = ["shopify", "meta", "google", "tiktok", "linkedin", "mercadolibre", "mercadopago"];
 
-  grid.innerHTML = providers
+  grid.innerHTML = CONNECTOR_STATUS_PROVIDERS
     .map((provider) => {
-      const info = health[provider];
+      const info = health?.[provider] || {};
+      const isConnected = Boolean(info.connected);
       let dotClass = "none";
       let statusText = "No conectado";
-      if (info) {
-        dotClass = info.last_error ? "error" : "ok";
-        if (info.last_error) {
-          statusText = `Error: ${info.last_error}`;
-        } else if (info.last_synced_at) {
-          statusText = `Sincronizado ${new Date(info.last_synced_at).toLocaleString("es-AR")}`;
-        } else {
-          // OAuth succeeded but no sync has run yet — distinct from the
-          // "no credential at all" case below.
-          statusText = "Conectado — sin sincronizar aún";
-        }
+      if (!isConnected && info.last_error) {
+        dotClass = "error";
+        statusText = `Error de conexión: ${info.last_error}`;
+      } else if (isConnected && info.last_sync_status === "error") {
+        dotClass = "error";
+        const timestamp = info.last_synced_at ? ` · ${new Date(info.last_synced_at).toLocaleString("es-AR")}` : "";
+        statusText = `Falló la última actualización${timestamp}: ${info.last_sync_error || "sin detalle"}`;
+      } else if (isConnected && info.last_synced_at) {
+        dotClass = "ok";
+        statusText = `Última actualización correcta ${new Date(info.last_synced_at).toLocaleString("es-AR")}`;
+      } else if (isConnected) {
+        dotClass = "ok";
+        statusText = "Conectado — sin sincronizar aún";
       }
-      const connectBtn = !info
+      const connectBtn = !isConnected && PROVIDER_CONNECT_CONFIG[provider]
         ? `<button type="button" class="btn btn-ghost connector-connect-btn" data-connect-provider="${provider}">Conectar</button>`
         : "";
       return `
         <div class="connector-card">
           <div class="connector-name"><span class="connector-dot ${dotClass}"></span>${PROVIDER_CONNECT_CONFIG[provider]?.label || provider}</div>
-          <div class="muted">${statusText}</div>
+          <div class="muted">${escapeConnectorStatusText(statusText)}</div>
           ${connectBtn}
         </div>
       `;

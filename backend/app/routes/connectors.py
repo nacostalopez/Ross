@@ -54,6 +54,48 @@ health_router = APIRouter(prefix="/stores/{store_id}/connectors", tags=["connect
 OAUTH_STATE_EXPIRE_MINUTES = 10
 
 
+def _replace_ad_spend_window(
+    db: Session,
+    store_id: UUID,
+    platform: str,
+    start_date: datetime,
+    end_date: datetime,
+    records: list[dict],
+) -> int:
+    """Atomically replace one provider's daily spend rows for the requested dates.
+
+    Ad providers return daily aggregates and may revise recent values. Replacing
+    the inclusive date window makes retries safe and lets an empty response clear
+    stale rows without touching other stores, platforms, or dates.
+    """
+    from app.models import ad_spend as ad_spend_table
+
+    if start_date.date() > end_date.date():
+        raise ValueError("start_date must be on or before end_date")
+
+    window_start = datetime.combine(start_date.date(), datetime.min.time(), tzinfo=timezone.utc)
+    window_end = datetime.combine(end_date.date() + timedelta(days=1), datetime.min.time(), tzinfo=timezone.utc)
+    rows = [{**record, "store_id": store_id, "platform": platform} for record in records]
+
+    try:
+        db.execute(
+            ad_spend_table.delete().where(
+                ad_spend_table.c.store_id == store_id,
+                ad_spend_table.c.platform == platform,
+                ad_spend_table.c.time >= window_start,
+                ad_spend_table.c.time < window_end,
+            )
+        )
+        if rows:
+            db.execute(insert(ad_spend_table), rows)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return len(rows)
+
+
 def _create_oauth_state(db: Session, store_id: UUID, provider: str) -> str:
     """Issue a CSRF state token for an OAuth handshake, persisting its hash
     so the matching callback can prove it followed this store's own
@@ -438,19 +480,13 @@ def sync_meta_ad_spend(
 
         spend_records = connector.fetch_ad_spend(access_token, start_date, end_date)
 
-        # Ingest into ad_spend table
-        from app.models import ad_spend as ad_spend_table
-
-        rows = [{"store_id": store_id, **record} for record in spend_records]
-        if rows:
-            db.execute(insert(ad_spend_table), rows)
-            db.commit()
+        records_synced = _replace_ad_spend_window(db, store_id, "meta", start_date, end_date, spend_records)
 
         _upsert_connector_status(db, store_id, "meta", synced=True, success=True)
 
         return {
             "status": "success",
-            "records_synced": len(rows),
+            "records_synced": records_synced,
         }
     except Exception as e:
         _upsert_connector_status(db, store_id, "meta", synced=True, success=False, error=str(e))
@@ -656,19 +692,13 @@ def sync_google_ad_spend(
         connector = GoogleAdsConnector(str(store_id), credential.provider_account_id)
         spend_records = connector.fetch_ad_spend(access_token, start_date, end_date)
 
-        # Ingest into ad_spend table
-        from app.models import ad_spend as ad_spend_table
-
-        rows = [{"store_id": store_id, **record} for record in spend_records]
-        if rows:
-            db.execute(insert(ad_spend_table), rows)
-            db.commit()
+        records_synced = _replace_ad_spend_window(db, store_id, "google", start_date, end_date, spend_records)
 
         _upsert_connector_status(db, store_id, "google", synced=True, success=True)
 
         return {
             "status": "success",
-            "records_synced": len(rows),
+            "records_synced": records_synced,
         }
     except Exception as e:
         _upsert_connector_status(db, store_id, "google", synced=True, success=False, error=str(e))
@@ -867,18 +897,13 @@ def sync_tiktok_ad_spend(
 
         spend_records = connector.fetch_ad_spend(access_token, start_date, end_date)
 
-        from app.models import ad_spend as ad_spend_table
-
-        rows = [{"store_id": store_id, **record} for record in spend_records]
-        if rows:
-            db.execute(insert(ad_spend_table), rows)
-            db.commit()
+        records_synced = _replace_ad_spend_window(db, store_id, "tiktok", start_date, end_date, spend_records)
 
         _upsert_connector_status(db, store_id, "tiktok", synced=True, success=True)
 
         return {
             "status": "success",
-            "records_synced": len(rows),
+            "records_synced": records_synced,
         }
     except Exception as e:
         _upsert_connector_status(db, store_id, "tiktok", synced=True, success=False, error=str(e))
@@ -1082,18 +1107,13 @@ def sync_linkedin_ad_spend(
         connector = LinkedInConnector(str(store_id), credential.provider_account_id)
         spend_records = connector.fetch_ad_spend(access_token, start_date, end_date)
 
-        from app.models import ad_spend as ad_spend_table
-
-        rows = [{"store_id": store_id, **record} for record in spend_records]
-        if rows:
-            db.execute(insert(ad_spend_table), rows)
-            db.commit()
+        records_synced = _replace_ad_spend_window(db, store_id, "linkedin", start_date, end_date, spend_records)
 
         _upsert_connector_status(db, store_id, "linkedin", synced=True, success=True)
 
         return {
             "status": "success",
-            "records_synced": len(rows),
+            "records_synced": records_synced,
         }
     except Exception as e:
         _upsert_connector_status(db, store_id, "linkedin", synced=True, success=False, error=str(e))
@@ -1735,11 +1755,10 @@ def sync_mercadolibre_ad_spend(
 ):
     """Sync daily Product Ads spend per campaign.
 
-    Idempotent, unlike the other ad platforms' plain inserts: the window's
-    existing "mercadolibre" rows are replaced, so re-running a sync (Mercado
-    Ads revises recent days until 10:00 GMT-3) never double-counts. Only the
-    days Mercado Ads can still report on (last 90) are touched — older rows
-    are kept as they are.
+    Idempotent: the window's existing "mercadolibre" rows are replaced, so
+    re-running a sync (Mercado Ads revises recent days until 10:00 GMT-3)
+    never double-counts. Only the days Mercado Ads can still report on
+    (last 90) are touched — older rows are kept as they are.
     """
     from app.models import ad_spend as ad_spend_table
 
@@ -1968,11 +1987,19 @@ def connector_health(
     Shopify webhook above keeps updated.
     """
     rows = db.query(ConnectorStatus).filter(ConnectorStatus.store_id == store.id).all()
-    return {
+    credentials = db.query(StoreCredential.provider).filter(StoreCredential.store_id == store.id).all()
+    connected_providers = {provider for (provider,) in credentials}
+    health = {
         row.provider: {
+            "connected": row.provider in connected_providers,
             "last_synced_at": row.last_synced_at,
             "last_success_at": row.last_success_at,
             "last_error": row.last_error,
+            "last_sync_status": row.last_sync_status,
+            "last_sync_error": row.last_sync_error,
         }
         for row in rows
     }
+    for provider in connected_providers:
+        health.setdefault(provider, {"connected": True})
+    return health

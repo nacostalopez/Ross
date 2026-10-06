@@ -24,15 +24,17 @@ def _upsert_connector_status(
     success: bool = False,
     error: Optional[str] = None,
 ) -> None:
-    """Record a connect/sync attempt in connector_status (upsert by store_id+provider).
+    """Record connector health in connector_status (upsert by store_id+provider).
 
     Only the columns implied by the call are touched — a plain OAuth connect
-    (synced=False) doesn't overwrite last_synced_at from an unrelated sync.
+    (synced=False) doesn't overwrite the last data-sync timestamp or outcome.
     """
     now = datetime.now(timezone.utc)
     values = {"store_id": store_id, "provider": provider, "last_error": error}
     if synced:
         values["last_synced_at"] = now
+        values["last_sync_status"] = "success" if success else "error"
+        values["last_sync_error"] = error
     if success:
         values["last_success_at"] = now
 

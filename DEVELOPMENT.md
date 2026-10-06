@@ -53,9 +53,10 @@ This document describes how to develop, test, and deploy the Ross backend.
    ```
 
 2. **Run migrations** (if needed):
-   ```bash
-   # Already run via docker-entrypoint-initdb.d in docker-compose
-   ```
+   The SQL files in `db/init/` run automatically only when PostgreSQL initializes
+   a new data directory. For an existing database, apply each new additive SQL
+   migration before deploying code that depends on it; restarting the container
+   does not replay the initialization scripts.
 
 3. **Start the server:**
    ```bash
