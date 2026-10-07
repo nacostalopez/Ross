@@ -98,6 +98,8 @@ services:
       MERCADOPAGO_BILLING_ACCESS_TOKEN: ${MERCADOPAGO_BILLING_ACCESS_TOKEN:-}
       MERCADOPAGO_BILLING_WEBHOOK_SECRET: ${MERCADOPAGO_BILLING_WEBHOOK_SECRET:-}
       BILLING_CURRENCY: ${BILLING_CURRENCY:-ARS}
+    # Dev: auto-reload on code changes (the image's own command is the production one).
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:
       - "${API_PORT:-8100}:8000"
     depends_on:

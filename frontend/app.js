@@ -1,6 +1,11 @@
-const API_BASE = window.location.hostname === "" || window.location.protocol === "file:"
-  ? "http://localhost:8100"
-  : `${window.location.protocol}//${window.location.hostname}:8100`;
+const API_BASE = (() => {
+  const { protocol, hostname } = window.location;
+  if (hostname === "" || protocol === "file:") return "http://localhost:8100";
+  // Local dev (localhost, or the WSL/LAN IP the e2e scripts use): the API listens on port 8100.
+  if (hostname === "localhost" || /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) return `${protocol}//${hostname}:8100`;
+  // Deployed: the API is the api. subdomain of the same domain (ross.ar -> api.ross.ar).
+  return `${protocol}//api.${hostname.replace(/^www\./, "")}`;
+})();
 
 const state = {
   token: localStorage.getItem("ross_token") || null,

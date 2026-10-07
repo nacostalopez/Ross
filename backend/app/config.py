@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     credentials_encryption_key: str = "Qxsu0Kb675R0dWY-WeAE-1hvcXLTQj74_pJrlsr_kG4="
 
+    # Origins allowed to call the API from a browser, comma-separated
+    # ("https://ross.ar,https://www.ross.ar"). "*" is for local dev only:
+    # production refuses to start with it (see validate_production_ready).
+    cors_allowed_origins: str = "*"
+
     environment: str = "development"  # "development" | "test" | "production"
     log_level: str = "INFO"
 
@@ -52,6 +57,16 @@ class Settings(BaseSettings):
                 f"still hold their insecure development defaults: {', '.join(leaked)}. "
                 "Set real values via environment variables."
             )
+        if "*" in self.cors_origins:
+            raise RuntimeError(
+                "Refusing to start with ENVIRONMENT=production while CORS_ALLOWED_ORIGINS "
+                "allows any origin. Set it to the site's own origins, e.g. "
+                "https://ross.ar,https://www.ross.ar."
+            )
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]
 
 
 settings = Settings()

@@ -1046,18 +1046,23 @@ exceeding a limit returns `429`.
 
 ## Going to production (checklist)
 
-ROSS runs only locally (docker compose) today. Before the first deploy:
+ROSS runs only locally (docker compose) today. The step-by-step deploy on
+ross.ar (Railway + Cloudflare) is in DEPLOY.md, with every production
+variable in `.env.production.example`. Before the first deploy:
 
 1. **Secrets and environment**: `ENVIRONMENT=production` with a real
-   `JWT_SECRET` and `CREDENTIALS_ENCRYPTION_KEY` (the app refuses to boot
-   on the dev defaults), `FRONTEND_URL` set to the public URL.
-2. **API location**: the frontend calls the API on the *same host, port
-   8100* (`API_BASE` in `frontend/app.js`, `landing.html`, `pricing.html`).
-   Expose it there, or change that one expression in the three files.
+   `JWT_SECRET` and `CREDENTIALS_ENCRYPTION_KEY`, and
+   `CORS_ALLOWED_ORIGINS` set to the site's origins (the app refuses to
+   boot on the dev defaults or with CORS open to any origin),
+   `FRONTEND_URL` set to the public URL.
+2. **API location**: on localhost or an IP address the frontend calls the
+   API on the same host, port 8100; on a domain it calls the `api.`
+   subdomain (`ross.ar` → `api.ross.ar`). `API_BASE` in `frontend/app.js`,
+   `landing.html`, `pricing.html`.
 3. **Database**: `db/init/*.sql` only runs on an empty volume. On a
    database created before a script was added, apply the missing ones in
-   order (the newest is `030_demo_requests.sql`):
-   `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/init/030_demo_requests.sql`.
+   order (the newest is `031_connector_sync_outcome.sql`):
+   `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/init/031_connector_sync_outcome.sql`.
 4. **Email**: verify the sending domain in Resend, then set
    `SMTP_FROM_EMAIL=ross@aramal.co` and point `DEMO_REQUEST_NOTIFY_EMAIL`
    back to the team inbox. In Resend's test mode mail only reaches the
