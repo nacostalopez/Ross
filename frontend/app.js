@@ -1250,9 +1250,11 @@ function attachChartTooltips(container, daily, colorRevenue, colorSpend) {
 
 const CONNECTOR_STATUS_PROVIDERS = ["shopify", "tiendanube", "meta", "google", "tiktok", "linkedin", "mercadolibre", "mercadopago"];
 
-// The sync endpoints a "Traer historial" run calls, in order, per provider. Shopify and
-// Tiendanube have none: their orders only arrive through webhooks from the moment they connect.
+// The sync endpoints a "Traer historial" run calls, in order, per provider. For Shopify and
+// Tiendanube it brings the orders from before they connected; webhooks keep them current after.
 const CONNECTOR_BACKFILL_ENDPOINTS = {
+  shopify: ["sync-orders"],
+  tiendanube: ["sync-orders"],
   meta: ["sync-ad-spend", "sync-creative-performance"],
   google: ["sync-ad-spend", "sync-creative-performance"],
   tiktok: ["sync-ad-spend", "sync-creative-performance"],

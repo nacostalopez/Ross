@@ -4,7 +4,7 @@ import base64
 import hashlib
 import hmac
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
@@ -186,22 +186,17 @@ class TiendanubeConnector(BaseConnector):
             "external_customer_id": str(customer["id"]) if customer.get("id") else None,
         }
 
-    def fetch_historical_data(self, start_date: datetime, end_date: datetime, access_token: str):
-        """Fetch historical orders from Tiendanube.
+    @staticmethod
+    def is_cancelled(tn_order: dict) -> bool:
+        """A cancelled order stopped being a sale; Tiendanube keeps it with status "cancelled"."""
+        return tn_order.get("status") == "cancelled"
 
-        Args:
-            start_date: Start date for fetching
-            end_date: End date for fetching
-            access_token: Tiendanube API access token
-
-        Returns:
-            List of orders in standardized format
-        """
+    def fetch_orders(self, access_token: str, start_date: datetime, end_date: datetime) -> List[dict]:
+        """All of the store's orders created in [start_date, end_date], raw (not converted)."""
         if not self.tn_store_id:
             raise ValueError("tn_store_id required for API calls")
 
         url = f"{self.API_BASE.format(version=self.API_VERSION, store_id=self.tn_store_id)}/orders"
-
         headers = {
             "Authentication": f"bearer {access_token}",
             "Content-Type": "application/json",
@@ -211,7 +206,6 @@ class TiendanubeConnector(BaseConnector):
         orders = []
         page = 1
         per_page = 200
-
         while True:
             params = {
                 "page": page,
@@ -220,14 +214,24 @@ class TiendanubeConnector(BaseConnector):
                 "created_at_max": end_date.isoformat(),
             }
             response = requests.get(url, headers=headers, params=params)
+            # Asking for a page past the last one is a 404 ("Last page is N"),
+            # which happens when the total is an exact multiple of per_page.
+            if response.status_code == 404 and page > 1:
+                break
             response.raise_for_status()
 
             batch = response.json()
-            for tn_order in batch:
-                orders.append(self._process_order_webhook(tn_order))
-
+            orders.extend(batch)
             if len(batch) < per_page:
                 break
             page += 1
 
         return orders
+
+    def fetch_historical_data(self, start_date: datetime, end_date: datetime, access_token: str):
+        """Historical orders in standardized format, cancelled ones left out."""
+        return [
+            self._process_order_webhook(o)
+            for o in self.fetch_orders(access_token, start_date, end_date)
+            if not self.is_cancelled(o)
+        ]

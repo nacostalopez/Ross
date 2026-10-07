@@ -1223,10 +1223,14 @@ while the landing/pricing scenes are not. Not yet built:
 - "Traer historial" on a connected connector's card (owner/admin, not the
   demo) runs that provider's sync endpoints for the last 7, 30 or 90 days:
   ad spend and creatives for Meta/Google/TikTok/LinkedIn, orders and
-  Product Ads for Mercado Libre, payments for Mercado Pago. Shopify and
-  Tiendanube have no backfill at all — no endpoint fetches their past
-  orders; they only receive orders through webhooks from the moment they
-  connect.
+  Product Ads for Mercado Libre, payments for Mercado Pago, and orders for
+  Shopify and Tiendanube (`POST /connectors/{shopify,tiendanube}/sync-orders`,
+  which bring the orders from before the store connected — webhooks only
+  cover from then on). Those two upsert like their webhooks, remove
+  cancelled orders, and send no purchase events to Meta/Google, since
+  they're past sales. Without the `read_all_orders` scope Shopify only
+  serves the last 60 days. Both are verified only against stubbed
+  responses, like the rest of these connectors.
 
 Note for `docker compose` users: `FRONTEND_URL`, `SMTP_*`, and `VAPID_*`
 must be set in a root-level `.env` (not `backend/.env`) — `docker-compose.yml`'s `backend`

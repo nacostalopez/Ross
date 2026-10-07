@@ -4,7 +4,7 @@ import base64
 import hashlib
 import hmac
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 from urllib.parse import parse_qs, urlencode
 
 import requests
@@ -199,29 +199,26 @@ class ShopifyConnector(BaseConnector):
             "external_customer_id": str(customer["id"]) if customer.get("id") else None,
         }
 
-    def fetch_historical_data(self, start_date: datetime, end_date: datetime, access_token: str):
-        """Fetch historical orders from Shopify.
+    @staticmethod
+    def is_cancelled(shopify_order: dict) -> bool:
+        """A cancelled order stopped being a sale; Shopify keeps it, with cancelled_at set."""
+        return bool(shopify_order.get("cancelled_at"))
 
-        Args:
-            start_date: Start date for fetching
-            end_date: End date for fetching
-            access_token: Shopify API access token
+    def fetch_orders(self, access_token: str, start_date: datetime, end_date: datetime) -> List[dict]:
+        """All of the shop's orders created in [start_date, end_date], raw (not converted).
 
-        Returns:
-            List of orders in standardized format
+        status=any includes cancelled and archived (closed) orders, so a
+        backfill can also remove the ones that were cancelled. Without the
+        read_all_orders scope Shopify only serves the last 60 days.
         """
         if not self.shop_domain:
             raise ValueError("shop_domain required for API calls")
 
-        orders = []
         url = f"{self.API_BASE.format(shop=self.shop_domain.replace('.myshopify.com', ''), version=self.API_VERSION)}/orders.json"
-
         headers = {
             "X-Shopify-Access-Token": access_token,
             "Content-Type": "application/json",
         }
-
-        # Shopify API pagination
         params = {
             "status": "any",
             "limit": 250,
@@ -229,24 +226,28 @@ class ShopifyConnector(BaseConnector):
             "created_at_max": end_date.isoformat(),
         }
 
+        orders = []
         while url:
             response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
+            orders.extend(response.json().get("orders", []))
 
-            data = response.json()
-
-            for shopify_order in data.get("orders", []):
-                orders.append(self._process_order_webhook(shopify_order))
-
-            # Check for next page (Shopify uses Link header for pagination)
+            # Cursor pagination: the next page's URL (with its page_info) is in
+            # the Link header, and it must be requested without the filters.
             link_header = response.headers.get("Link", "")
             url = None
             if 'rel="next"' in link_header:
-                # Extract next URL from Link header
-                next_url = link_header.split('rel="next"')[0].split(",")[-1].strip()
+                next_url = link_header.split('rel="next"')[0].split(",")[-1].strip().rstrip(";").strip()
                 if next_url.startswith("<") and next_url.endswith(">"):
                     url = next_url[1:-1]
-
-            params = {}  # Clear params for subsequent requests
+            params = {}
 
         return orders
+
+    def fetch_historical_data(self, start_date: datetime, end_date: datetime, access_token: str):
+        """Historical orders in standardized format, cancelled ones left out."""
+        return [
+            self._process_order_webhook(o)
+            for o in self.fetch_orders(access_token, start_date, end_date)
+            if not self.is_cancelled(o)
+        ]

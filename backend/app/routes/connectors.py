@@ -368,6 +368,48 @@ async def shopify_webhook(
         )
 
 
+@router.post("/shopify/sync-orders")
+def sync_shopify_orders(
+    start_date: datetime = Query(...),
+    end_date: datetime = Query(...),
+    store: Store = Depends(get_owned_store),
+    _: User = Depends(require_store_role("owner", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Backfill Shopify orders created in [start_date, end_date].
+
+    Webhooks only bring orders from the moment the store connects; this
+    brings the ones before. Orders are upserted the same way the webhook
+    does it, and cancelled ones are removed in case a webhook ingested them
+    earlier. No purchase events go to Meta/Google: these are past sales,
+    not conversions happening now.
+
+    Without the read_all_orders scope Shopify only serves the last 60 days,
+    so a longer window brings what it can.
+    """
+    credential = _require_credential(db, store.id, "shopify", "Shopify")
+
+    try:
+        connector = ShopifyConnector(str(store.id), credential.provider_account_id)
+        access_token = _fresh_access_token(db, credential, connector)
+        raw_orders = connector.fetch_orders(access_token, start_date, end_date)
+
+        sales = [connector._process_order_webhook(o) for o in raw_orders if not connector.is_cancelled(o)]
+        cancelled = [str(o["id"]) for o in raw_orders if connector.is_cancelled(o)]
+        _upsert_orders(db, store.id, sales)
+        removed = _delete_orders(db, store.id, cancelled)
+
+        _upsert_connector_status(db, store.id, "shopify", synced=True, success=True)
+        return {"status": "success", "orders_synced": len(sales), "orders_removed": removed}
+    except Exception as e:
+        db.rollback()
+        _upsert_connector_status(db, store.id, "shopify", synced=True, success=False, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to sync Shopify orders: {str(e)}",
+        )
+
+
 # ============================================================================
 # Meta (Facebook) Ads Connectors
 # ============================================================================
@@ -1412,6 +1454,45 @@ async def tiendanube_webhook(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to process Tiendanube webhook: {str(e)}",
+        )
+
+
+@router.post("/tiendanube/sync-orders")
+def sync_tiendanube_orders(
+    start_date: datetime = Query(...),
+    end_date: datetime = Query(...),
+    store: Store = Depends(get_owned_store),
+    _: User = Depends(require_store_role("owner", "admin")),
+    db: Session = Depends(get_db),
+):
+    """Backfill Tiendanube orders created in [start_date, end_date].
+
+    Webhooks only bring orders from the moment the store connects; this
+    brings the ones before. Orders are upserted the same way the webhook
+    does it, and cancelled ones are removed in case a webhook ingested them
+    earlier. No purchase events go to Meta/Google: these are past sales,
+    not conversions happening now.
+    """
+    credential = _require_credential(db, store.id, "tiendanube", "Tiendanube")
+
+    try:
+        connector = TiendanubeConnector(str(store.id), credential.provider_account_id)
+        access_token = _fresh_access_token(db, credential, connector)
+        raw_orders = connector.fetch_orders(access_token, start_date, end_date)
+
+        sales = [connector._process_order_webhook(o) for o in raw_orders if not connector.is_cancelled(o)]
+        cancelled = [str(o["id"]) for o in raw_orders if connector.is_cancelled(o)]
+        _upsert_orders(db, store.id, sales)
+        removed = _delete_orders(db, store.id, cancelled)
+
+        _upsert_connector_status(db, store.id, "tiendanube", synced=True, success=True)
+        return {"status": "success", "orders_synced": len(sales), "orders_removed": removed}
+    except Exception as e:
+        db.rollback()
+        _upsert_connector_status(db, store.id, "tiendanube", synced=True, success=False, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to sync Tiendanube orders: {str(e)}",
         )
 
 
