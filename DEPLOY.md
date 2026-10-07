@@ -33,9 +33,16 @@ that, apply new scripts by hand, in order, before deploying code that needs
 them (see DEVELOPMENT.md):
 `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/init/0NN_name.sql`.
 
-The scheduled jobs (alerts, weekly reports, demo refresh) are not set up yet:
-`scripts/` isn't part of the backend image. They become Railway cron services
-once they live under `app/cli`.
+The scheduled jobs are Railway cron services: each one builds from `backend`
+like the backend service, takes the backend's variables (as references,
+`${{backend.NAME}}`), and sets a start command and a schedule instead of a
+domain. Railway runs cron schedules in UTC; Argentina is UTC-3.
+
+| Service | Start command | Schedule (UTC) |
+|---|---|---|
+| `alerts` | `python -m app.cli.run_alert_checks` | `0 12 * * *` (09:00 in Argentina) |
+| `weekly-reports` | `python -m app.cli.send_weekly_reports` | `0 12 * * 1` (Mondays 09:00) |
+| `demo-refresh` | `python -m app.cli.refresh_demo_account` | `0 9 * * *` (06:00), only once `DEMO_VIEWER_EMAIL` is set |
 
 ## 3. DNS records in Cloudflare
 

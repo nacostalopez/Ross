@@ -1,5 +1,5 @@
 -- Proactive CAC/ROAS alerts — opt-in per store, checked by
--- scripts/run_alert_checks.py (no scheduler in-process, see that script).
+-- app/cli/run_alert_checks.py (no scheduler in-process, see that script).
 CREATE TABLE store_alert_preferences (
     store_id UUID PRIMARY KEY REFERENCES stores(id) ON DELETE CASCADE,
     enabled BOOLEAN NOT NULL DEFAULT FALSE,

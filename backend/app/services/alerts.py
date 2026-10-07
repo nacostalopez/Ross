@@ -2,7 +2,7 @@
 
 There's no in-process scheduler here on purpose: run_all_alert_checks() is
 meant to be invoked by a real cron (or Windows Task Scheduler) via
-scripts/run_alert_checks.py, the same way app/services/capi.py's send_*
+app/cli/run_alert_checks.py, the same way app/services/capi.py's send_*
 functions are invoked by BackgroundTasks rather than owning their own
 timing. Each function that opens its own session follows that same
 capi.py pattern (a background/offline caller has no request-scoped
@@ -134,7 +134,7 @@ def run_check_for_store(db: Session, store: Store, now: Optional[datetime] = Non
 
 
 def run_all_alert_checks() -> None:
-    """Entry point for scripts/run_alert_checks.py — opens its own session
+    """Entry point for app/cli/run_alert_checks.py — opens its own session
     since an offline/cron caller has no request-scoped one to reuse."""
     db = SessionLocal()
     try:

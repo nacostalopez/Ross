@@ -2,7 +2,7 @@
 
 Same no-in-process-scheduler reasoning as app/services/alerts.py:
 run_all_weekly_reports() is meant to be invoked by a real cron via
-scripts/send_weekly_reports.py, not scheduled from inside the FastAPI app.
+app/cli/send_weekly_reports.py, not scheduled from inside the FastAPI app.
 """
 
 import logging
@@ -69,7 +69,7 @@ def run_report_for_store(db: Session, store: Store, now: Optional[datetime] = No
 
 
 def run_all_weekly_reports() -> None:
-    """Entry point for scripts/send_weekly_reports.py — opens its own
+    """Entry point for app/cli/send_weekly_reports.py — opens its own
     session, same pattern as app/services/alerts.py::run_all_alert_checks."""
     db = SessionLocal()
     try:

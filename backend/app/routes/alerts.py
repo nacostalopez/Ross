@@ -56,7 +56,7 @@ def check_alerts_now(
     _: User = Depends(require_store_role("owner", "admin")),
     db: Session = Depends(get_db),
 ):
-    """Runs the same check scripts/run_alert_checks.py runs on a schedule,
+    """Runs the same check app/cli/run_alert_checks.py runs on a schedule,
     synchronously against the request's own session — lets the frontend's
     "Probar ahora" button (and a merchant tuning thresholds) see the result
     immediately instead of waiting for the next cron tick."""

@@ -88,7 +88,7 @@ class DashboardLayout(Base):
 class StoreAlertPreference(Base):
     """Opt-in CAC/ROAS alert config, one row per store. See
     app/services/alerts.py for how these thresholds are checked and
-    scripts/run_alert_checks.py for how the check actually gets run
+    app/cli/run_alert_checks.py for how the check actually gets run
     (there's no in-process scheduler — see that script's docstring)."""
 
     __tablename__ = "store_alert_preferences"
@@ -105,7 +105,7 @@ class StoreAlertPreference(Base):
 class StoreReportPreference(Base):
     """Opt-in weekly email summary, one row per store. See
     app/services/reports.py for what the email contains and
-    scripts/send_weekly_reports.py for how it's actually scheduled (no
+    app/cli/send_weekly_reports.py for how it's actually scheduled (no
     in-process scheduler — same reasoning as StoreAlertPreference above)."""
 
     __tablename__ = "store_report_preferences"
