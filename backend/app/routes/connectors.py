@@ -1729,13 +1729,25 @@ def sync_mercadolibre_orders(
         access_token = _fresh_access_token(db, credential, connector)
         raw_orders = connector.fetch_orders(access_token, start_date, end_date)
 
-        sales = [connector.order_to_row(o) for o in raw_orders if o.get("status") in ML_SALE_STATUSES]
+        sales = []
+        shipping_costs_missing = 0
+        for raw_order in raw_orders:
+            if raw_order.get("status") not in ML_SALE_STATUSES:
+                continue
+            row, shipping_cost_known = _mercadolibre_order_row(connector, access_token, raw_order, store.id)
+            sales.append(row)
+            shipping_costs_missing += not shipping_cost_known
         cancelled = [str(o["id"]) for o in raw_orders if o.get("status") in ML_NON_SALE_STATUSES]
         _upsert_orders(db, store.id, sales)
         removed = _delete_orders(db, store.id, cancelled)
 
         _upsert_connector_status(db, store.id, "mercadolibre", synced=True, success=True)
-        return {"status": "success", "orders_synced": len(sales), "orders_removed": removed}
+        return {
+            "status": "success",
+            "orders_synced": len(sales),
+            "orders_removed": removed,
+            "shipping_costs_missing": shipping_costs_missing,
+        }
     except Exception as e:
         db.rollback()
         _upsert_connector_status(db, store.id, "mercadolibre", synced=True, success=False, error=str(e))
@@ -1827,6 +1839,29 @@ async def mercadolibre_notification(request: Request, background_tasks: Backgrou
     return {"status": "received"}
 
 
+def _mercadolibre_order_row(
+    connector: MercadoLibreConnector, access_token: str, order: dict, store_id: UUID
+) -> tuple[dict, bool]:
+    """The orders row for a Mercado Libre sale, with what the seller paid Mercado Envíos.
+
+    The shipping cost is one extra call per order. If that call fails the
+    order is still ingested, with shipping_fee 0, rather than failing the
+    whole sync over one shipment; the second value says whether the cost
+    is known, and a later sync of the same order fills it in.
+    """
+    try:
+        shipping_fee = connector.fetch_shipping_cost(access_token, order)
+        known = True
+    except Exception as e:
+        shipping_fee = 0.0
+        known = False
+        logger.warning(
+            "mercadolibre_shipping_cost_failed",
+            extra={"store_id": str(store_id), "order_id": str(order.get("id")), "error": str(e)},
+        )
+    return connector.order_to_row(order, shipping_fee), known
+
+
 def _process_mercadolibre_order_notification(seller_id: str, resource: str) -> None:
     db = SessionLocal()
     try:
@@ -1845,7 +1880,8 @@ def _sync_mercadolibre_order(db: Session, seller_id: str, resource: str) -> None
             access_token = _fresh_access_token(db, credential, connector)
             order = connector.fetch_order(access_token, resource)
             if order.get("status") in ML_SALE_STATUSES:
-                _upsert_orders(db, store_id, [connector.order_to_row(order)])
+                row, _ = _mercadolibre_order_row(connector, access_token, order, store_id)
+                _upsert_orders(db, store_id, [row])
             elif order.get("status") in ML_NON_SALE_STATUSES:
                 _delete_orders(db, store_id, [str(order["id"])])
             _upsert_connector_status(db, store_id, "mercadolibre", synced=True, success=True)

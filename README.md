@@ -1211,14 +1211,22 @@ while the landing/pricing scenes are not. Not yet built:
   payments are verified only against stubbed responses built from their
   docs (the Mercado Ads daily-per-campaign response shape in particular is
   ambiguous in the docs; the parser accepts both a bare list and a
-  `results` wrapper). Two known data gaps: what the seller pays for Mercado
-  Envíos free shipping (`/shipments/{id}/costs`, one call per order) isn't
-  fetched, so `shipping_fee` is 0 on Mercado Libre orders; and the
-  Mercado Pago fee fill-in on Shopify/Tiendanube stores assumes their
-  checkouts put the platform's order id in `external_reference` —
-  unverified, and a non-match just leaves the fee at 0. There's no UI
-  button to run a backfill sync yet (same as the other connectors — API
-  only).
+  `results` wrapper). What the seller pays Mercado Envíos now goes into
+  `shipping_fee`, read from `/shipments/{id}/costs` (one call per order,
+  the seller's entry under `senders`); that response shape is also only
+  verified against the docs. If the call fails the order is still
+  ingested with `shipping_fee` 0, and `sync-orders` reports how many in
+  `shipping_costs_missing`. One known data gap: the Mercado Pago fee
+  fill-in on Shopify/Tiendanube stores assumes their checkouts put the
+  platform's order id in `external_reference` — unverified, and a
+  non-match just leaves the fee at 0.
+- "Traer historial" on a connected connector's card (owner/admin, not the
+  demo) runs that provider's sync endpoints for the last 7, 30 or 90 days:
+  ad spend and creatives for Meta/Google/TikTok/LinkedIn, orders and
+  Product Ads for Mercado Libre, payments for Mercado Pago. Shopify and
+  Tiendanube have no backfill at all — no endpoint fetches their past
+  orders; they only receive orders through webhooks from the moment they
+  connect.
 
 Note for `docker compose` users: `FRONTEND_URL`, `SMTP_*`, and `VAPID_*`
 must be set in a root-level `.env` (not `backend/.env`) — `docker-compose.yml`'s `backend`

@@ -136,7 +136,7 @@ class MercadoLibreConnector(BaseConnector):
             return self.order_to_row(data)
         raise ValueError(f"Unsupported event type: {event_type}")
 
-    def order_to_row(self, ml_order: dict) -> dict:
+    def order_to_row(self, ml_order: dict, shipping_fee: float = 0.0) -> dict:
         """Convert a Mercado Libre order to the standardized orders row.
 
         - gross_amount is total_amount (items only; shipping paid by the
@@ -144,9 +144,9 @@ class MercadoLibreConnector(BaseConnector):
         - payment_gateway_fee carries Mercado Libre's selling fee (sale_fee
           is per unit, so times quantity) — it's what the platform keeps
           from each sale, the same role a gateway fee plays elsewhere.
-        - shipping_fee stays 0: what the seller pays for free shipping
-          lives on /shipments/{id}/costs, one extra call per order — not
-          fetched yet (see README).
+        - shipping_fee is what the seller pays Mercado Envíos for the order.
+          It isn't on the order itself: callers get it from
+          fetch_shipping_cost() (one extra call per order) and pass it in.
         - There's no UTM/landing data on a marketplace order; the channel
           is the marketplace itself, so attribution_utm_source is
           "mercadolibre", which the CAC/attribution queries pair with
@@ -163,7 +163,7 @@ class MercadoLibreConnector(BaseConnector):
             "time": ml_order.get("date_created") or ml_order.get("date_closed") or datetime.now(timezone.utc).isoformat(),
             "gross_amount": float(ml_order.get("total_amount") or 0),
             "discounts": 0,
-            "shipping_fee": 0,
+            "shipping_fee": round(float(shipping_fee), 4),
             "payment_gateway_fee": round(sale_fee, 4),
             "cogs_total": 0,
             "currency": ml_order.get("currency_id") or "ARS",
@@ -187,6 +187,30 @@ class MercadoLibreConnector(BaseConnector):
         response = requests.get(f"{self.API_BASE}{resource}", headers={"Authorization": f"Bearer {access_token}"})
         response.raise_for_status()
         return response.json()
+
+    def fetch_shipping_cost(self, access_token: str, ml_order: dict) -> float:
+        """What the seller pays Mercado Envíos for this order's shipment.
+
+        /shipments/{id}/costs splits the cost between the receiver (what the
+        buyer paid) and the senders; the seller's share is the sender entry
+        with their user id — the free-shipping subsidy the seller covers. An
+        order without a shipment (pickup, "acordar con el vendedor") or with
+        no sender entry for this seller costs the seller nothing.
+        """
+        shipment_id = (ml_order.get("shipping") or {}).get("id")
+        if not shipment_id:
+            return 0.0
+
+        response = requests.get(
+            f"{self.API_BASE}/shipments/{shipment_id}/costs",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        response.raise_for_status()
+        senders = response.json().get("senders") or []
+        for sender in senders:
+            if self.seller_id is None or str(sender.get("user_id")) == str(self.seller_id):
+                return float(sender.get("cost") or 0)
+        return 0.0
 
     def fetch_orders(self, access_token: str, start_date: datetime, end_date: datetime) -> List[dict]:
         """All of the seller's orders created in [start_date, end_date], raw (not converted)."""
@@ -217,7 +241,7 @@ class MercadoLibreConnector(BaseConnector):
     def fetch_historical_data(self, start_date: datetime, end_date: datetime, access_token: str) -> List[dict]:
         """Historical orders in standardized format, sales only."""
         return [
-            self.order_to_row(o)
+            self.order_to_row(o, self.fetch_shipping_cost(access_token, o))
             for o in self.fetch_orders(access_token, start_date, end_date)
             if o.get("status") in SALE_STATUSES
         ]

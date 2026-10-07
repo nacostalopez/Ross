@@ -164,7 +164,12 @@ class TestMercadoLibreSyncOrders:
                 headers=auth_header,
                 params={"store_id": str(test_store.id), "start_date": START, "end_date": END},
             )
-        assert second.json() == {"status": "success", "orders_synced": 1, "orders_removed": 1}
+        assert second.json() == {
+            "status": "success",
+            "orders_synced": 1,
+            "orders_removed": 1,
+            "shipping_costs_missing": 0,
+        }
 
         orders = _orders(test_db_session, test_store.id)
         assert set(orders) == {"1"}
@@ -187,6 +192,47 @@ class TestMercadoLibreSyncOrders:
         assert customers[0].external_customer_id == "ml:555"
         rows = _orders(test_db_session, test_store.id)
         assert rows["10"]["customer_id"] == rows["11"]["customer_id"] == customers[0].id
+
+    def test_seller_shipping_cost_reduces_net_profit(self, client, auth_header, test_store, test_db_session):
+        _add_credential(test_db_session, test_store.id, "mercadolibre", "207035636")
+        order = {**_ml_order(20), "shipping": {"id": 4455}}
+        costs = {
+            "gross_amount": 900,
+            "receiver": {"user_id": 900, "cost": 0},
+            "senders": [{"user_id": 207035636, "cost": 350}],
+        }
+
+        with patch.object(MercadoLibreConnector, "fetch_orders", return_value=[order]), patch(
+            "app.connectors.mercadolibre.requests.get", return_value=_FakeResponse(costs)
+        ) as get:
+            response = client.post(
+                "/connectors/mercadolibre/sync-orders",
+                headers=auth_header,
+                params={"store_id": str(test_store.id), "start_date": START, "end_date": END},
+            )
+
+        assert response.json()["shipping_costs_missing"] == 0
+        assert get.call_args.args[0].endswith("/shipments/4455/costs")
+        row = _orders(test_db_session, test_store.id)["20"]
+        assert float(row["shipping_fee"]) == 350
+        assert float(row["net_profit"]) == 550  # 1000 - 100 selling fee - 350 shipping
+
+    def test_failed_shipping_cost_still_ingests_the_order(self, client, auth_header, test_store, test_db_session):
+        _add_credential(test_db_session, test_store.id, "mercadolibre", "207035636")
+        order = {**_ml_order(21), "shipping": {"id": 4456}}
+
+        with patch.object(MercadoLibreConnector, "fetch_orders", return_value=[order]), patch(
+            "app.connectors.mercadolibre.requests.get", return_value=_FakeResponse({}, status_code=503)
+        ):
+            response = client.post(
+                "/connectors/mercadolibre/sync-orders",
+                headers=auth_header,
+                params={"store_id": str(test_store.id), "start_date": START, "end_date": END},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["shipping_costs_missing"] == 1
+        assert float(_orders(test_db_session, test_store.id)["21"]["shipping_fee"]) == 0
 
     def test_requires_a_connection(self, client, auth_header, test_store):
         response = client.post(
@@ -328,6 +374,35 @@ class TestMercadoLibreNotifications:
         with patch.object(MercadoLibreConnector, "fetch_order", return_value=_ml_order(42, status_="cancelled")):
             _sync_mercadolibre_order(test_db_session, "207035636", "/orders/42")
         assert "42" not in _orders(test_db_session, test_store.id)
+
+    def test_background_sync_includes_the_shipping_cost(self, test_store, test_db_session):
+        _add_credential(test_db_session, test_store.id, "mercadolibre", "207035636")
+        order = {**_ml_order(43), "shipping": {"id": 7788}}
+        with patch.object(MercadoLibreConnector, "fetch_order", return_value=order), patch.object(
+            MercadoLibreConnector, "fetch_shipping_cost", return_value=125.5
+        ):
+            _sync_mercadolibre_order(test_db_session, "207035636", "/orders/43")
+        assert float(_orders(test_db_session, test_store.id)["43"]["shipping_fee"]) == 125.5
+
+
+class TestMercadoLibreShippingCost:
+    def test_no_shipment_means_no_call_and_no_cost(self):
+        connector = MercadoLibreConnector("store", "207035636")
+        with patch("app.connectors.mercadolibre.requests.get") as get:
+            assert connector.fetch_shipping_cost("token", _ml_order(1)) == 0.0
+        get.assert_not_called()
+
+    def test_takes_this_sellers_share_only(self):
+        connector = MercadoLibreConnector("store", "207035636")
+        costs = {"senders": [{"user_id": 111, "cost": 999}, {"user_id": 207035636, "cost": 410.25}]}
+        with patch("app.connectors.mercadolibre.requests.get", return_value=_FakeResponse(costs)):
+            assert connector.fetch_shipping_cost("token", {"shipping": {"id": 1}}) == 410.25
+
+    def test_buyer_paid_shipping_costs_the_seller_nothing(self):
+        connector = MercadoLibreConnector("store", "207035636")
+        costs = {"receiver": {"user_id": 900, "cost": 1500}, "senders": []}
+        with patch("app.connectors.mercadolibre.requests.get", return_value=_FakeResponse(costs)):
+            assert connector.fetch_shipping_cost("token", {"shipping": {"id": 1}}) == 0.0
 
 
 # ---------------------------------------------------------------------------

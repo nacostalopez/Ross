@@ -1250,6 +1250,19 @@ function attachChartTooltips(container, daily, colorRevenue, colorSpend) {
 
 const CONNECTOR_STATUS_PROVIDERS = ["shopify", "tiendanube", "meta", "google", "tiktok", "linkedin", "mercadolibre", "mercadopago"];
 
+// The sync endpoints a "Traer historial" run calls, in order, per provider. Shopify and
+// Tiendanube have none: their orders only arrive through webhooks from the moment they connect.
+const CONNECTOR_BACKFILL_ENDPOINTS = {
+  meta: ["sync-ad-spend", "sync-creative-performance"],
+  google: ["sync-ad-spend", "sync-creative-performance"],
+  tiktok: ["sync-ad-spend", "sync-creative-performance"],
+  linkedin: ["sync-ad-spend", "sync-creative-performance"],
+  mercadolibre: ["sync-orders", "sync-ad-spend"],
+  mercadopago: ["sync-payments"],
+};
+// Mercado Ads only reports the last 90 days, so that's the longest option offered.
+const CONNECTOR_BACKFILL_DAYS = [7, 30, 90];
+
 async function refreshConnectorHealth() {
   // Fetched even without the connector_status widget: the header's sync status reads it too.
   const health = await api(`/stores/${state.activeStoreId}/connectors/health`);
@@ -1294,6 +1307,9 @@ function escapeConnectorStatusText(value) {
 function renderConnectorGrid(health) {
   const grid = document.getElementById("connector-status");
   if (!grid) return;
+  // The sync endpoints take owner/admin on the store, and the demo account is read-only.
+  const activeStore = state.stores?.find((s) => s.id === state.activeStoreId);
+  const canBackfill = ["owner", "admin"].includes(activeStore?.effective_role) && !isDemoSession();
 
   grid.innerHTML = CONNECTOR_STATUS_PROVIDERS
     .map((provider) => {
@@ -1318,11 +1334,15 @@ function renderConnectorGrid(health) {
       const connectBtn = !isConnected && PROVIDER_CONNECT_CONFIG[provider]
         ? `<button type="button" class="btn btn-ghost connector-connect-btn" data-connect-provider="${provider}">Conectar</button>`
         : "";
+      const backfill = isConnected && canBackfill && CONNECTOR_BACKFILL_ENDPOINTS[provider]
+        ? renderConnectorBackfill(provider)
+        : "";
       return `
         <div class="connector-card">
           <div class="connector-name"><span class="connector-dot ${dotClass}"></span>${PROVIDER_CONNECT_CONFIG[provider]?.label || provider}</div>
           <div class="muted">${escapeConnectorStatusText(statusText)}</div>
           ${connectBtn}
+          ${backfill}
         </div>
       `;
     })
@@ -1331,6 +1351,57 @@ function renderConnectorGrid(health) {
   grid.querySelectorAll("[data-connect-provider]").forEach((btn) => {
     btn.addEventListener("click", () => openConnectModal(btn.dataset.connectProvider));
   });
+  grid.querySelectorAll("[data-backfill-provider]").forEach((btn) => {
+    btn.addEventListener("click", () => runConnectorBackfill(btn.dataset.backfillProvider));
+  });
+}
+
+// Per store and provider, the last "Traer historial" outcome, so a grid re-render keeps showing it.
+const connectorBackfillState = {};
+
+function renderConnectorBackfill(provider) {
+  const run = connectorBackfillState[`${state.activeStoreId}:${provider}`] || {};
+  const options = CONNECTOR_BACKFILL_DAYS
+    .map((days) => `<option value="${days}" ${days === (run.days || 30) ? "selected" : ""}>Últimos ${days} días</option>`)
+    .join("");
+  const message = run.message
+    ? `<div class="connector-backfill-msg ${run.error ? "error" : ""}">${escapeConnectorStatusText(run.message)}</div>`
+    : "";
+  return `
+    <div class="connector-backfill">
+      <select data-backfill-days="${provider}" aria-label="Período del historial" ${run.running ? "disabled" : ""}>${options}</select>
+      <button type="button" class="btn btn-ghost connector-connect-btn" data-backfill-provider="${provider}" ${run.running ? "disabled" : ""}>
+        ${run.running ? "Trayendo…" : "Traer historial"}
+      </button>
+      ${message}
+    </div>
+  `;
+}
+
+async function runConnectorBackfill(provider) {
+  const storeId = state.activeStoreId;
+  const key = `${storeId}:${provider}`;
+  const days = Number(document.querySelector(`[data-backfill-days="${provider}"]`)?.value) || 30;
+  const end = new Date();
+  const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
+  const params = new URLSearchParams({ store_id: storeId, start_date: start.toISOString(), end_date: end.toISOString() });
+
+  connectorBackfillState[key] = { days, running: true };
+  renderConnectorGrid(state.lastConnectorHealth);
+  try {
+    // One after the other: each call records its own outcome in the connector's status.
+    for (const endpoint of CONNECTOR_BACKFILL_ENDPOINTS[provider]) {
+      await api(`/connectors/${provider}/${endpoint}?${params}`, { method: "POST" });
+    }
+    connectorBackfillState[key] = { days, message: `Listo: historial de los últimos ${days} días actualizado.` };
+  } catch (err) {
+    connectorBackfillState[key] = { days, error: true, message: `No se pudo traer el historial: ${err.message}` };
+  }
+  // The user may have switched stores while it ran; only refresh what's on screen.
+  if (state.activeStoreId !== storeId) return;
+  await refreshConnectorHealth();
+  await refreshMetrics();
+  await refreshCreativePerformance();
 }
 
 // ---------------------------------------------------------------------------
