@@ -815,6 +815,9 @@ a:hover { text-decoration: underline; }
 .narrative-fact { background: var(--highlight); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .narrative-fact strong { font: 700 17px "Inter", sans-serif; font-variant-numeric: tabular-nums; }
 .narrative-change { font-size: 12px; font-weight: 600; }
+/* --muted is 3.9:1 on the dark --highlight tile; this lighter tone reaches about 7:1. */
+:root[data-theme="dark"] .narrative-fact .stat-label,
+:root[data-theme="dark"] .forecast-stat .stat-label { color: #b7c3d9; }
 .narrative-change.up { color: var(--positive-text); }
 .narrative-change.down { color: var(--danger-text); }
 @media (max-width: 480px) {
