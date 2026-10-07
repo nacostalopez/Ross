@@ -4,6 +4,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Numeric,
@@ -113,6 +114,21 @@ class StoreReportPreference(Base):
     store_id = Column(UUID(as_uuid=True), ForeignKey("stores.id", ondelete="CASCADE"), primary_key=True)
     enabled = Column(Boolean, nullable=False, default=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class WeeklyNarrative(Base):
+    """The "Ross explica tu semana" summary, cached per store per day. See
+    app/services/weekly_narrative.py."""
+
+    __tablename__ = "weekly_narratives"
+
+    store_id = Column(UUID(as_uuid=True), ForeignKey("stores.id", ondelete="CASCADE"), primary_key=True)
+    period_end = Column(Date, primary_key=True)
+    text = Column(Text, nullable=False)
+    mood = Column(String(20), nullable=False)
+    source = Column(String(20), nullable=False)
+    facts = Column(JSONB, nullable=False, default=list)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class PasswordResetToken(Base):

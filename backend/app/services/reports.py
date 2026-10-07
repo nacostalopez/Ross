@@ -15,6 +15,7 @@ from app.database import SessionLocal
 from app.models import Store, StoreReportPreference
 from app.routes.metrics import CAC_BY_CHANNEL_SQL, SUMMARY_SQL
 from app.services.notifications import send_to_store
+from app.services.weekly_narrative import get_or_build
 
 logger = logging.getLogger("ross.reports")
 
@@ -50,7 +51,9 @@ def build_weekly_summary(db: Session, store: Store, now: datetime) -> str:
 
 
 def send_weekly_report(db: Session, store: Store, now: datetime) -> str:
-    body = build_weekly_summary(db, store, now)
+    # Ross's plain-language reading of the week goes first; the figures follow.
+    narrative = get_or_build(db, store, now)
+    body = f"Ross explica tu semana:\n{narrative.text}\n\n{build_weekly_summary(db, store, now)}"
     send_to_store(
         db, store, subject=f"[ROSS] Resumen semanal — {store.name}", body=body, event_type="weekly_report"
     )

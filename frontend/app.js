@@ -83,6 +83,7 @@ const WIDGET_LABELS = {
   attribution_by_channel: "Atribución multi-touch por canal",
   forecast: "Proyección a 30 días",
   pnl: "P&L completo",
+  narrative: "Ross explica tu semana",
 };
 const STAT_WIDGET_TYPES = ["stat_roas", "stat_revenue", "stat_net_profit", "stat_ad_spend", "stat_real_profit"];
 const ALL_WIDGET_TYPES = Object.keys(WIDGET_LABELS);
@@ -684,6 +685,7 @@ async function selectStore(storeId) {
   await refreshMetrics();
   await refreshConnectorHealth();
   await refreshCreativePerformance();
+  await refreshNarrative();
 }
 
 // ---------------------------------------------------------------------------
@@ -871,6 +873,7 @@ const PANEL_WIDGET_BODY = {
   attribution_by_channel: { id: "attribution-by-channel-table", class: "attribution-by-channel-table-wrap" },
   forecast: { id: "forecast-widget", class: "forecast-widget" },
   pnl: { id: "pnl-table", class: "pnl-table-wrap" },
+  narrative: { id: "narrative-widget", class: "narrative-widget" },
 };
 
 // Panel widgets that belong to a module with its own agent get the agent's head beside the title.
@@ -990,6 +993,7 @@ async function persistAndRerenderLayout() {
   await refreshAttributionByChannel();
   await refreshForecast();
   await refreshPnl();
+  await refreshNarrative();
   try {
     await api("/dashboard/layout", { method: "PUT", body: { widgets: state.dashboardLayout } });
   } catch (err) {
@@ -1007,6 +1011,7 @@ function applyCachedMetrics() {
   if (state.lastAttribution) renderAttributionByChannelTable(state.lastAttribution);
   if (state.lastForecast) renderForecastWidget(state.lastForecast);
   if (state.lastPnl) renderPnlTable(state.lastPnl);
+  if (state.lastNarrative && state.lastNarrative.storeId === state.activeStoreId) renderNarrative(state.lastNarrative.data);
 }
 
 // ---------------------------------------------------------------------------
@@ -1852,6 +1857,85 @@ async function refreshPnl() {
   const data = await api(`/stores/${state.activeStoreId}/metrics/pnl?${qs}`);
   state.lastPnl = data;
   renderPnlTable(data);
+}
+
+// ---------------------------------------------------------------------------
+// Ross explica tu semana — the last 7 full days against the 7 before, in plain
+// language (backend/app/services/weekly_narrative.py). Always the same window, so
+// the range selector doesn't refetch it. The figures sit beside the text so every
+// claim in it can be checked.
+// ---------------------------------------------------------------------------
+
+const NARRATIVE_MOOD = {
+  festeja: { scene: "mascota-festeja", stripe: "var(--ross-ok)" },
+  preocupada: { scene: "mascota-preocupada", stripe: "var(--ross-warn)" },
+  neutral: { scene: "login-reposo", stripe: "var(--ross-neutral)" },
+};
+
+function renderNarrative(data) {
+  const container = document.getElementById("narrative-widget");
+  if (!container) return;
+  const mood = NARRATIVE_MOOD[data.mood] || NARRATIVE_MOOD.neutral;
+
+  const art = document.createElement("div");
+  art.className = "pxa pxa-scene narrative-art";
+  art.dataset.agentScene = mood.scene;
+  art.setAttribute("aria-hidden", "true");
+
+  const box = document.createElement("div");
+  box.className = "ross-box narrative-text";
+  box.style.setProperty("--ross-stripe", mood.stripe);
+  const who = document.createElement("span");
+  who.className = "ross-who";
+  who.textContent = "Ross";
+  const msg = document.createElement("p");
+  msg.className = "ross-msg";
+  msg.textContent = data.text;
+  box.append(who, msg);
+
+  const body = document.createElement("div");
+  body.className = "narrative-body";
+  body.append(art, box);
+
+  const facts = document.createElement("div");
+  facts.className = "narrative-facts";
+  for (const fact of data.facts) {
+    const item = document.createElement("div");
+    item.className = "narrative-fact";
+    const label = document.createElement("span");
+    label.className = "stat-label";
+    label.textContent = fact.label;
+    const value = document.createElement("strong");
+    value.textContent = fact.value;
+    item.append(label, value);
+    if (fact.change_pct !== null) {
+      const up = fact.change_pct >= 0;
+      const change = document.createElement("span");
+      change.className = `narrative-change ${up ? "up" : "down"}`;
+      change.textContent = `${up ? "▲" : "▼"} ${Math.abs(Math.round(fact.change_pct))}% vs. semana anterior`;
+      item.append(change);
+    }
+    facts.append(item);
+  }
+
+  const info = document.createElement("p");
+  info.className = "widget-info";
+  info.textContent =
+    "Últimos 7 días completos contra los 7 anteriores." +
+    (data.source === "ia" ? " Redactado con IA a partir de estas cifras." : "");
+
+  container.replaceChildren(body, facts, info);
+  if (window.Agents) window.Agents.hydrate(container);
+}
+
+async function refreshNarrative() {
+  if (!document.getElementById("narrative-widget")) return;
+  const storeId = state.activeStoreId;
+  const data = await api(`/stores/${storeId}/narrative`);
+  // The user may have switched stores while Ross was writing.
+  if (state.activeStoreId !== storeId) return;
+  state.lastNarrative = { storeId, data };
+  renderNarrative(data);
 }
 
 // ---------------------------------------------------------------------------

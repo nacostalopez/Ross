@@ -28,6 +28,7 @@ from app.models.relational import (
     StoreMembership,
     StoreReportPreference,
     User,
+    WeeklyNarrative,
 )
 
 __all__ = [
@@ -50,6 +51,7 @@ __all__ = [
     "StoreCredential",
     "StoreMembership",
     "StoreReportPreference",
+    "WeeklyNarrative",
     "Product",
     "User",
     "ShopifyWebhookLog",

@@ -22,6 +22,7 @@ from app.routes import (
     dashboard,
     demo_requests,
     metrics,
+    narrative,
     notification_preferences,
     orders,
     pixel_events,
@@ -80,6 +81,7 @@ app.include_router(pixel_events.router)
 app.include_router(ad_spend.router)
 app.include_router(creative_performance.router)
 app.include_router(metrics.router)
+app.include_router(narrative.router)
 app.include_router(billing.router)
 app.include_router(connectors.router)
 app.include_router(connectors.health_router)

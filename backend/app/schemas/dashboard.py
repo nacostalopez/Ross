@@ -19,6 +19,7 @@ WidgetType = Literal[
     "attribution_by_channel",
     "forecast",
     "pnl",
+    "narrative",
 ]
 
 DEFAULT_WIDGETS = [
@@ -27,6 +28,7 @@ DEFAULT_WIDGETS = [
     {"type": "stat_net_profit", "hero": False},
     {"type": "stat_ad_spend", "hero": False},
     {"type": "stat_real_profit", "hero": False},
+    {"type": "narrative", "hero": False},
     {"type": "chart_daily", "hero": False},
     {"type": "connector_status", "hero": False},
 ]

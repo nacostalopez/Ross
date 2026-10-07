@@ -806,6 +806,21 @@ a:hover { text-decoration: underline; }
 .attribution-by-channel-table tr:last-child td { border-bottom: none; }
 .attribution-by-channel-table th:not(:first-child), .attribution-by-channel-table td:not(:first-child) { text-align: right; }
 
+/* Ross explica tu semana: the mascot beside its reading of the week, the figures underneath. */
+.narrative-body { display: flex; gap: 16px; align-items: center; margin-bottom: 14px; }
+.narrative-art { flex: none; width: 120px; }
+.narrative-text { box-shadow: none; flex: 1; min-width: 0; padding: 12px 14px; }
+.narrative-text .ross-msg { font: 500 15px/1.5 "DM Sans", sans-serif; margin: 0; }
+.narrative-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.narrative-fact { background: var(--highlight); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.narrative-fact strong { font: 700 17px "Inter", sans-serif; font-variant-numeric: tabular-nums; }
+.narrative-change { font-size: 12px; font-weight: 600; }
+.narrative-change.up { color: var(--positive-text); }
+.narrative-change.down { color: var(--danger-text); }
+@media (max-width: 480px) {
+  .narrative-body { flex-direction: column; align-items: stretch; }
+  .narrative-art { width: 96px; align-self: center; }
+}
 .pnl-table-wrap { max-width: 360px; }
 .pnl-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .pnl-table td { padding: 8px 0; border-bottom: 1px solid var(--border); }

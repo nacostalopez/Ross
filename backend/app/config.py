@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     # production refuses to start with it (see validate_production_ready).
     cors_allowed_origins: str = "*"
 
+    # "Ross explica tu semana" (app/services/weekly_narrative.py). Empty key = the
+    # summary comes from the fixed template instead of being written by Claude.
+    anthropic_api_key: str = ""
+    narrative_model: str = "claude-opus-5-5"
+
     environment: str = "development"  # "development" | "test" | "production"
     log_level: str = "INFO"
 

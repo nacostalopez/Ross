@@ -25,7 +25,7 @@ Create a project from the GitHub repo, then one service per folder
 | Service | Root directory | Settings |
 |---|---|---|
 | `db` | `db` | A volume mounted at `/var/lib/postgresql/data`. Variables `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`. No public domain: the backend reaches it over the private network. |
-| `backend` | `backend` | The backend variables in `.env.production.example`. Public domain `api.ross.ar`. Health check path `/health`. |
+| `backend` | `backend` | The backend variables in `.env.production.example` (`ANTHROPIC_API_KEY` turns on Claude's version of "Ross explica tu semana"). Public domain `api.ross.ar`. Health check path `/health`. |
 | `frontend` | `frontend` | Target port 80. Public domains `ross.ar` and `www.ross.ar`. |
 
 On the first start the database runs every `db/init/*.sql` script. After
