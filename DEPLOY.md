@@ -33,16 +33,21 @@ that, apply new scripts by hand, in order, before deploying code that needs
 them (see DEVELOPMENT.md):
 `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/init/0NN_name.sql`.
 
-The scheduled jobs are Railway cron services: each one builds from `backend`
-like the backend service, takes the backend's variables (as references,
-`${{backend.NAME}}`), and sets a start command and a schedule instead of a
-domain. Railway runs cron schedules in UTC; Argentina is UTC-3.
+The scheduled jobs run in one Railway cron service, `cron`. It builds from
+`backend` like the backend service, takes the backend's variables as
+references (`${{backend.NAME}}`, with the backend service's name), and has a
+start command and a schedule instead of a domain. Railway runs cron
+schedules in UTC; Argentina is UTC-3.
 
-| Service | Start command | Schedule (UTC) |
-|---|---|---|
-| `alerts` | `python -m app.cli.run_alert_checks` | `0 12 * * *` (09:00 in Argentina) |
-| `weekly-reports` | `python -m app.cli.send_weekly_reports` | `0 12 * * 1` (Mondays 09:00) |
-| `demo-refresh` | `python -m app.cli.refresh_demo_account` | `0 9 * * *` (06:00), only once `DEMO_VIEWER_EMAIL` is set |
+- Schedule: `0 12 * * *` (09:00 in Argentina).
+- Start command: the daily alert check, plus the weekly report on Mondays:
+  `sh -c 'python -m app.cli.run_alert_checks; if [ "$(date -u +%u)" = 1 ]; then python -m app.cli.send_weekly_reports; fi'`
+- Restart policy: never, so a failed run waits for the next day instead of
+  looping.
+
+One service rather than one per job because the trial plan caps the number
+of services. Once the live demo is on (`DEMO_VIEWER_EMAIL`), add
+`python -m app.cli.refresh_demo_account;` at the start of the command.
 
 ## 3. DNS records in Cloudflare
 

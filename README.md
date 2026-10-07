@@ -361,7 +361,7 @@ configured threshold, or when true ROAS stays below a configured minimum
 
 There is **no in-process scheduler** — `app/services/alerts.py` is invoked
 by `python -m app.cli.run_alert_checks`, run daily by a cron: in production
-the Railway cron service `alerts` (see DEPLOY.md), locally by hand:
+the Railway service `cron` (see DEPLOY.md), locally by hand:
 
 ```
 docker compose exec backend python -m app.cli.run_alert_checks
@@ -377,8 +377,8 @@ verifying the feature works at all without real ad-account data yet.
 
 Opt-in per store (`GET`/`PUT /stores/{id}/report-preferences`, off by
 default), same no-in-process-scheduler shape as proactive alerts above but
-on a weekly cadence: `python -m app.cli.send_weekly_reports` (a separate
-cron service, `weekly-reports`, from alerts' — different schedule, different concern) emails
+on a weekly cadence: `python -m app.cli.send_weekly_reports` (the same
+`cron` service runs it on Mondays, after the alert check) emails
 the account's owner(s) a plain-text summary — revenue, net profit, ad
 spend, real profit after ads, true ROAS for the trailing 7 days, plus a
 CAC-by-channel highlight for the current month, omitted when there's
@@ -1067,10 +1067,10 @@ variable in `.env.production.example`. Before the first deploy:
    `SMTP_FROM_EMAIL=ross@aramal.co` and point `DEMO_REQUEST_NOTIFY_EMAIL`
    back to the team inbox. In Resend's test mode mail only reaches the
    account owner, which is why local dev sends demo requests there.
-5. **Scheduled jobs**: Railway cron services running `app.cli.run_alert_checks`
-   (see "Proactive alerts"), `app.cli.send_weekly_reports` and, if the live
-   demo is on (`DEMO_VIEWER_EMAIL`), `app.cli.refresh_demo_account` daily.
-   See DEPLOY.md.
+5. **Scheduled jobs**: the Railway service `cron` runs `app.cli.run_alert_checks`
+   daily (see "Proactive alerts") and `app.cli.send_weekly_reports` on
+   Mondays. If the live demo is on (`DEMO_VIEWER_EMAIL`), add
+   `app.cli.refresh_demo_account` to it. See DEPLOY.md.
 6. **Business decisions still shown as markers**: the landing headline
    (`[Frase de posicionamiento]`) and plan prices (`[Precio]`, filled from
    `plans.monthly_price` once set).
