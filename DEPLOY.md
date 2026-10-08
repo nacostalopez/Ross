@@ -28,6 +28,12 @@ Create a project from the GitHub repo, then one service per folder
 | `backend` | `backend` | The backend variables in `.env.production.example` (`ANTHROPIC_API_KEY` turns on Claude's version of "Ross explica tu semana"). Public domain `api.ross.ar`. Health check path `/health`. |
 | `frontend` | `frontend` | Target port 80. Public domains `ross.ar` and `www.ross.ar`. |
 
+Each service also has watch paths (Settings → Source → Watch Paths), so a push
+only redeploys the services whose folder changed: `/backend/**` for `backend`
+and `cron`, `/frontend/**` for `frontend`, `/db/**` for `db`. Without them every
+push restarted the database too, and a push that only touches docs deployed
+everything.
+
 On the first start the database runs every `db/init/*.sql` script. After
 that, apply new scripts by hand, in order, before deploying code that needs
 them (see DEVELOPMENT.md):
