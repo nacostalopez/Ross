@@ -69,9 +69,18 @@ reaches the API and CORS lets it).
 
 ## 4. Email from ross.ar
 
-In Resend, add the domain `ross.ar` and copy the DNS records it lists into
-Cloudflare. Once verified, set the backend's `SMTP_*` variables (see
-`.env.production.example`).
+In Resend, add the domain `ross.ar` with **sending** only (leave receiving off:
+its MX record would take over the one below) and copy the DNS records it lists
+into Cloudflare, plus a `_dmarc` TXT `v=DMARC1; p=none;`. Once verified, create
+an API key limited to `ross.ar` and set the backend's `SMTP_*` variables (see
+`.env.production.example`); the `cron` service takes them as references.
+
+Use `SMTP_PORT=2587`: Railway blocks outgoing SMTP on 25, 465 and 587, so a
+send on 587 hangs until it times out. Resend accepts STARTTLS on 2587.
+
+Mail sent *to* any `@ross.ar` address (replies to `contacto@ross.ar`, for one)
+arrives through Cloudflare Email Routing, whose catch-all rule forwards it to
+the owner's inbox.
 
 ## 5. Provider apps
 
