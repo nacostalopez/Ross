@@ -1078,8 +1078,8 @@ variable in `.env.production.example`. Before the first deploy:
    `landing.html`, `pricing.html`.
 3. **Database**: `db/init/*.sql` only runs on an empty volume. On a
    database created before a script was added, apply the missing ones in
-   order (the newest is `032_weekly_narratives.sql`):
-   `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/init/032_weekly_narratives.sql`.
+   order (the newest is `033_users_email_case_insensitive.sql`):
+   `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/init/033_users_email_case_insensitive.sql`.
 4. **Email**: verify the sending domain in Resend, then set
    `SMTP_FROM_EMAIL=ross@aramal.co` and point `DEMO_REQUEST_NOTIFY_EMAIL`
    back to the team inbox. In Resend's test mode mail only reaches the

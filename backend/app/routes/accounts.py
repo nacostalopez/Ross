@@ -4,6 +4,8 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -11,7 +13,7 @@ from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.email import send_email
 from app.models import AccountActivityLog, AccountInvite, RefreshToken, User
-from app.routes.auth import issue_tokens
+from app.routes.auth import EMAIL_TAKEN, issue_tokens
 from app.schemas.accounts import (
     AccountOut,
     ActivityLogEntryOut,
@@ -24,6 +26,7 @@ from app.schemas.accounts import (
 from app.schemas.auth import TokenOut
 from app.security import hash_password, hash_token
 from app.services.activity_log import log_activity
+from app.services.users import find_user_by_email, normalize_email
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 logger = logging.getLogger("ross.accounts")
@@ -93,20 +96,20 @@ def create_invite(
     current_user: User = Depends(require_role("owner")),
     db: Session = Depends(get_db),
 ):
-    if db.query(User).filter(User.email == payload.email).first():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    if find_user_by_email(db, payload.email):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ese email ya tiene una cuenta en ROSS")
 
     existing_pending = (
         db.query(AccountInvite)
-        .filter_by(
-            account_id=current_user.account_id,
-            email=payload.email,
-            status="pending",
+        .filter(
+            AccountInvite.account_id == current_user.account_id,
+            func.lower(AccountInvite.email) == payload.email,
+            AccountInvite.status == "pending",
         )
         .first()
     )
     if existing_pending:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An invite to this email is already pending")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ya hay una invitación pendiente para ese email")
 
     raw_token = secrets.token_urlsafe(32)
 
@@ -197,13 +200,13 @@ def accept_invite(payload: InviteAcceptIn, db: Session = Depends(get_db)):
     if not invite or invite.status != "pending" or invite.expires_at < now:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired invite")
 
-    if db.query(User).filter(User.email == invite.email).first():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    if find_user_by_email(db, invite.email):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMAIL_TAKEN)
 
     user = User(
         id=uuid4(),
         account_id=invite.account_id,
-        email=invite.email,
+        email=normalize_email(invite.email),
         hashed_password=hash_password(payload.password),
         role=invite.role,
     )
@@ -212,7 +215,12 @@ def accept_invite(payload: InviteAcceptIn, db: Session = Depends(get_db)):
     invite.status = "accepted"
     invite.accepted_at = now
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Someone registered this address between the check above and here.
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMAIL_TAKEN)
     db.refresh(user)
 
     return issue_tokens(db, user)

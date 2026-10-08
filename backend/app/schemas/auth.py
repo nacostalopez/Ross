@@ -1,17 +1,22 @@
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, EmailStr, Field
+
+# Trimmed and lowercased before validation, so the same address always means the same
+# account however it was typed (see app/services/users.py).
+NormalizedEmail = Annotated[EmailStr, BeforeValidator(lambda v: v.strip().lower() if isinstance(v, str) else v)]
 
 
 class RegisterIn(BaseModel):
-    account_name: str
-    email: EmailStr
+    account_name: str = Field(min_length=1, max_length=255)
+    email: NormalizedEmail
     password: str = Field(min_length=8)
 
 
 class LoginIn(BaseModel):
-    email: EmailStr
+    email: NormalizedEmail
     password: str
 
 
@@ -30,7 +35,7 @@ class LogoutIn(BaseModel):
 
 
 class ForgotPasswordIn(BaseModel):
-    email: EmailStr
+    email: NormalizedEmail
 
 
 class ResetPasswordIn(BaseModel):

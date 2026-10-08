@@ -7,11 +7,13 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Numeric,
     SmallInteger,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
@@ -34,7 +36,11 @@ class Account(Base):
 
 class User(Base):
     __tablename__ = "users"
-    __table_args__ = (CheckConstraint("role IN ('owner', 'admin', 'viewer')", name="ck_users_role"),)
+    __table_args__ = (
+        CheckConstraint("role IN ('owner', 'admin', 'viewer')", name="ck_users_role"),
+        # One account per address however it's capitalised (app/services/users.py).
+        Index("ux_users_email_lower", func.lower(text("email")), unique=True),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"))

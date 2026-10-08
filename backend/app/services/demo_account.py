@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from app.models import Account, Customer, Product, Store, Subscription, User, ad_spend, creative_performance, orders
 from app.security import hash_password
 from app.services.customers import resolve_customer_id
+from app.services.users import find_user_by_email, normalize_email
 
 DEMO_ACCOUNT_NAME = "ROSS · Demo"
 DEMO_STORE_NAME = "Tienda de demostración"
@@ -62,7 +63,7 @@ def _order(rng: random.Random, order_id: str, time: datetime, email: str | None)
 
 
 def _ensure_account(db: Session, viewer_email: str) -> tuple[User, Store]:
-    viewer = db.query(User).filter(User.email == viewer_email).first()
+    viewer = find_user_by_email(db, viewer_email)
     if viewer:
         if viewer.role != "viewer":
             raise ValueError(f"{viewer_email} exists with role {viewer.role}; the demo user must be a viewer")
@@ -73,7 +74,7 @@ def _ensure_account(db: Session, viewer_email: str) -> tuple[User, Store]:
         db.flush()
         db.add(Subscription(account_id=account.id, plan_id="scale", status="active"))
         # Nobody logs in with this password: sessions come from POST /auth/demo.
-        viewer = User(account_id=account.id, email=viewer_email, hashed_password=hash_password(secrets.token_urlsafe(32)), role="viewer")
+        viewer = User(account_id=account.id, email=normalize_email(viewer_email), hashed_password=hash_password(secrets.token_urlsafe(32)), role="viewer")
         db.add(viewer)
         store = None
     if store is None:

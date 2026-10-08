@@ -36,7 +36,50 @@ class TestRegister:
         )
         
         assert response.status_code == status.HTTP_409_CONFLICT
-        assert "already registered" in response.json()["detail"]
+        assert "Ya hay una cuenta con ese email" in response.json()["detail"]
+
+    @pytest.mark.parametrize("email", ["TestUser@example.com", "testuser@EXAMPLE.COM", "  testuser@example.com "])
+    def test_register_same_email_written_differently_is_a_duplicate(self, client, test_user, email):
+        """A phone capitalising the first letter used to open a second account for the same person."""
+        response = client.post(
+            "/auth/register",
+            json={"account_name": "Otra cuenta", "email": email, "password": "securepass123"},
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+
+    def test_register_stores_the_email_lowercased(self, client, test_db_session):
+        response = client.post(
+            "/auth/register",
+            json={"account_name": "Nueva", "email": " Ana.Perez@Example.com ", "password": "securepass123"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        me = client.get("/auth/me", headers={"Authorization": f"Bearer {response.json()['access_token']}"})
+        assert me.json()["email"] == "ana.perez@example.com"
+
+    def test_register_rejects_an_empty_account_name(self, client):
+        response = client.post(
+            "/auth/register",
+            json={"account_name": "", "email": "someone@example.com", "password": "securepass123"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    def test_database_rejects_a_case_variant_of_an_existing_email(self, test_db_session, test_user):
+        """The unique index on lower(email) holds even if two sign-ups race past the app check."""
+        from uuid import uuid4
+
+        from sqlalchemy.exc import IntegrityError
+
+        from app.models import User
+
+        test_db_session.add(
+            User(id=uuid4(), account_id=test_user.account_id, email="TESTUSER@example.com", hashed_password="x", role="viewer")
+        )
+        with pytest.raises(IntegrityError):
+            test_db_session.flush()
+        test_db_session.rollback()
 
     def test_register_invalid_email(self, client):
         """Test registration with invalid email fails."""
@@ -77,7 +120,15 @@ class TestLogin:
         )
         
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert "Invalid email or password" in response.json()["detail"]
+        assert response.json()["detail"] == "Email o contraseña incorrectos"
+
+    def test_login_ignores_case_and_spaces_in_the_email(self, client, test_user):
+        response = client.post(
+            "/auth/login",
+            json={"email": " TestUser@Example.com ", "password": "testpassword123"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
 
     def test_login_nonexistent_user(self, client):
         """Test login with nonexistent email fails."""
@@ -87,7 +138,7 @@ class TestLogin:
         )
         
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert "Invalid email or password" in response.json()["detail"]
+        assert response.json()["detail"] == "Email o contraseña incorrectos"
 
 
 @pytest.mark.db

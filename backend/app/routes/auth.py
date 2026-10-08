@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -28,11 +29,14 @@ from app.security import (
     hash_token,
     verify_password,
 )
+from app.services.users import find_user_by_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger("ross.auth")
 
 RESET_TOKEN_EXPIRY_MINUTES = 60
+
+EMAIL_TAKEN = "Ya hay una cuenta con ese email. Iniciá sesión o recuperá tu contraseña."
 
 
 def issue_tokens(db: Session, user: User) -> TokenOut:
@@ -57,8 +61,8 @@ def issue_tokens(db: Session, user: User) -> TokenOut:
 @router.post("/register", response_model=TokenOut, status_code=201)
 @limiter.limit("5/minute")
 def register(request: Request, payload: RegisterIn, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.email == payload.email).first():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    if find_user_by_email(db, payload.email):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMAIL_TAKEN)
 
     account = Account(name=payload.account_name)
     db.add(account)
@@ -77,7 +81,13 @@ def register(request: Request, payload: RegisterIn, db: Session = Depends(get_db
         role="owner",
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # The same address sent twice at once: both passed the check above and the unique
+        # index on lower(email) stopped the second one.
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMAIL_TAKEN)
     db.refresh(user)
 
     return issue_tokens(db, user)
@@ -86,9 +96,9 @@ def register(request: Request, payload: RegisterIn, db: Session = Depends(get_db
 @router.post("/login", response_model=TokenOut)
 @limiter.limit("10/minute")
 def login(request: Request, payload: LoginIn, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
+    user = find_user_by_email(db, payload.email)
     if not user or not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email o contraseña incorrectos")
 
     return issue_tokens(db, user)
 
@@ -120,7 +130,7 @@ def refresh(request: Request, payload: RefreshIn, db: Session = Depends(get_db))
 def demo_session(request: Request, db: Session = Depends(get_db)):
     """A session on the public read-only demo (the landing's "Ver demo"). 404
     when no demo is configured; never hands out anything but a viewer."""
-    user = db.query(User).filter(User.email == settings.demo_viewer_email).first() if settings.demo_viewer_email else None
+    user = find_user_by_email(db, settings.demo_viewer_email) if settings.demo_viewer_email else None
     if not user or not is_demo_user(user):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="La demo no está disponible")
     if user.role != "viewer":
@@ -153,7 +163,7 @@ def forgot_password(request: Request, payload: ForgotPasswordIn, db: Session = D
     which emails have accounts."""
     generic_response = {"message": "Si el email está registrado, te enviamos un enlace para restablecer tu contraseña."}
 
-    user = db.query(User).filter(User.email == payload.email).first()
+    user = find_user_by_email(db, payload.email)
     if not user:
         # Logged (without the address) so "the email never arrived" can be told apart from a
         # mail problem; the response stays the same either way.

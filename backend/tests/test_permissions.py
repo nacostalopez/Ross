@@ -197,6 +197,41 @@ class TestInviteFlow:
         )
         assert response.status_code == status.HTTP_409_CONFLICT
 
+    def test_invite_to_an_existing_email_written_differently_conflicts(self, client, auth_header, test_user):
+        response = client.post(
+            "/accounts/invites",
+            headers=auth_header,
+            json={"email": test_user.email.upper(), "role": "viewer"},
+        )
+        assert response.status_code == status.HTTP_409_CONFLICT
+
+    def test_second_pending_invite_written_differently_conflicts(self, client, auth_header):
+        first = client.post(
+            "/accounts/invites", headers=auth_header, json={"email": "invitee@example.com", "role": "viewer"}
+        )
+        assert first.status_code == status.HTTP_201_CREATED
+
+        second = client.post(
+            "/accounts/invites", headers=auth_header, json={"email": "Invitee@Example.com", "role": "admin"}
+        )
+        assert second.status_code == status.HTTP_409_CONFLICT
+
+    def test_accepting_after_the_email_registered_on_its_own_conflicts(self, client, auth_header):
+        invite = client.post(
+            "/accounts/invites", headers=auth_header, json={"email": "invitee@example.com", "role": "viewer"}
+        )
+        registered = client.post(
+            "/auth/register",
+            json={"account_name": "Propia", "email": "INVITEE@example.com", "password": "securepass123"},
+        )
+        assert registered.status_code == status.HTTP_201_CREATED
+
+        response = client.post(
+            "/accounts/invites/accept",
+            json={"token": invite.json()["token"], "password": "inviteepassword123"},
+        )
+        assert response.status_code == status.HTTP_409_CONFLICT
+
     def test_accept_invalid_token_rejected(self, client):
         response = client.post(
             "/accounts/invites/accept",

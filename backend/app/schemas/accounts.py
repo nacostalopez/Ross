@@ -2,7 +2,9 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.auth import NormalizedEmail
 
 Role = Literal["owner", "admin", "viewer"]
 
@@ -29,7 +31,7 @@ class MemberOut(BaseModel):
 
 
 class InviteCreate(BaseModel):
-    email: EmailStr
+    email: NormalizedEmail
     role: Role
 
 
