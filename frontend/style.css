@@ -107,7 +107,13 @@ a:hover { text-decoration: underline; }
   font-weight: 700;
   font-size: 18px;
   letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
+
+/* The pixel-art mark beside the name (tools/brand/export_icons.py); crisp at any size. */
+.brand-mark { display: block; flex: none; width: 24px; height: 24px; image-rendering: pixelated; }
 
 /* Hamburger: only meaningful once .sidebar becomes an off-canvas drawer
    below, so it stays hidden above that breakpoint. `.btn.` because `.btn` (declared
@@ -185,7 +191,7 @@ a:hover { text-decoration: underline; }
 }
 .auth-hero-flow { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.9; }
 .auth-hero-content { position: relative; padding: 48px; max-width: 460px; }
-.auth-hero-brand { font-family: "Inter", sans-serif; font-weight: 800; font-size: 16px; letter-spacing: -0.01em; color: #ffffff; margin-bottom: 36px; }
+.auth-hero-brand { font-family: "Inter", sans-serif; font-weight: 800; font-size: 16px; letter-spacing: -0.01em; color: #ffffff; margin-bottom: 36px; display: inline-flex; align-items: center; gap: 8px; }
 .auth-hero-title { font-family: "Inter", sans-serif; font-weight: 700; font-size: 30px; line-height: 1.25; margin: 0 0 14px; color: #ffffff; }
 .auth-hero-sub { font-size: 14px; line-height: 1.6; color: #aebbd6; margin: 0 0 32px; }
 

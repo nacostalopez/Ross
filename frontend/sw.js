@@ -1,4 +1,4 @@
-const CACHE_NAME = "ross-shell-v7";
+const CACHE_NAME = "ross-shell-v8";
 
 // Agent scenes (agentes/escenas/*.json) are not listed on purpose: they are fetched on
 // demand and cached by the stale-while-revalidate handler below on first use.
@@ -18,6 +18,7 @@ const SHELL_ASSETS = [
   "icons/icon-maskable-512.png",
   "icons/apple-touch-icon.png",
   "icons/favicon-32.png",
+  "icons/favicon.svg",
 ];
 
 self.addEventListener("install", (event) => {

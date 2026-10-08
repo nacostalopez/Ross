@@ -870,6 +870,15 @@ it. The dashboard image is a real capture with demo data, regenerated with
   0 6 * * * cd /path/to/ross && docker compose exec -T backend python -m app.cli.refresh_demo_account
   ```
 
+### Brand mark
+
+The logo is Ross's face in pixel art on a blue tile, drawn as a 16x16 grid in
+`tools/brand/export_icons.py` (standard library only). `python tools/brand/export_icons.py`
+writes every icon in `frontend/icons/` (`favicon.svg`, the 16/32 px PNGs, `favicon.ico`, the
+iPhone icon and the manifest's 192/512/maskable icons) plus `frontend/favicon.ico`;
+`pytest tools/brand` fails if a committed icon no longer matches the grid. The pages show
+`icons/favicon.svg` beside the name (`.brand-mark`).
+
 ### Agents (pixel-art identity)
 
 The frontend is getting a pixel-art identity, carried over from
