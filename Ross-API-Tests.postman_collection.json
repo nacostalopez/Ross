@@ -173,7 +173,7 @@
                   "",
                   "pm.test(\"Error message present\", function () {",
                   "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.detail).to.include('Invalid');",
+                  "    pm.expect(jsonData.detail).to.equal('Email o contraseña incorrectos');",
                   "});"
                 ]
               }
