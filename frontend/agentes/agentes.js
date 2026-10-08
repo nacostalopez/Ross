@@ -57,17 +57,43 @@
     return list.map(([role, flat]) => `<path class="c${num(role)}" d="${rects(flat)}"/>`).join("");
   }
 
-  // A drawing is a static background layer plus animated parts. Each part is a strip of
-  // frames wider than its box; CSS slides it with steps(), so no JS runs per frame.
+  // One @keyframes per frame count: frame 0 of n is visible for the first 1/n of the cycle. Each
+  // frame runs it with its own delay (see drawingHtml), so exactly one frame shows at a time.
+  const framesKeyframes = new Set();
+  function ensureFramesKeyframes(n) {
+    if (framesKeyframes.has(n)) return;
+    framesKeyframes.add(n);
+    const style = document.createElement("style");
+    style.textContent = `@keyframes pxa-f${n}{0%{visibility:visible}${100 / n}%{visibility:hidden}100%{visibility:hidden}}`;
+    document.head.appendChild(style);
+  }
+
+  // A drawing is a static background layer plus animated parts. An animated part's data is a strip
+  // of n frames side by side; each frame becomes its own <svg> whose viewBox is that frame's window
+  // on the strip, all stacked in the part's box, and CSS shows one at a time (no JS per frame).
+  // Sliding the whole strip instead put the frame edges on fractional pixels whenever the page was
+  // zoomed (125%, 150%...), and a column of the next frame bled into the drawing.
   function drawingHtml(data) {
     let html = `<svg class="pxa-lay" viewBox="0 0 ${num(data.w)} ${num(data.h)}">${paths(data.bg)}</svg>`;
     for (const part of data.parts) {
-      const animated = num(part.n) > 1;
-      html +=
-        `<div class="pxa-pt" style="left:${num(part.l)}%;top:${num(part.t)}%;width:${num(part.w)}%;height:${num(part.h)}%">` +
-        `<svg class="${animated ? "pxa-st" : "pxa-lay"}" viewBox="0 0 ${num(part.vw)} ${num(part.vh)}"` +
-        (animated ? ` style="--n:${num(part.n)};--t:${num(part.s)}s"` : "") +
-        `>${paths(part.p)}</svg></div>`;
+      const n = num(part.n);
+      const box = `left:${num(part.l)}%;top:${num(part.t)}%;width:${num(part.w)}%;height:${num(part.h)}%`;
+      const drawn = paths(part.p);
+      if (n <= 1) {
+        html += `<div class="pxa-pt" style="${box}"><svg class="pxa-lay" viewBox="0 0 ${num(part.vw)} ${num(part.vh)}">${drawn}</svg></div>`;
+        continue;
+      }
+      ensureFramesKeyframes(n);
+      const frameWidth = num(part.vw) / n;
+      html += `<div class="pxa-pt pxa-anim" style="${box};--t:${num(part.s)}s">`;
+      for (let i = 0; i < n; i++) {
+        // Frame i shows during [i/n, (i+1)/n) of the cycle: start its animation i/n of a cycle late,
+        // written as a negative delay so every frame is already running on the first paint.
+        html +=
+          `<svg class="pxa-lay pxa-fr" viewBox="${i * frameWidth} 0 ${frameWidth} ${num(part.vh)}"` +
+          ` style="--fa:pxa-f${n};--fd:calc(var(--t) * ${-((n - i) % n)} / ${n})">${drawn}</svg>`;
+      }
+      html += "</div>";
     }
     return html;
   }

@@ -164,17 +164,19 @@ async function shot(page, name, options = {}) {
       await page.waitForSelector("#account-chip svg", { timeout: 10000 });
       const m = await page.evaluate(() => {
         const scene = document.querySelector("#empty-state .pxa-scene");
-        const strip = getComputedStyle(scene.querySelector(".pxa-st"));
+        const strip = getComputedStyle(scene.querySelector(".pxa-fr"));
         const box = scene.getBoundingClientRect();
         return {
           name: strip.animationName, timing: strip.animationTimingFunction,
+          oneFrameEach: [...scene.querySelectorAll(".pxa-anim")].every((part) => [...part.children].filter((f) => getComputedStyle(f).visibility === "visible").length === 1),
           w: box.width, h: box.height,
           scrollW: document.documentElement.scrollWidth, innerW: window.innerWidth,
           outline: getComputedStyle(scene.querySelector("path.c75")).fill,
         };
       });
       const tag = `${theme}/${vp}`;
-      check(`[${tag}] scene animates with steps()`, m.name === "pxa-strip" && m.timing.startsWith("steps(4"), `${m.name} ${m.timing}`);
+      check(`[${tag}] scene animates frame by frame`, m.name === "pxa-f4" && /step-end|steps\(1/.test(m.timing), `${m.name} ${m.timing}`);
+      check(`[${tag}] one frame visible per animated part`, m.oneFrameEach);
       check(`[${tag}] no horizontal scroll`, m.scrollW <= m.innerW, `${m.scrollW}/${m.innerW}`);
       check(`[${tag}] scene keeps its 48:30 ratio`, Math.abs(m.w / m.h - 1.6) < 0.02, `${Math.round(m.w)}x${Math.round(m.h)}`);
       check(`[${tag}] theme colors applied`, m.outline === OUTLINE[theme], m.outline);
@@ -191,9 +193,9 @@ async function shot(page, name, options = {}) {
   {
     const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens });
     await page.goto(APP);
-    await page.waitForSelector("#empty-state .pxa-st");
+    await page.waitForSelector("#empty-state .pxa-fr");
     const read = () => page.evaluate(() => ({
-      play: getComputedStyle(document.querySelector("#empty-state .pxa-st")).animationPlayState,
+      play: getComputedStyle(document.querySelector("#empty-state .pxa-fr")).animationPlayState,
       pressed: document.getElementById("agents-pause").getAttribute("aria-pressed"),
       stored: localStorage.getItem("ross_agents_paused"),
     }));
@@ -203,7 +205,7 @@ async function shot(page, name, options = {}) {
     s = await read();
     check("pause: click pauses", s.play === "paused" && s.pressed === "true" && s.stored === "1", JSON.stringify(s));
     await page.reload();
-    await page.waitForSelector("#empty-state .pxa-st");
+    await page.waitForSelector("#empty-state .pxa-fr");
     s = await read();
     check("pause: survives a reload", s.play === "paused" && s.pressed === "true", JSON.stringify(s));
     await page.click("#agents-pause");
@@ -216,13 +218,17 @@ async function shot(page, name, options = {}) {
   {
     const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens, reducedMotion: "reduce" });
     await page.goto(APP);
-    await page.waitForSelector("#empty-state .pxa-st");
+    await page.waitForSelector("#empty-state .pxa-fr");
     const r = await page.evaluate(() => {
-      const strip = getComputedStyle(document.querySelector("#empty-state .pxa-st"));
-      return { animation: strip.animationName, transform: strip.transform, pause: getComputedStyle(document.getElementById("agents-pause")).display };
+      const frames = [...document.querySelectorAll("#empty-state .pxa-anim:first-of-type .pxa-fr")];
+      return {
+        animation: getComputedStyle(frames[0]).animationName,
+        visible: frames.map((f) => getComputedStyle(f).visibility === "visible"),
+        pause: getComputedStyle(document.getElementById("agents-pause")).display,
+      };
     });
     check("reduced motion: animation off", r.animation === "none", r.animation);
-    check("reduced motion: first frame stays (no transform)", r.transform === "none", r.transform);
+    check("reduced motion: only the first frame shows", r.visible[0] && r.visible.slice(1).every((v) => !v), JSON.stringify(r.visible));
     check("reduced motion: pause button hidden", r.pause === "none", r.pause);
     await context.close();
   }
@@ -275,7 +281,7 @@ async function shot(page, name, options = {}) {
         await page.waitForSelector(`${surface.host} .pxa-scene svg`, { timeout: 10000 });
         const m = await page.evaluate(({ host, card }) => {
           const scene = document.querySelector(`${host} .pxa-scene`);
-          const strip = getComputedStyle(scene.querySelector(".pxa-st"));
+          const strip = getComputedStyle(scene.querySelector(".pxa-fr"));
           const box = scene.getBoundingClientRect();
           const cardBox = document.querySelector(`${host} ${card || ""}`).getBoundingClientRect();
           return {
@@ -285,7 +291,7 @@ async function shot(page, name, options = {}) {
             outline: getComputedStyle(scene.querySelector("path.c75")).fill,
           };
         }, { host: surface.host, card: surface.card });
-        check(`[${tag}] scene animates with steps()`, m.name === "pxa-strip" && /^steps\(\d/.test(m.timing) && m.playing === "running", `${m.name} ${m.timing} ${m.playing}`);
+        check(`[${tag}] scene animates frame by frame`, /^pxa-f\d/.test(m.name) && /step-end|steps\(1/.test(m.timing) && m.playing === "running", `${m.name} ${m.timing} ${m.playing}`);
         check(`[${tag}] scene sits inside its container`, m.inside);
         check(`[${tag}] no horizontal scroll`, m.scrollW <= m.innerW, `${m.scrollW}/${m.innerW}`);
         check(`[${tag}] theme colors applied`, m.outline === OUTLINE[theme], m.outline);

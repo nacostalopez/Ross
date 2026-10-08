@@ -95,11 +95,34 @@
       return "rest";
     }
 
+    // While creating the account Ross also says, in words, what the face shows: where to start,
+    // whether the password is strong, that something failed, or that the account is ready.
+    function sayWhileRegistering(state) {
+      if (mode() !== "register") return null;
+      if (state === "celebrate") return { text: "¡Listo! Estoy armando tu tablero.", tone: "ok" };
+      if (state === "error") return { text: "Algo no salió. Te lo explico arriba del formulario.", tone: "worried" };
+      if (state === "worried") return { text: "Esa contraseña es fácil de adivinar. Sumale números o símbolos.", tone: "worried" };
+      if (state === "thumbs") return { text: "¡Contraseña fuerte! Ya casi está.", tone: "ok" };
+      if (!$("register-password-meter").hidden) return { text: "Va bien. Un poco más larga y queda fuerte.", tone: "" };
+      return { text: "Tu cuenta en dos minutos. Empezá por el nombre de tu negocio.", tone: "" };
+    }
+
     function render() {
       const state = override || (passwordFocused && mode() === "login" ? "shy" : idle());
       show(host, SCENE[state]);
       bubble.hidden = state !== "invite";
       $("tab-register").classList.toggle("agents-invite-hint", state === "invite");
+      const says = $("auth-ross-says");
+      if (says) {
+        const message = sayWhileRegistering(state);
+        says.hidden = !message;
+        if (message) {
+          // Only touch the text when it changes, so a screen reader announces each new message once.
+          if ($("auth-ross-says-msg").textContent !== message.text) $("auth-ross-says-msg").textContent = message.text;
+          says.classList.toggle("agents-says-worried", message.tone === "worried");
+          says.classList.toggle("agents-says-ok", message.tone === "ok");
+        }
+      }
     }
 
     const watch = (el, attributes, handler) => {

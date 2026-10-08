@@ -32,21 +32,17 @@
   position: absolute;
 }
 
-/* One strip of n frames, as wide as n boxes; each step slides it by one frame. */
-.pxa .pxa-st {
-  animation: pxa-strip var(--t) steps(var(--n), end) infinite;
-  display: block;
-  height: 100%;
-  shape-rendering: crispEdges;
-  width: calc(var(--n) * 100%);
+/* An animated part: its n frames stacked in the box, one visible at a time. agentes.js gives each
+   frame its keyframes (--fa, visible for 1/n of the cycle) and its delay (--fd). Without the
+   animation (reduced motion) only the first frame shows. */
+.pxa .pxa-fr {
+  animation: var(--fa) var(--t) step-end var(--fd) infinite;
+  visibility: hidden;
 }
-
-@keyframes pxa-strip {
-  to { transform: translateX(-100%); }
-}
+.pxa .pxa-fr:first-child { visibility: visible; }
 
 /* The topbar button pauses every agent animation (see agentes.js). */
-html[data-agents-paused] .pxa .pxa-st {
+html[data-agents-paused] .pxa .pxa-fr {
   animation-play-state: paused;
 }
 
@@ -172,6 +168,19 @@ html[data-agents-paused] .pxa .pxa-st {
 .agents-bubble:hover,
 .agents-bubble:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .agents-invite-hint { box-shadow: 0 0 0 2px var(--primary); }
+/* What Ross says while you create the account: the same bubble, as text instead of a button. */
+/* Beside the agent, never over it: it starts past the agent's right edge (half its 154 px width,
+   plus a gap) and takes what is left of the card's half. */
+.agents-bubble.agents-says { cursor: default; left: calc(50% + 86px); margin: 0; right: auto; top: -96px; width: 200px; }
+.agents-bubble.agents-says::after { left: 18px; right: auto; }
+/* A phone has no room beside the agent: the message moves into the card, above the title. */
+@media (max-width: 560px) {
+  .agents-bubble.agents-says { font-size: 13px; left: auto; margin: 0 0 16px; position: static; width: auto; }
+  .agents-bubble.agents-says::after { display: none; }
+}
+.agents-says:hover { outline: none; }
+.agents-says.agents-says-worried { --ross-stripe: var(--ross-warn); }
+.agents-says.agents-says-ok { --ross-stripe: var(--ross-ok); }
 /* On a phone the bubble moves out and shrinks so it stays clear of the agent's face. */
 @media (max-width: 480px) { .agents-bubble { font-size: 12.5px; right: -8px; width: 126px; } }
 
@@ -260,6 +269,6 @@ html[data-agents-paused] .pxa .pxa-st {
 /* Reduced motion: the first frame stays on screen, and the pause button has nothing to do.
    Kept last so it wins over the rules above. */
 @media (prefers-reduced-motion: reduce) {
-  .pxa .pxa-st { animation: none; }
+  .pxa .pxa-fr { animation: none; }
   .agents-pause { display: none; }
 }
