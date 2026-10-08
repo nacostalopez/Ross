@@ -11,6 +11,8 @@ from email.message import EmailMessage
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.config import settings as app_settings
+
 logger = logging.getLogger("ross.email")
 
 
@@ -32,7 +34,12 @@ def send_email(to: str, subject: str, body: str) -> None:
     settings = EmailSettings()
 
     if not settings.smtp_host:
-        logger.info("email_not_sent_no_smtp_configured", extra={"to": to, "subject": subject, "body": body})
+        # Locally the body is the only way to reach a reset or invite link. In production it would
+        # put those single-use links in the platform's logs, readable by anyone with log access.
+        if app_settings.environment == "production":
+            logger.warning("email_not_sent_no_smtp_configured", extra={"subject": subject})
+        else:
+            logger.info("email_not_sent_no_smtp_configured", extra={"to": to, "subject": subject, "body": body})
         return
 
     message = EmailMessage()

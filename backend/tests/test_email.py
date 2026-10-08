@@ -13,6 +13,21 @@ class TestSendEmail:
             send_email(to="someone@example.com", subject="Hi", body="Body text")
         mock_smtp.assert_not_called()
 
+    def test_production_never_logs_the_body_of_an_unsent_email(self, monkeypatch, caplog):
+        """Reset and invite links are in the body; in production they must not reach the logs."""
+        from app.config import settings
+
+        monkeypatch.setenv("SMTP_HOST", "")
+        monkeypatch.setattr(settings, "environment", "production")
+        with caplog.at_level("INFO", logger="ross.email"):
+            send_email(to="someone@example.com", subject="Restablecé tu contraseña", body="https://ross.ar/?reset=SECRET")
+
+        record = caplog.records[-1]
+        assert record.getMessage() == "email_not_sent_no_smtp_configured"
+        assert not hasattr(record, "body")
+        assert not hasattr(record, "to")
+        assert "SECRET" not in caplog.text
+
     def test_configured_smtp_sends_message(self, monkeypatch):
         monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
         monkeypatch.setenv("SMTP_PORT", "587")
