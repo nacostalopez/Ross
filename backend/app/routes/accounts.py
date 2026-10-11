@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
-from app.email import send_email
+from app.email import send_email_quietly
 from app.models import AccountActivityLog, AccountInvite, RefreshToken, User
 from app.routes.auth import EMAIL_TAKEN, issue_tokens
 from app.schemas.accounts import (
@@ -36,26 +36,29 @@ INVITE_EXPIRY_DAYS = 7
 ROLE_LABELS = {"owner": "Owner", "admin": "Admin", "viewer": "Viewer"}
 
 
-def _send_invite_email(invite: AccountInvite, inviter: User, raw_token: str, *, reminder: bool = False) -> None:
-    """Shared by create_invite and resend_invite — a send failure is caught
-    and logged, never raised, since the raw token in the API response is
-    still a usable fallback for the caller."""
+def _queue_invite_email(
+    background_tasks: BackgroundTasks, invite: AccountInvite, inviter: User, raw_token: str, *, reminder: bool = False
+) -> None:
+    """Shared by create_invite and resend_invite — sent after the response, so the
+    Equipo screen doesn't wait on SMTP. A send failure is only logged, since the
+    raw token in the API response is still a usable fallback for the caller."""
     invite_url = f"{settings.frontend_url}/index.html?invite_token={raw_token}"
     subject = f"Te invitaron a {inviter.account.name} en ROSS"
-    try:
-        send_email(
-            to=invite.email,
-            subject=f"Recordatorio: {subject[0].lower()}{subject[1:]}" if reminder else subject,
-            body=(
-                f"{inviter.email} te invitó a sumarte a {inviter.account.name} "
-                f"en ROSS como {ROLE_LABELS[invite.role]}.\n\n"
-                f"Aceptá la invitación acá: {invite_url}\n\n"
-                f"O usá este código directamente: {raw_token}\n\n"
-                f"La invitación vence en {INVITE_EXPIRY_DAYS} días."
-            ),
-        )
-    except Exception:
-        logger.exception("invite_email_send_failed", extra={"invite_id": str(invite.id), "email": invite.email})
+    background_tasks.add_task(
+        send_email_quietly,
+        to=invite.email,
+        subject=f"Recordatorio: {subject[0].lower()}{subject[1:]}" if reminder else subject,
+        body=(
+            f"{inviter.email} te invitó a sumarte a {inviter.account.name} "
+            f"en ROSS como {ROLE_LABELS[invite.role]}.\n\n"
+            f"Aceptá la invitación acá: {invite_url}\n\n"
+            f"O usá este código directamente: {raw_token}\n\n"
+            f"La invitación vence en {INVITE_EXPIRY_DAYS} días."
+        ),
+        failure_event="invite_email_send_failed",
+        invite_id=str(invite.id),
+        email=invite.email,
+    )
 
 
 @router.get("/me", response_model=AccountOut)
@@ -93,6 +96,7 @@ def list_members(
 @router.post("/invites", response_model=InviteOut, status_code=201)
 def create_invite(
     payload: InviteCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_role("owner")),
     db: Session = Depends(get_db),
 ):
@@ -126,7 +130,7 @@ def create_invite(
     db.commit()
     db.refresh(invite)
 
-    _send_invite_email(invite, current_user, raw_token)
+    _queue_invite_email(background_tasks, invite, current_user, raw_token)
     log_activity(
         db, current_user.account_id, current_user.id, "invite_sent", f"Invitaste a {invite.email} como {invite.role}"
     )
@@ -139,6 +143,7 @@ def create_invite(
 @router.post("/invites/{invite_id}/resend", response_model=InviteOut)
 def resend_invite(
     invite_id: UUID,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_role("owner")),
     db: Session = Depends(get_db),
 ):
@@ -158,7 +163,7 @@ def resend_invite(
     db.commit()
     db.refresh(invite)
 
-    _send_invite_email(invite, current_user, raw_token, reminder=True)
+    _queue_invite_email(background_tasks, invite, current_user, raw_token, reminder=True)
 
     result = InviteOut.model_validate(invite)
     result.token = raw_token

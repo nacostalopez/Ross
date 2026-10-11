@@ -15,6 +15,8 @@ from app.config import settings as app_settings
 
 logger = logging.getLogger("ross.email")
 
+SMTP_TIMEOUT_SECONDS = 15
+
 
 class EmailSettings(BaseSettings):
     smtp_host: str = ""  # empty = not configured, send_email() no-ops (logs only)
@@ -48,7 +50,8 @@ def send_email(to: str, subject: str, body: str) -> None:
     message["Subject"] = subject
     message.set_content(body)
 
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+    # A timeout so a blocked or slow SMTP port fails in seconds instead of hanging the worker.
+    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=SMTP_TIMEOUT_SECONDS) as server:
         if settings.smtp_use_tls:
             server.starttls()
         if settings.smtp_username:
@@ -56,3 +59,13 @@ def send_email(to: str, subject: str, body: str) -> None:
         server.send_message(message)
 
     logger.info("email_sent", extra={"to": to, "subject": subject})
+
+
+def send_email_quietly(to: str, subject: str, body: str, *, failure_event: str, **log_extra) -> None:
+    """For FastAPI BackgroundTasks: the SMTP handshake (connect, STARTTLS, login, send) takes a
+    second or more, so routes queue the send and answer first. Nobody is left to receive an
+    exception here, so a failure is only logged."""
+    try:
+        send_email(to, subject, body)
+    except Exception:
+        logger.exception(failure_event, extra=log_extra)

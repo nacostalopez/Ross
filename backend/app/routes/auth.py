@@ -1,14 +1,14 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user, is_demo_user
-from app.email import send_email
+from app.email import send_email_quietly
 from app.models import Account, PasswordResetToken, RefreshToken, Subscription, User
 from app.rate_limit import limiter
 from app.schemas.auth import (
@@ -157,7 +157,9 @@ def me(current_user: User = Depends(get_current_user)):
 
 @router.post("/forgot-password")
 @limiter.limit("5/minute")
-def forgot_password(request: Request, payload: ForgotPasswordIn, db: Session = Depends(get_db)):
+def forgot_password(
+    request: Request, payload: ForgotPasswordIn, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+):
     """Always returns the same generic response, whether or not the email is
     registered — otherwise the response itself would let an attacker enumerate
     which emails have accounts."""
@@ -181,20 +183,21 @@ def forgot_password(request: Request, payload: ForgotPasswordIn, db: Session = D
     db.commit()
 
     reset_url = f"{settings.frontend_url}/index.html?reset_token={raw_token}"
-    try:
-        send_email(
-            to=user.email,
-            subject="Restablecé tu contraseña de ROSS",
-            body=(
-                f"Recibimos un pedido para restablecer la contraseña de tu cuenta de ROSS.\n\n"
-                f"Elegí una nueva acá: {reset_url}\n\n"
-                f"O usá este código directamente: {raw_token}\n\n"
-                f"El enlace vence en {RESET_TOKEN_EXPIRY_MINUTES} minutos. "
-                f"Si no lo pediste, podés ignorar este email."
-            ),
-        )
-    except Exception:
-        logger.exception("password_reset_email_send_failed", extra={"user_id": str(user.id)})
+    # Queued, not awaited: the response is the same fast one whether or not the email exists.
+    background_tasks.add_task(
+        send_email_quietly,
+        to=user.email,
+        subject="Restablecé tu contraseña de ROSS",
+        body=(
+            f"Recibimos un pedido para restablecer la contraseña de tu cuenta de ROSS.\n\n"
+            f"Elegí una nueva acá: {reset_url}\n\n"
+            f"O usá este código directamente: {raw_token}\n\n"
+            f"El enlace vence en {RESET_TOKEN_EXPIRY_MINUTES} minutos. "
+            f"Si no lo pediste, podés ignorar este email."
+        ),
+        failure_event="password_reset_email_send_failed",
+        user_id=str(user.id),
+    )
 
     return generic_response
 
