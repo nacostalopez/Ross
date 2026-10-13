@@ -168,6 +168,20 @@ preference, not a data-access permission. Widget types are validated
 server-side (`WidgetType` in `app/schemas/dashboard.py`); an unknown type or
 a duplicate type in the same layout is rejected with `422`.
 
+### Oficina de agentes
+
+The `office` widget (`frontend/oficina.js`, on the default layout after "Ross explica tu
+semana") draws the modules as agents around a meeting table seen from above, with a lounge
+where they take turns for coffee. Each agent is also a row in an accordion beside the drawing;
+opening one lists its tasks, and running a task calls the real API and prints what came back:
+Conectores (connection status, 30-day backfill), Finanzas (metrics, "Explicar mi semana"),
+Anuncios (creatives, CAC by channel), Clientes (cohorts, attribution), Alertas (check now) and
+Reportes (send the summary). Tasks that write (backfill, check now, send now) need an owner or
+admin outside the demo account, like the buttons they stand in for. "Tu lugar" lets each viewer
+pick a name, a man or woman avatar and its colours, kept in `localStorage` (not shared). The
+drawing follows the theme (night in dark mode) and has a "Modo sobrio" switch; it pauses when
+off screen or when the user prefers reduced motion.
+
 ### Creative analytics
 
 `ad_spend` tracks spend at campaign/adset level; `creative_performance` is a

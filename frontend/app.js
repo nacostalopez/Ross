@@ -84,6 +84,7 @@ const WIDGET_LABELS = {
   forecast: "Proyección a 30 días",
   pnl: "P&L completo",
   narrative: "Ross explica tu semana",
+  office: "Oficina de agentes",
 };
 const STAT_WIDGET_TYPES = ["stat_roas", "stat_revenue", "stat_net_profit", "stat_ad_spend", "stat_real_profit"];
 const ALL_WIDGET_TYPES = Object.keys(WIDGET_LABELS);
@@ -760,6 +761,11 @@ function renderWidgetsRoot() {
   renderWidgetAddPanel();
   applyCachedMetrics();
   paintAgents(root);
+  // The office draws on a canvas of its own (frontend/oficina.js); mounted again on every re-render.
+  if (window.Office) {
+    const officeEl = document.getElementById("office-widget");
+    if (officeEl) window.Office.mount(officeEl); else window.Office.unmount();
+  }
 }
 
 function widgetControlsHtml(type, { isStat, hero }) {
@@ -874,6 +880,7 @@ const PANEL_WIDGET_BODY = {
   forecast: { id: "forecast-widget", class: "forecast-widget" },
   pnl: { id: "pnl-table", class: "pnl-table-wrap" },
   narrative: { id: "narrative-widget", class: "narrative-widget" },
+  office: { id: "office-widget", class: "office-widget" },
 };
 
 // Panel widgets that belong to a module with its own agent get the agent's head beside the title.
@@ -1161,6 +1168,7 @@ async function refreshMetrics() {
   applyStatWidgets(summary, prevSummary);
   renderChart(daily);
   refreshFirstSteps();
+  if (window.Office) window.Office.refresh();
 }
 
 function renderChart(daily) {
@@ -1281,6 +1289,7 @@ async function refreshConnectorHealth() {
   state.lastConnectorHealth = health;
   renderSyncStatus(health);
   renderConnectorGrid(health);
+  if (window.Office) window.Office.refresh();
 }
 
 // One line in the store header: the most recent sync across connectors, or what's wrong.
@@ -1461,6 +1470,12 @@ const PROVIDER_CONNECT_CONFIG = {
     fieldLabel: "ID de cuenta publicitaria (opcional)",
     fieldPlaceholder: "512345678",
     hint: "Podés completarlo ahora o más adelante volviendo a conectar.",
+  },
+  // No extra id to ask for: Tiendanube's own store id comes back with the token.
+  tiendanube: {
+    label: "Tiendanube",
+    noField: true,
+    hint: "Trae tus pedidos y productos de Tiendanube. Vas a iniciar sesión en Tiendanube para instalar la aplicación y autorizarla.",
   },
   // No extra id to ask for: the seller/collector id comes back with the token.
   mercadolibre: {

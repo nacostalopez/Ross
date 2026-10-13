@@ -20,6 +20,7 @@ WidgetType = Literal[
     "forecast",
     "pnl",
     "narrative",
+    "office",
 ]
 
 DEFAULT_WIDGETS = [
@@ -29,6 +30,7 @@ DEFAULT_WIDGETS = [
     {"type": "stat_ad_spend", "hero": False},
     {"type": "stat_real_profit", "hero": False},
     {"type": "narrative", "hero": False},
+    {"type": "office", "hero": False},
     {"type": "chart_daily", "hero": False},
     {"type": "connector_status", "hero": False},
 ]
