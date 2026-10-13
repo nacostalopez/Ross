@@ -7,7 +7,7 @@ from typing import List, Optional
 import requests
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.connectors import BaseConnector, OAuthToken
+from app.connectors import HTTP_TIMEOUT, BaseConnector, OAuthToken, require_config
 
 
 class TikTokSettings(BaseSettings):
@@ -48,6 +48,9 @@ class TikTokConnector(BaseConnector):
         what TikTok approved for the app during its own developer review,
         not chosen per authorization request.
         """
+        require_config(
+            "tiktok", TIKTOK_APP_ID=self.settings.tiktok_app_id, TIKTOK_REDIRECT_URI=self.settings.tiktok_redirect_uri
+        )
         params = {
             "app_id": self.settings.tiktok_app_id,
             "state": state,
@@ -66,13 +69,16 @@ class TikTokConnector(BaseConnector):
         using HTTP status codes for API-level failures — a non-zero `code`
         must be checked explicitly, raise_for_status() alone won't catch it.
         """
+        require_config(
+            "tiktok", TIKTOK_APP_ID=self.settings.tiktok_app_id, TIKTOK_APP_SECRET=self.settings.tiktok_app_secret
+        )
         payload = {
             "app_id": self.settings.tiktok_app_id,
             "secret": self.settings.tiktok_app_secret,
             "auth_code": code,
         }
 
-        response = requests.post(self.TOKEN_URL, json=payload)
+        response = requests.post(self.TOKEN_URL, json=payload, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
 
         body = response.json()
@@ -171,7 +177,7 @@ class TikTokConnector(BaseConnector):
                 "page_size": 100,
             }
 
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, timeout=HTTP_TIMEOUT)
             response.raise_for_status()
 
             body = response.json()

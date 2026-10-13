@@ -20,6 +20,8 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 import requests
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.connectors import HTTP_TIMEOUT
+
 logger = logging.getLogger("ross.billing")
 
 API_BASE = "https://api.mercadopago.com"
@@ -89,7 +91,7 @@ def create_checkout(account_id, plan, payer_email: str, settings: Optional[Billi
         "back_url": f"{settings.frontend_url}/index.html?billing=return",
         "status": "pending",
     }
-    response = requests.post(f"{API_BASE}/preapproval", json=body, headers=_headers(settings))
+    response = requests.post(f"{API_BASE}/preapproval", json=body, headers=_headers(settings), timeout=HTTP_TIMEOUT)
     response.raise_for_status()
     data = response.json()
     return {"id": data["id"], "checkout_url": strip_activation_param(data["init_point"])}
@@ -97,7 +99,7 @@ def create_checkout(account_id, plan, payer_email: str, settings: Optional[Billi
 
 def get_preapproval(preapproval_id: str, settings: Optional[BillingSettings] = None) -> dict:
     settings = settings or BillingSettings()
-    response = requests.get(f"{API_BASE}/preapproval/{preapproval_id}", headers=_headers(settings))
+    response = requests.get(f"{API_BASE}/preapproval/{preapproval_id}", headers=_headers(settings), timeout=HTTP_TIMEOUT)
     response.raise_for_status()
     return response.json()
 
@@ -105,14 +107,15 @@ def get_preapproval(preapproval_id: str, settings: Optional[BillingSettings] = N
 def cancel_preapproval(preapproval_id: str, settings: Optional[BillingSettings] = None) -> None:
     settings = settings or BillingSettings()
     response = requests.put(
-        f"{API_BASE}/preapproval/{preapproval_id}", json={"status": "cancelled"}, headers=_headers(settings)
+        f"{API_BASE}/preapproval/{preapproval_id}", json={"status": "cancelled"}, headers=_headers(settings),
+        timeout=HTTP_TIMEOUT,
     )
     response.raise_for_status()
 
 
 def get_authorized_payment(authorized_payment_id: str, settings: Optional[BillingSettings] = None) -> dict:
     settings = settings or BillingSettings()
-    response = requests.get(f"{API_BASE}/authorized_payments/{authorized_payment_id}", headers=_headers(settings))
+    response = requests.get(f"{API_BASE}/authorized_payments/{authorized_payment_id}", headers=_headers(settings), timeout=HTTP_TIMEOUT)
     response.raise_for_status()
     return response.json()
 

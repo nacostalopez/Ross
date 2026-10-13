@@ -26,7 +26,7 @@ from urllib.parse import urlencode
 import requests
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.connectors import BaseConnector, OAuthToken
+from app.connectors import HTTP_TIMEOUT, BaseConnector, OAuthToken, require_config
 
 
 class MercadoPagoSettings(BaseSettings):
@@ -111,6 +111,11 @@ class MercadoPagoConnector(BaseConnector):
 
     def get_oauth_url(self, state: str) -> str:
         """Get Mercado Pago OAuth authorization URL."""
+        require_config(
+            "mercadopago",
+            MERCADOPAGO_CLIENT_ID=self.settings.mercadopago_client_id,
+            MERCADOPAGO_REDIRECT_URI=self.settings.mercadopago_redirect_uri,
+        )
         params = {
             "client_id": self.settings.mercadopago_client_id,
             "response_type": "code",
@@ -121,7 +126,7 @@ class MercadoPagoConnector(BaseConnector):
         return f"https://auth.mercadopago.com/authorization?{urlencode(params)}"
 
     def _token_request(self, payload: dict) -> dict:
-        response = requests.post(f"{self.API_BASE}/oauth/token", json=payload)
+        response = requests.post(f"{self.API_BASE}/oauth/token", json=payload, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
         return response.json()
 
@@ -245,7 +250,8 @@ class MercadoPagoConnector(BaseConnector):
     def fetch_payment(self, access_token: str, payment_id: str) -> dict:
         """GET a single payment."""
         response = requests.get(
-            f"{self.API_BASE}/v1/payments/{payment_id}", headers={"Authorization": f"Bearer {access_token}"}
+            f"{self.API_BASE}/v1/payments/{payment_id}", headers={"Authorization": f"Bearer {access_token}"},
+            timeout=HTTP_TIMEOUT,
         )
         response.raise_for_status()
         return response.json()
@@ -272,7 +278,7 @@ class MercadoPagoConnector(BaseConnector):
 
         payments = []
         while True:
-            response = requests.get(f"{self.API_BASE}/v1/payments/search", headers=headers, params=params)
+            response = requests.get(f"{self.API_BASE}/v1/payments/search", headers=headers, params=params, timeout=HTTP_TIMEOUT)
             response.raise_for_status()
             results = response.json().get("results", [])
             payments.extend(results)

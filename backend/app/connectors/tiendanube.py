@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import requests
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.connectors import BaseConnector, OAuthToken
+from app.connectors import HTTP_TIMEOUT, BaseConnector, OAuthToken, require_config
 from app.connectors.attribution import extract_click_id
 
 
@@ -53,6 +53,7 @@ class TiendanubeConnector(BaseConnector):
         Returns:
             Authorization URL to redirect user to
         """
+        require_config("tiendanube", TIENDANUBE_CLIENT_ID=self.settings.tiendanube_client_id)
         params = {"state": state}
         return f"https://www.tiendanube.com/apps/{self.settings.tiendanube_client_id}/authorize?{urlencode(params)}"
 
@@ -68,6 +69,11 @@ class TiendanubeConnector(BaseConnector):
             OAuthToken with access_token; also sets self.tn_store_id from the
             response's user_id, since every later API call needs it.
         """
+        require_config(
+            "tiendanube",
+            TIENDANUBE_CLIENT_ID=self.settings.tiendanube_client_id,
+            TIENDANUBE_CLIENT_SECRET=self.settings.tiendanube_client_secret,
+        )
         url = "https://www.tiendanube.com/apps/authorize/token"
 
         payload = {
@@ -77,7 +83,7 @@ class TiendanubeConnector(BaseConnector):
             "code": code,
         }
 
-        response = requests.post(url, json=payload)
+        response = requests.post(url, json=payload, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
 
         data = response.json()
@@ -103,14 +109,14 @@ class TiendanubeConnector(BaseConnector):
         Returns:
             True if signature is valid
         """
-        calculated = hmac.new(
-            self.settings.tiendanube_client_secret.encode(),
-            body.encode(),
-            hashlib.sha256,
-        ).digest()
+        secret = self.settings.tiendanube_client_secret
+        # No secret configured means an empty HMAC key anyone could reproduce; no header means unsigned.
+        if not secret or not signature:
+            return False
+        calculated = hmac.new(secret.encode(), body.encode(), hashlib.sha256).digest()
         calculated_b64 = base64.b64encode(calculated).decode()
 
-        return hmac.compare_digest(calculated_b64, signature)
+        return hmac.compare_digest(calculated_b64.encode(), signature.encode())
 
     def process_webhook(self, event_type: str, data: dict) -> dict:
         """Process webhook event.
@@ -213,7 +219,7 @@ class TiendanubeConnector(BaseConnector):
                 "created_at_min": start_date.isoformat(),
                 "created_at_max": end_date.isoformat(),
             }
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, timeout=HTTP_TIMEOUT)
             # Asking for a page past the last one is a 404 ("Last page is N"),
             # which happens when the total is an exact multiple of per_page.
             if response.status_code == 404 and page > 1:

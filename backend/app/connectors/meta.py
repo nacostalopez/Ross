@@ -3,13 +3,37 @@
 import hashlib
 import hmac
 import json
-from datetime import datetime, timezone
+import logging
+import os
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import requests
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.connectors import BaseConnector, OAuthToken
+from app.connectors import HTTP_TIMEOUT, BaseConnector, OAuthToken, redact, require_config
+
+logger = logging.getLogger("ross.meta")
+
+
+def _expiry(data: dict) -> Optional[datetime]:
+    """When a token answer says it expires, as a datetime; None if it does not say."""
+    seconds = data.get("expires_in")
+    return datetime.now(timezone.utc) + timedelta(seconds=int(seconds)) if seconds else None
+
+
+# Insights fields by level: a campaign row has no ad set or ad id, an ad set row has no ad id.
+INSIGHT_FIELDS = {
+    "campaign": ["campaign_id", "campaign_name", "spend", "impressions", "clicks", "date_start", "date_stop"],
+    "adset": [
+        "campaign_id", "campaign_name", "adset_id", "adset_name", "spend", "impressions", "clicks", "date_start",
+        "date_stop",
+    ],
+    "ad": [
+        "campaign_id", "campaign_name", "adset_id", "adset_name", "ad_id", "ad_name", "spend", "impressions",
+        "clicks", "date_start", "date_stop",
+    ],
+}
 
 
 class MetaSettings(BaseSettings):
@@ -29,11 +53,13 @@ class MetaSettings(BaseSettings):
 class MetaConnector(BaseConnector):
     """Meta (Facebook) Ads connector for OAuth and ad spend tracking."""
 
-    API_VERSION = "v19.0"
+    # Overridable without a deploy of code: META_API_VERSION. v19.0 was past Meta's two-year window.
+    API_VERSION = os.environ.get("META_API_VERSION", "v25.0")
     API_BASE = f"https://graph.facebook.com/{API_VERSION}"
     # Bump API_VERSION when Meta deprecates it (~2yr cycle) and log what changed here.
     BREAKING_CHANGES = [
         "v19.0: initial implementation",
+        "v25.0 (2026-10): moved off the expired v19.0; Insights now asked with level + time_increment=1",
     ]
 
     def __init__(self, store_id: str, ad_account_id: Optional[str] = None):
@@ -43,6 +69,7 @@ class MetaConnector(BaseConnector):
 
     def get_oauth_url(self, state: str) -> str:
         """Get Meta OAuth authorization URL."""
+        require_config("meta", META_APP_ID=self.settings.meta_app_id, META_REDIRECT_URI=self.settings.meta_redirect_uri)
         params = {
             "client_id": self.settings.meta_app_id,
             "redirect_uri": self.settings.meta_redirect_uri,
@@ -57,6 +84,7 @@ class MetaConnector(BaseConnector):
 
     def exchange_auth_code(self, code: str, redirect_uri: str) -> OAuthToken:
         """Exchange authorization code for access token."""
+        require_config("meta", META_APP_ID=self.settings.meta_app_id, META_APP_SECRET=self.settings.meta_app_secret)
         url = f"{self.API_BASE}/oauth/access_token"
 
         params = {
@@ -66,16 +94,39 @@ class MetaConnector(BaseConnector):
             "code": code,
         }
 
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
 
         data = response.json()
-
-        return OAuthToken(
+        short_lived = OAuthToken(
             access_token=data["access_token"],
-            refresh_token=None,  # Meta doesn't use refresh tokens
-            expires_at=None,  # Access tokens don't expire for business accounts
+            refresh_token=None,  # Meta has no refresh tokens: a long-lived token is renewed by connecting again
+            expires_at=_expiry(data),
         )
+        return self._long_lived(short_lived)
+
+    def _long_lived(self, token: OAuthToken) -> OAuthToken:
+        """Swap the short-lived token (about 2 hours) for a long-lived one (about 60 days).
+
+        If the swap fails the short-lived token is kept, with its real expiry, so the connector
+        shows "reconnect" in hours instead of failing without explanation."""
+        try:
+            response = requests.get(
+                f"{self.API_BASE}/oauth/access_token",
+                params={
+                    "grant_type": "fb_exchange_token",
+                    "client_id": self.settings.meta_app_id,
+                    "client_secret": self.settings.meta_app_secret,
+                    "fb_exchange_token": token.access_token,
+                },
+                timeout=HTTP_TIMEOUT,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return OAuthToken(access_token=data["access_token"], refresh_token=None, expires_at=_expiry(data))
+        except Exception as error:
+            logger.warning("meta_long_lived_exchange_failed", extra={"error": redact(error)})
+            return token
 
     def validate_webhook_signature(self, body: str, signature: str) -> bool:
         """Validate webhook signature.
@@ -126,37 +177,31 @@ class MetaConnector(BaseConnector):
 
         url = f"{self.API_BASE}/{self.ad_account_id}/insights"
 
+        if breakdown_by not in INSIGHT_FIELDS:
+            raise ValueError(f"breakdown_by must be one of {sorted(INSIGHT_FIELDS)}")
+
+        # `level` picks what each row is (a campaign, an ad set, an ad) and `time_increment=1` makes
+        # it one row per day. There is no "campaign" breakdown: asking for one is an API error, and
+        # without time_increment the whole range comes back as one row dated at its first day.
         params = {
-            "access_token": access_token,
             "time_range": json.dumps(
                 {
                     "since": start_date.date().isoformat(),
                     "until": end_date.date().isoformat(),
                 }
             ),
-            "fields": ",".join(
-                [
-                    "campaign_id",
-                    "campaign_name",
-                    "adset_id",
-                    "adset_name",
-                    "ad_id",
-                    "ad_name",
-                    "spend",
-                    "impressions",
-                    "clicks",
-                    "date_start",
-                    "date_stop",
-                ]
-            ),
-            "breakdowns": breakdown_by,
+            "fields": ",".join(INSIGHT_FIELDS[breakdown_by]),
+            "level": breakdown_by,
+            "time_increment": 1,
             "limit": 100,
         }
+        # The token travels in a header, not in the URL: an HTTP error quotes the URL.
+        headers = {"Authorization": f"Bearer {access_token}"}
 
         spend_records = []
 
         while url:
-            response = requests.get(url, params=params)
+            response = requests.get(url, params=params, headers=headers, timeout=HTTP_TIMEOUT)
             response.raise_for_status()
 
             data = response.json()
@@ -174,12 +219,9 @@ class MetaConnector(BaseConnector):
                 }
                 spend_records.append(record)
 
-            # Handle pagination
-            paging = data.get("paging", {})
-            if "cursors" in paging and "after" in paging["cursors"]:
-                params["after"] = paging["cursors"]["after"]
-            else:
-                break
+            # The last page has cursors too; the way to know there is another is the `next` link.
+            url = data.get("paging", {}).get("next")
+            params = None
 
         return spend_records
 
@@ -203,34 +245,23 @@ class MetaConnector(BaseConnector):
         url = f"{self.API_BASE}/{self.ad_account_id}/insights"
 
         params = {
-            "access_token": access_token,
             "time_range": json.dumps(
                 {
                     "since": start_date.date().isoformat(),
                     "until": end_date.date().isoformat(),
                 }
             ),
-            "fields": ",".join(
-                [
-                    "campaign_id",
-                    "campaign_name",
-                    "adset_id",
-                    "ad_id",
-                    "ad_name",
-                    "spend",
-                    "impressions",
-                    "clicks",
-                    "date_start",
-                ]
-            ),
+            "fields": ",".join(INSIGHT_FIELDS["ad"]),
             "level": "ad",
+            "time_increment": 1,
             "limit": 100,
         }
+        headers = {"Authorization": f"Bearer {access_token}"}
 
         records = []
 
         while url:
-            response = requests.get(url, params=params)
+            response = requests.get(url, params=params, headers=headers, timeout=HTTP_TIMEOUT)
             response.raise_for_status()
 
             data = response.json()
@@ -252,11 +283,8 @@ class MetaConnector(BaseConnector):
                     }
                 )
 
-            paging = data.get("paging", {})
-            if "cursors" in paging and "after" in paging["cursors"]:
-                params["after"] = paging["cursors"]["after"]
-            else:
-                break
+            url = data.get("paging", {}).get("next")
+            params = None
 
         return records
 
@@ -301,7 +329,9 @@ class MetaConnector(BaseConnector):
             ]
         }
 
-        response = requests.post(url, params={"access_token": access_token}, json=payload)
+        response = requests.post(
+            url, headers={"Authorization": f"Bearer {access_token}"}, json=payload, timeout=HTTP_TIMEOUT
+        )
         response.raise_for_status()
 
     def fetch_historical_data(

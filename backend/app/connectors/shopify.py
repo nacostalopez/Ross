@@ -3,6 +3,8 @@
 import base64
 import hashlib
 import hmac
+import os
+import re
 from datetime import datetime, timezone
 from typing import List, Optional
 from urllib.parse import parse_qs, urlencode
@@ -10,8 +12,22 @@ from urllib.parse import parse_qs, urlencode
 import requests
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.connectors import BaseConnector, OAuthToken
+from app.connectors import HTTP_TIMEOUT, BaseConnector, OAuthToken, require_config
 from app.connectors.attribution import extract_click_id
+
+_SHOP = re.compile(r"^[a-z0-9][a-z0-9-]*\.myshopify\.com$")
+
+
+def normalize_shop(shop: Optional[str]) -> str:
+    """The shop's myshopify.com domain, or ValueError. The OAuth callback's `shop` is a query
+    parameter that comes from the browser: without this check the token exchange (which carries the
+    app's client secret) can be pointed at any host."""
+    value = (shop or "").strip().lower()
+    if value and "." not in value:
+        value = f"{value}.myshopify.com"
+    if not _SHOP.match(value):
+        raise ValueError("shop must be a *.myshopify.com domain")
+    return value
 
 
 class ShopifySettings(BaseSettings):
@@ -31,17 +47,21 @@ class ShopifySettings(BaseSettings):
 class ShopifyConnector(BaseConnector):
     """Shopify connector for OAuth and webhooks."""
 
-    API_VERSION = "2024-01"
+    # Overridable without a deploy of code: SHOPIFY_API_VERSION. Shopify serves a retired version as the
+    # oldest supported one, which hides field changes; naming a current version keeps them visible.
+    API_VERSION = os.environ.get("SHOPIFY_API_VERSION", "2026-07")
     API_BASE = "https://{shop}.myshopify.com/admin/api/{version}"
     # Bump API_VERSION when Shopify deprecates it and log what changed here.
     BREAKING_CHANGES = [
         "2024-01: initial implementation",
+        "2026-07 (2026-10): moved to a supported stable version",
     ]
 
     def __init__(self, store_id: str, shop_domain: Optional[str] = None):
         super().__init__(store_id, "shopify")
         self.settings = ShopifySettings()
-        self.shop_domain = shop_domain  # e.g., "mystore.myshopify.com"
+        # e.g., "mystore.myshopify.com"; anything that is not a myshopify.com domain is refused
+        self.shop_domain = normalize_shop(shop_domain) if shop_domain else shop_domain
 
     def get_oauth_url(self, state: str) -> str:
         """Get OAuth authorization URL.
@@ -54,6 +74,11 @@ class ShopifyConnector(BaseConnector):
         """
         if not self.shop_domain:
             raise ValueError("shop_domain required for OAuth")
+        require_config(
+            "shopify",
+            SHOPIFY_API_KEY=self.settings.shopify_api_key,
+            SHOPIFY_REDIRECT_URI=self.settings.shopify_redirect_uri,
+        )
 
         params = {
             "client_id": self.settings.shopify_api_key,
@@ -76,7 +101,12 @@ class ShopifyConnector(BaseConnector):
         Returns:
             OAuthToken with access_token
         """
-        url = f"https://{shop}/admin/oauth/access_token"
+        require_config(
+            "shopify",
+            SHOPIFY_API_KEY=self.settings.shopify_api_key,
+            SHOPIFY_API_SECRET=self.settings.shopify_api_secret,
+        )
+        url = f"https://{normalize_shop(shop)}/admin/oauth/access_token"
 
         payload = {
             "client_id": self.settings.shopify_api_key,
@@ -85,7 +115,7 @@ class ShopifyConnector(BaseConnector):
             "redirect_uri": redirect_uri,
         }
 
-        response = requests.post(url, json=payload)
+        response = requests.post(url, json=payload, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
 
         data = response.json()
@@ -110,14 +140,15 @@ class ShopifyConnector(BaseConnector):
         Returns:
             True if signature is valid
         """
-        calculated = hmac.new(
-            self.settings.shopify_api_secret.encode(),
-            body.encode(),
-            hashlib.sha256,
-        ).digest()
+        secret = self.settings.shopify_api_secret
+        # With no secret configured the HMAC key would be empty and anyone could compute a valid
+        # signature; a missing header is simply not signed.
+        if not secret or not signature:
+            return False
+        calculated = hmac.new(secret.encode(), body.encode(), hashlib.sha256).digest()
         calculated_b64 = base64.b64encode(calculated).decode()
 
-        return hmac.compare_digest(calculated_b64, signature)
+        return hmac.compare_digest(calculated_b64.encode(), signature.encode())
 
     def process_webhook(self, event_type: str, data: dict) -> dict:
         """Process webhook event.
@@ -228,7 +259,7 @@ class ShopifyConnector(BaseConnector):
 
         orders = []
         while url:
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, timeout=HTTP_TIMEOUT)
             response.raise_for_status()
             orders.extend(response.json().get("orders", []))
 

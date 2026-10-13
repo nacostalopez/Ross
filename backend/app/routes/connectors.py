@@ -11,6 +11,7 @@ from sqlalchemy import insert
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
+from app.connectors import RECONNECT_MESSAGE, redact
 from app.connectors.google import GoogleAdsConnector
 from app.connectors.linkedin import LinkedInConnector
 from app.connectors.mercadolibre import NON_SALE_STATUSES as ML_NON_SALE_STATUSES
@@ -32,13 +33,14 @@ from app.models import (
     Store,
     StoreCredential,
     TiendanubeWebhookLog,
-    TokenRefreshAudit,
     User,
 )
 from app.rate_limit import limiter
-from app.security import create_oauth_state_token, decrypt_secret, encrypt_secret, hash_token
+from app.security import create_oauth_state_token, encrypt_secret, hash_token
 from app.services.capi import send_google_purchase_conversion, send_meta_purchase_event
 from app.services.connector_status import _upsert_connector_status
+from app.services.connector_tokens import fresh_access_token as _fresh_access_token
+from app.services.connector_tokens import needs_reconnect
 from app.services.customers import resolve_customer_id
 
 logger = logging.getLogger("ross.connectors")
@@ -150,8 +152,11 @@ def get_shopify_auth_url(
     Returns:
         Authorization URL to redirect user to
     """
+    try:
+        connector = ShopifyConnector(str(store.id), shop_domain)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     state_token = _create_oauth_state(db, store.id, "shopify")
-    connector = ShopifyConnector(str(store.id), shop_domain)
     auth_url = connector.get_oauth_url(state_token)
 
     return {
@@ -224,10 +229,10 @@ def shopify_oauth_callback(
             "message": f"Store {store.name} connected to Shopify",
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "shopify", success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "shopify", success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to authenticate with Shopify: {str(e)}",
+            detail=f"Failed to authenticate with Shopify: {redact(e)}",
         )
 
 
@@ -353,18 +358,18 @@ async def shopify_webhook(
                 topic=topic,
                 signature_valid=True,
                 status="error",
-                error_message=str(e),
+                error_message=redact(e),
             )
         )
         db.commit()
-        _upsert_connector_status(db, store_id, "shopify", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "shopify", synced=True, success=False, error=redact(e))
         logger.error(
             "shopify_webhook_processing_failed",
-            extra={"store_id": str(store_id), "topic": topic, "error": str(e)},
+            extra={"store_id": str(store_id), "topic": topic, "error": redact(e)},
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to process Shopify webhook: {str(e)}",
+            detail=f"Failed to process Shopify webhook: {redact(e)}",
         )
 
 
@@ -403,10 +408,10 @@ def sync_shopify_orders(
         return {"status": "success", "orders_synced": len(sales), "orders_removed": removed}
     except Exception as e:
         db.rollback()
-        _upsert_connector_status(db, store.id, "shopify", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store.id, "shopify", synced=True, success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to sync Shopify orders: {str(e)}",
+            detail=f"Failed to sync Shopify orders: {redact(e)}",
         )
 
 
@@ -462,6 +467,7 @@ def meta_oauth_callback(
 
         if existing:
             existing.access_token = encrypted_token
+            existing.expires_at = token.expires_at
             if ad_account_id:
                 existing.provider_account_id = ad_account_id
         else:
@@ -470,6 +476,7 @@ def meta_oauth_callback(
                 store_id=store_id,
                 provider="meta",
                 access_token=encrypted_token,
+                expires_at=token.expires_at,
                 provider_account_id=ad_account_id,
             )
             db.add(credential)
@@ -482,10 +489,10 @@ def meta_oauth_callback(
             "message": f"Store {store.name} connected to Meta",
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "meta", success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "meta", success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to authenticate with Meta: {str(e)}",
+            detail=f"Failed to authenticate with Meta: {redact(e)}",
         )
 
 
@@ -517,8 +524,8 @@ def sync_meta_ad_spend(
         )
 
     try:
-        access_token = decrypt_secret(credential.access_token)
         connector = MetaConnector(str(store_id), credential.provider_account_id)
+        access_token = _fresh_access_token(db, credential, connector)
 
         spend_records = connector.fetch_ad_spend(access_token, start_date, end_date)
 
@@ -531,10 +538,10 @@ def sync_meta_ad_spend(
             "records_synced": records_synced,
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "meta", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "meta", synced=True, success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to sync Meta ad spend: {str(e)}",
+            detail=f"Failed to sync Meta ad spend: {redact(e)}",
         )
 
 
@@ -565,8 +572,8 @@ def sync_meta_creative_performance(
         )
 
     try:
-        access_token = decrypt_secret(credential.access_token)
         connector = MetaConnector(str(store_id), credential.provider_account_id)
+        access_token = _fresh_access_token(db, credential, connector)
 
         creative_records = connector.fetch_creative_performance(access_token, start_date, end_date)
 
@@ -584,10 +591,10 @@ def sync_meta_creative_performance(
             "records_synced": len(rows),
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "meta", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "meta", synced=True, success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to sync Meta creative performance: {str(e)}",
+            detail=f"Failed to sync Meta creative performance: {redact(e)}",
         )
 
 
@@ -644,7 +651,9 @@ def google_oauth_callback(
 
         if existing:
             existing.access_token = encrypted_token
-            existing.refresh_token = encrypted_refresh
+            # A reconnect that does not hand back a refresh token must not wipe the one we already have.
+            if encrypted_refresh:
+                existing.refresh_token = encrypted_refresh
             existing.expires_at = token.expires_at
             if customer_id:
                 existing.provider_account_id = customer_id
@@ -668,10 +677,10 @@ def google_oauth_callback(
             "message": f"Store {store.name} connected to Google Ads",
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "google", success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "google", success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to authenticate with Google: {str(e)}",
+            detail=f"Failed to authenticate with Google: {redact(e)}",
         )
 
 
@@ -703,35 +712,8 @@ def sync_google_ad_spend(
         )
 
     try:
-        access_token = decrypt_secret(credential.access_token)
-
-        # Check if token is expired and refresh if needed
-        if credential.expires_at and datetime.now(timezone.utc) > credential.expires_at:
-            refresh_token = decrypt_secret(credential.refresh_token) if credential.refresh_token else None
-            if refresh_token:
-                try:
-                    connector = GoogleAdsConnector(str(store_id))
-                    new_token = connector.refresh_access_token(refresh_token)
-                    access_token = new_token.access_token
-                    credential.access_token = encrypt_secret(access_token)
-                    credential.expires_at = new_token.expires_at
-                    db.commit()
-                    db.add(TokenRefreshAudit(id=uuid4(), store_id=store_id, provider="google", success=True))
-                    db.commit()
-                except Exception as refresh_error:
-                    db.add(
-                        TokenRefreshAudit(
-                            id=uuid4(),
-                            store_id=store_id,
-                            provider="google",
-                            success=False,
-                            error_message=str(refresh_error),
-                        )
-                    )
-                    db.commit()
-                    raise
-
         connector = GoogleAdsConnector(str(store_id), credential.provider_account_id)
+        access_token = _fresh_access_token(db, credential, connector)
         spend_records = connector.fetch_ad_spend(access_token, start_date, end_date)
 
         records_synced = _replace_ad_spend_window(db, store_id, "google", start_date, end_date, spend_records)
@@ -743,10 +725,10 @@ def sync_google_ad_spend(
             "records_synced": records_synced,
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "google", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "google", synced=True, success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to sync Google ad spend: {str(e)}",
+            detail=f"Failed to sync Google ad spend: {redact(e)}",
         )
 
 
@@ -777,34 +759,8 @@ def sync_google_creative_performance(
         )
 
     try:
-        access_token = decrypt_secret(credential.access_token)
-
-        if credential.expires_at and datetime.now(timezone.utc) > credential.expires_at:
-            refresh_token = decrypt_secret(credential.refresh_token) if credential.refresh_token else None
-            if refresh_token:
-                try:
-                    connector = GoogleAdsConnector(str(store_id))
-                    new_token = connector.refresh_access_token(refresh_token)
-                    access_token = new_token.access_token
-                    credential.access_token = encrypt_secret(access_token)
-                    credential.expires_at = new_token.expires_at
-                    db.commit()
-                    db.add(TokenRefreshAudit(id=uuid4(), store_id=store_id, provider="google", success=True))
-                    db.commit()
-                except Exception as refresh_error:
-                    db.add(
-                        TokenRefreshAudit(
-                            id=uuid4(),
-                            store_id=store_id,
-                            provider="google",
-                            success=False,
-                            error_message=str(refresh_error),
-                        )
-                    )
-                    db.commit()
-                    raise
-
         connector = GoogleAdsConnector(str(store_id), credential.provider_account_id)
+        access_token = _fresh_access_token(db, credential, connector)
         creative_records = connector.fetch_creative_performance(access_token, start_date, end_date)
 
         from app.models import creative_performance as creative_performance_table
@@ -821,10 +777,10 @@ def sync_google_creative_performance(
             "records_synced": len(rows),
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "google", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "google", synced=True, success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to sync Google creative performance: {str(e)}",
+            detail=f"Failed to sync Google creative performance: {redact(e)}",
         )
 
 
@@ -900,10 +856,10 @@ def tiktok_oauth_callback(
             "message": f"Store {store.name} connected to TikTok",
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "tiktok", success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "tiktok", success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to authenticate with TikTok: {str(e)}",
+            detail=f"Failed to authenticate with TikTok: {redact(e)}",
         )
 
 
@@ -934,8 +890,8 @@ def sync_tiktok_ad_spend(
         )
 
     try:
-        access_token = decrypt_secret(credential.access_token)
         connector = TikTokConnector(str(store_id), credential.provider_account_id)
+        access_token = _fresh_access_token(db, credential, connector)
 
         spend_records = connector.fetch_ad_spend(access_token, start_date, end_date)
 
@@ -948,10 +904,10 @@ def sync_tiktok_ad_spend(
             "records_synced": records_synced,
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "tiktok", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "tiktok", synced=True, success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to sync TikTok ad spend: {str(e)}",
+            detail=f"Failed to sync TikTok ad spend: {redact(e)}",
         )
 
 
@@ -982,8 +938,8 @@ def sync_tiktok_creative_performance(
         )
 
     try:
-        access_token = decrypt_secret(credential.access_token)
         connector = TikTokConnector(str(store_id), credential.provider_account_id)
+        access_token = _fresh_access_token(db, credential, connector)
 
         creative_records = connector.fetch_creative_performance(access_token, start_date, end_date)
 
@@ -1001,10 +957,10 @@ def sync_tiktok_creative_performance(
             "records_synced": len(rows),
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "tiktok", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "tiktok", synced=True, success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to sync TikTok creative performance: {str(e)}",
+            detail=f"Failed to sync TikTok creative performance: {redact(e)}",
         )
 
 
@@ -1061,7 +1017,9 @@ def linkedin_oauth_callback(
 
         if existing:
             existing.access_token = encrypted_token
-            existing.refresh_token = encrypted_refresh
+            # A reconnect that does not hand back a refresh token must not wipe the one we already have.
+            if encrypted_refresh:
+                existing.refresh_token = encrypted_refresh
             existing.expires_at = token.expires_at
             if ad_account_id:
                 existing.provider_account_id = ad_account_id
@@ -1085,10 +1043,10 @@ def linkedin_oauth_callback(
             "message": f"Store {store.name} connected to LinkedIn",
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "linkedin", success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "linkedin", success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to authenticate with LinkedIn: {str(e)}",
+            detail=f"Failed to authenticate with LinkedIn: {redact(e)}",
         )
 
 
@@ -1119,34 +1077,8 @@ def sync_linkedin_ad_spend(
         )
 
     try:
-        access_token = decrypt_secret(credential.access_token)
-
-        if credential.expires_at and datetime.now(timezone.utc) > credential.expires_at:
-            refresh_token = decrypt_secret(credential.refresh_token) if credential.refresh_token else None
-            if refresh_token:
-                try:
-                    connector = LinkedInConnector(str(store_id))
-                    new_token = connector.refresh_access_token(refresh_token)
-                    access_token = new_token.access_token
-                    credential.access_token = encrypt_secret(access_token)
-                    credential.expires_at = new_token.expires_at
-                    db.commit()
-                    db.add(TokenRefreshAudit(id=uuid4(), store_id=store_id, provider="linkedin", success=True))
-                    db.commit()
-                except Exception as refresh_error:
-                    db.add(
-                        TokenRefreshAudit(
-                            id=uuid4(),
-                            store_id=store_id,
-                            provider="linkedin",
-                            success=False,
-                            error_message=str(refresh_error),
-                        )
-                    )
-                    db.commit()
-                    raise
-
         connector = LinkedInConnector(str(store_id), credential.provider_account_id)
+        access_token = _fresh_access_token(db, credential, connector)
         spend_records = connector.fetch_ad_spend(access_token, start_date, end_date)
 
         records_synced = _replace_ad_spend_window(db, store_id, "linkedin", start_date, end_date, spend_records)
@@ -1158,10 +1090,10 @@ def sync_linkedin_ad_spend(
             "records_synced": records_synced,
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "linkedin", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "linkedin", synced=True, success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to sync LinkedIn ad spend: {str(e)}",
+            detail=f"Failed to sync LinkedIn ad spend: {redact(e)}",
         )
 
 
@@ -1192,34 +1124,8 @@ def sync_linkedin_creative_performance(
         )
 
     try:
-        access_token = decrypt_secret(credential.access_token)
-
-        if credential.expires_at and datetime.now(timezone.utc) > credential.expires_at:
-            refresh_token = decrypt_secret(credential.refresh_token) if credential.refresh_token else None
-            if refresh_token:
-                try:
-                    connector = LinkedInConnector(str(store_id))
-                    new_token = connector.refresh_access_token(refresh_token)
-                    access_token = new_token.access_token
-                    credential.access_token = encrypt_secret(access_token)
-                    credential.expires_at = new_token.expires_at
-                    db.commit()
-                    db.add(TokenRefreshAudit(id=uuid4(), store_id=store_id, provider="linkedin", success=True))
-                    db.commit()
-                except Exception as refresh_error:
-                    db.add(
-                        TokenRefreshAudit(
-                            id=uuid4(),
-                            store_id=store_id,
-                            provider="linkedin",
-                            success=False,
-                            error_message=str(refresh_error),
-                        )
-                    )
-                    db.commit()
-                    raise
-
         connector = LinkedInConnector(str(store_id), credential.provider_account_id)
+        access_token = _fresh_access_token(db, credential, connector)
         creative_records = connector.fetch_creative_performance(access_token, start_date, end_date)
 
         from app.models import creative_performance as creative_performance_table
@@ -1236,10 +1142,10 @@ def sync_linkedin_creative_performance(
             "records_synced": len(rows),
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "linkedin", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "linkedin", synced=True, success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to sync LinkedIn creative performance: {str(e)}",
+            detail=f"Failed to sync LinkedIn creative performance: {redact(e)}",
         )
 
 
@@ -1313,10 +1219,10 @@ def tiendanube_oauth_callback(
             "message": f"Store {store.name} connected to Tiendanube",
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "tiendanube", success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "tiendanube", success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to authenticate with Tiendanube: {str(e)}",
+            detail=f"Failed to authenticate with Tiendanube: {redact(e)}",
         )
 
 
@@ -1442,18 +1348,18 @@ async def tiendanube_webhook(
                 topic=topic,
                 signature_valid=True,
                 status="error",
-                error_message=str(e),
+                error_message=redact(e),
             )
         )
         db.commit()
-        _upsert_connector_status(db, store_id, "tiendanube", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "tiendanube", synced=True, success=False, error=redact(e))
         logger.error(
             "tiendanube_webhook_processing_failed",
-            extra={"store_id": str(store_id), "topic": topic, "error": str(e)},
+            extra={"store_id": str(store_id), "topic": topic, "error": redact(e)},
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to process Tiendanube webhook: {str(e)}",
+            detail=f"Failed to process Tiendanube webhook: {redact(e)}",
         )
 
 
@@ -1489,10 +1395,10 @@ def sync_tiendanube_orders(
         return {"status": "success", "orders_synced": len(sales), "orders_removed": removed}
     except Exception as e:
         db.rollback()
-        _upsert_connector_status(db, store.id, "tiendanube", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store.id, "tiendanube", synced=True, success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to sync Tiendanube orders: {str(e)}",
+            detail=f"Failed to sync Tiendanube orders: {redact(e)}",
         )
 
 
@@ -1571,10 +1477,10 @@ def mercadopago_oauth_callback(
             "message": f"Store {store.name} connected to MercadoPago",
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "mercadopago", success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "mercadopago", success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to authenticate with MercadoPago: {str(e)}",
+            detail=f"Failed to authenticate with MercadoPago: {redact(e)}",
         )
 
 
@@ -1603,10 +1509,10 @@ def sync_mercadopago_payments(
         return {"status": "success", **result}
     except Exception as e:
         db.rollback()
-        _upsert_connector_status(db, store.id, "mercadopago", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store.id, "mercadopago", synced=True, success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to sync MercadoPago payments: {str(e)}",
+            detail=f"Failed to sync MercadoPago payments: {redact(e)}",
         )
 
 
@@ -1667,10 +1573,10 @@ def _sync_mercadopago_payment(db: Session, seller_id: str, payment_id: str) -> N
             _upsert_connector_status(db, store.id, "mercadopago", synced=True, success=True)
         except Exception as e:
             db.rollback()
-            _upsert_connector_status(db, store.id, "mercadopago", synced=True, success=False, error=str(e))
+            _upsert_connector_status(db, store.id, "mercadopago", synced=True, success=False, error=redact(e))
             logger.error(
                 "mercadopago_notification_failed",
-                extra={"store_id": str(store.id), "payment_id": payment_id, "error": str(e)},
+                extra={"store_id": str(store.id), "payment_id": payment_id, "error": redact(e)},
             )
 
 
@@ -1782,10 +1688,10 @@ def mercadolibre_oauth_callback(
             "message": f"Store {store.name} connected to Mercado Libre",
         }
     except Exception as e:
-        _upsert_connector_status(db, store_id, "mercadolibre", success=False, error=str(e))
+        _upsert_connector_status(db, store_id, "mercadolibre", success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to authenticate with Mercado Libre: {str(e)}",
+            detail=f"Failed to authenticate with Mercado Libre: {redact(e)}",
         )
 
 
@@ -1831,10 +1737,10 @@ def sync_mercadolibre_orders(
         }
     except Exception as e:
         db.rollback()
-        _upsert_connector_status(db, store.id, "mercadolibre", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store.id, "mercadolibre", synced=True, success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to sync Mercado Libre orders: {str(e)}",
+            detail=f"Failed to sync Mercado Libre orders: {redact(e)}",
         )
 
 
@@ -1886,10 +1792,10 @@ def sync_mercadolibre_ad_spend(
         return {"status": "success", "records_synced": len(rows), "product_ads_enabled": True}
     except Exception as e:
         db.rollback()
-        _upsert_connector_status(db, store.id, "mercadolibre", synced=True, success=False, error=str(e))
+        _upsert_connector_status(db, store.id, "mercadolibre", synced=True, success=False, error=redact(e))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to sync Mercado Libre ad spend: {str(e)}",
+            detail=f"Failed to sync Mercado Libre ad spend: {redact(e)}",
         )
 
 
@@ -1938,7 +1844,7 @@ def _mercadolibre_order_row(
         known = False
         logger.warning(
             "mercadolibre_shipping_cost_failed",
-            extra={"store_id": str(store_id), "order_id": str(order.get("id")), "error": str(e)},
+            extra={"store_id": str(store_id), "order_id": str(order.get("id")), "error": redact(e)},
         )
     return connector.order_to_row(order, shipping_fee), known
 
@@ -1968,10 +1874,10 @@ def _sync_mercadolibre_order(db: Session, seller_id: str, resource: str) -> None
             _upsert_connector_status(db, store_id, "mercadolibre", synced=True, success=True)
         except Exception as e:
             db.rollback()
-            _upsert_connector_status(db, store_id, "mercadolibre", synced=True, success=False, error=str(e))
+            _upsert_connector_status(db, store_id, "mercadolibre", synced=True, success=False, error=redact(e))
             logger.error(
                 "mercadolibre_notification_failed",
-                extra={"store_id": str(store_id), "resource": resource, "error": str(e)},
+                extra={"store_id": str(store_id), "resource": resource, "error": redact(e)},
             )
 
 
@@ -1980,9 +1886,6 @@ def _sync_mercadolibre_order(db: Session, seller_id: str, resource: str) -> None
 # ============================================================================
 
 # Refresh a bit before the real expiry so a token can't die mid-sync.
-TOKEN_REFRESH_MARGIN = timedelta(minutes=5)
-
-
 def _require_credential(db: Session, store_id: UUID, provider: str, label: str) -> StoreCredential:
     credential = db.query(StoreCredential).filter_by(store_id=store_id, provider=provider).first()
     if not credential:
@@ -1991,50 +1894,6 @@ def _require_credential(db: Session, store_id: UUID, provider: str, label: str) 
             detail=f"{label} credentials not configured for this store",
         )
     return credential
-
-
-def _fresh_access_token(db: Session, credential: StoreCredential, connector) -> str:
-    """The credential's decrypted access token, refreshed first if it's
-    about to expire.
-
-    The refresh runs with the row locked (SELECT ... FOR UPDATE): Mercado
-    Libre refresh tokens are single-use, so two concurrent refreshes (a
-    manual sync racing a notification) would leave the loser presenting a
-    spent token — and the store disconnected for good.
-    """
-    now = datetime.now(timezone.utc)
-    if not credential.expires_at or credential.expires_at - TOKEN_REFRESH_MARGIN > now:
-        return decrypt_secret(credential.access_token)
-
-    locked = db.query(StoreCredential).filter_by(id=credential.id).with_for_update().populate_existing().one()
-    # Someone else may have refreshed while this waited on the lock.
-    if not locked.refresh_token or (locked.expires_at and locked.expires_at - TOKEN_REFRESH_MARGIN > now):
-        db.commit()
-        return decrypt_secret(locked.access_token)
-
-    try:
-        token = connector.refresh_access_token(decrypt_secret(locked.refresh_token))
-    except Exception as refresh_error:
-        db.rollback()
-        db.add(
-            TokenRefreshAudit(
-                id=uuid4(),
-                store_id=locked.store_id,
-                provider=connector.provider,
-                success=False,
-                error_message=str(refresh_error),
-            )
-        )
-        db.commit()
-        raise
-
-    locked.access_token = encrypt_secret(token.access_token)
-    if token.refresh_token:
-        locked.refresh_token = encrypt_secret(token.refresh_token)
-    locked.expires_at = token.expires_at
-    db.add(TokenRefreshAudit(id=uuid4(), store_id=locked.store_id, provider=connector.provider, success=True))
-    db.commit()
-    return token.access_token
 
 
 def _upsert_orders(db: Session, store_id: UUID, order_rows: list[dict]) -> None:
@@ -2104,11 +1963,18 @@ def connector_health(
     Shopify webhook above keeps updated.
     """
     rows = db.query(ConnectorStatus).filter(ConnectorStatus.store_id == store.id).all()
-    credentials = db.query(StoreCredential.provider).filter(StoreCredential.store_id == store.id).all()
-    connected_providers = {provider for (provider,) in credentials}
+    credentials = (
+        db.query(StoreCredential.provider, StoreCredential.expires_at, StoreCredential.refresh_token)
+        .filter(StoreCredential.store_id == store.id)
+        .all()
+    )
+    connected_providers = {provider for (provider, _, _) in credentials}
+    expired = {provider for (provider, expires_at, refresh) in credentials if needs_reconnect(expires_at, bool(refresh))}
     health = {
         row.provider: {
             "connected": row.provider in connected_providers,
+            "needs_reconnect": row.provider in expired
+            or RECONNECT_MESSAGE in (row.last_error, row.last_sync_error),
             "last_synced_at": row.last_synced_at,
             "last_success_at": row.last_success_at,
             "last_error": row.last_error,
@@ -2118,5 +1984,5 @@ def connector_health(
         for row in rows
     }
     for provider in connected_providers:
-        health.setdefault(provider, {"connected": True})
+        health.setdefault(provider, {"connected": True, "needs_reconnect": provider in expired})
     return health

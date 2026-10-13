@@ -31,6 +31,35 @@ def pytest_collection_modifyitems(items):
             item.add_marker(pytest.mark.db)
 
 
+# Every connector needs its client id, secret and redirect URI to build a provider URL or exchange a
+# code; without them it refuses (see app.connectors.require_config). Tests run with fake ones, set in
+# the environment because each connector reads its settings from it when it is built.
+CONNECTOR_TEST_ENV = {
+    "SHOPIFY_API_KEY": "test-shopify-key",
+    "SHOPIFY_API_SECRET": "test-shopify-secret",
+    "META_APP_ID": "test-meta-app",
+    "META_APP_SECRET": "test-meta-secret",
+    "GOOGLE_CLIENT_ID": "test-google-id",
+    "GOOGLE_CLIENT_SECRET": "test-google-secret",
+    "TIKTOK_APP_ID": "test-tiktok-app",
+    "TIKTOK_APP_SECRET": "test-tiktok-secret",
+    "LINKEDIN_CLIENT_ID": "test-linkedin-id",
+    "LINKEDIN_CLIENT_SECRET": "test-linkedin-secret",
+    "TIENDANUBE_CLIENT_ID": "test-tiendanube-id",
+    "TIENDANUBE_CLIENT_SECRET": "test-tiendanube-secret",
+    "MERCADOLIBRE_CLIENT_ID": "test-ml-id",
+    "MERCADOLIBRE_CLIENT_SECRET": "test-ml-secret",
+    "MERCADOPAGO_CLIENT_ID": "test-mp-id",
+    "MERCADOPAGO_CLIENT_SECRET": "test-mp-secret",
+}
+
+
+@pytest.fixture(autouse=True)
+def _connector_credentials(monkeypatch):
+    for name, value in CONNECTOR_TEST_ENV.items():
+        monkeypatch.setenv(name, value)
+
+
 @pytest.fixture(autouse=True)
 def _reset_rate_limiter():
     """The limiter's in-memory storage is process-global and TestClient

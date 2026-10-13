@@ -16,12 +16,13 @@ from uuid import UUID, uuid4
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
+from app.connectors import redact
 from app.connectors.google import GoogleAdsConnector
 from app.connectors.meta import MetaConnector
 from app.database import SessionLocal
 from app.models import CapiEvent, Customer, StoreCredential
-from app.security import decrypt_secret
 from app.services.connector_status import _upsert_connector_status
+from app.services.connector_tokens import fresh_access_token
 
 
 def _order_time(order_row: dict) -> datetime:
@@ -86,8 +87,9 @@ def send_meta_purchase_event(store_id: UUID, order_id: str, order_row: dict) -> 
         if not customer:
             return
         try:
-            access_token = decrypt_secret(credential.access_token)
-            MetaConnector(str(store_id)).send_purchase_event(
+            connector = MetaConnector(str(store_id))
+            access_token = fresh_access_token(db, credential, connector)
+            connector.send_purchase_event(
                 access_token,
                 credential.capi_destination_id,
                 order_id,
@@ -99,7 +101,7 @@ def send_meta_purchase_event(store_id: UUID, order_id: str, order_row: dict) -> 
             )
             _record_result(db, store_id, order_id, "meta", "sent", None)
         except Exception as e:
-            _record_result(db, store_id, order_id, "meta", "failed", str(e))
+            _record_result(db, store_id, order_id, "meta", "failed", redact(e))
     finally:
         db.close()
 
@@ -114,13 +116,14 @@ def send_google_purchase_conversion(store_id: UUID, order_id: str, order_row: di
         if not customer:
             return
         try:
-            access_token = decrypt_secret(credential.access_token)
             # capi_destination_id for Google is the full conversionAction
             # resource name ("customers/{id}/conversionActions/{id}") — the
             # Ads account id the uploadClickConversions call needs is just
             # its first path segment, so no separate config field is needed.
             google_customer_id = credential.capi_destination_id.split("/")[1]
-            GoogleAdsConnector(str(store_id), customer_id=google_customer_id).send_purchase_conversion(
+            connector = GoogleAdsConnector(str(store_id), customer_id=google_customer_id)
+            access_token = fresh_access_token(db, credential, connector)
+            connector.send_purchase_conversion(
                 access_token,
                 credential.capi_destination_id,
                 order_id,
@@ -132,6 +135,6 @@ def send_google_purchase_conversion(store_id: UUID, order_id: str, order_row: di
             )
             _record_result(db, store_id, order_id, "google", "sent", None)
         except Exception as e:
-            _record_result(db, store_id, order_id, "google", "failed", str(e))
+            _record_result(db, store_id, order_id, "google", "failed", redact(e))
     finally:
         db.close()

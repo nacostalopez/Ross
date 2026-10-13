@@ -4,11 +4,14 @@ import uuid
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.config import settings
+from app.connectors import ConnectorNotConfigured
+from app.connectors.config_check import connector_config_report
 from app.logging_config import configure_logging
 from app.rate_limit import limiter
 from app.routes import (
@@ -36,10 +39,35 @@ settings.validate_production_ready()
 configure_logging(settings.log_level)
 logger = logging.getLogger("ross.request")
 
+
+def _log_connector_configuration() -> None:
+    """One line per connector at boot: configured, partial or not configured, and what is missing."""
+    for provider, info in connector_config_report(production=settings.environment == "production").items():
+        level = logging.WARNING if info["state"] == "partial" or info["problems"] else logging.INFO
+        logger.log(level, "connector_configuration", extra={"provider": provider, **info})
+
+
+_log_connector_configuration()
+
 app = FastAPI(title="Ross", version="0.1.0")
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.exception_handler(ConnectorNotConfigured)
+async def connector_not_configured_handler(request: Request, exc: ConnectorNotConfigured):
+    """A connector whose credentials are missing in this environment: tell the user it is unavailable
+    (503) and tell the operator which variables are missing (names only, never values)."""
+    logger.error(
+        "connector_not_configured", extra={"provider": exc.provider, "missing": exc.missing, "path": request.url.path}
+    )
+    return JSONResponse(
+        status_code=503,
+        content={"detail": f"El conector de {exc.provider} todavía no está configurado en el servidor."},
+    )
+
+
 app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(

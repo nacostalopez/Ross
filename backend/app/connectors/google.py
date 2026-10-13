@@ -1,12 +1,13 @@
 """Google Ads connector for ad spend tracking."""
 
+import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import requests
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.connectors import BaseConnector, OAuthToken
+from app.connectors import HTTP_TIMEOUT, BaseConnector, OAuthToken, require_config
 
 
 class GoogleSettings(BaseSettings):
@@ -27,13 +28,15 @@ class GoogleSettings(BaseSettings):
 class GoogleAdsConnector(BaseConnector):
     """Google Ads connector for OAuth and ad spend tracking."""
 
-    API_VERSION = "v15"
+    # Overridable without a deploy of code: GOOGLE_ADS_API_VERSION. v15 was sunset long ago (every call 404s).
+    API_VERSION = os.environ.get("GOOGLE_ADS_API_VERSION", "v25")
     API_BASE = f"https://googleads.googleapis.com/{API_VERSION}"
     OAUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
     TOKEN_URL = "https://oauth2.googleapis.com/token"
     # Bump API_VERSION when Google sunsets it (~1yr cycle) and log what changed here.
     BREAKING_CHANGES = [
         "v15: initial implementation",
+        "v25 (2026-10): moved off the sunset v15; field names used here were not changed by Google",
     ]
 
     def __init__(self, store_id: str, customer_id: Optional[str] = None):
@@ -43,6 +46,9 @@ class GoogleAdsConnector(BaseConnector):
 
     def get_oauth_url(self, state: str) -> str:
         """Get Google OAuth authorization URL."""
+        require_config(
+            "google", GOOGLE_CLIENT_ID=self.settings.google_client_id, GOOGLE_REDIRECT_URI=self.settings.google_redirect_uri
+        )
         from urllib.parse import urlencode
 
         params = {
@@ -59,6 +65,11 @@ class GoogleAdsConnector(BaseConnector):
 
     def exchange_auth_code(self, code: str, redirect_uri: str) -> OAuthToken:
         """Exchange authorization code for access token."""
+        require_config(
+            "google",
+            GOOGLE_CLIENT_ID=self.settings.google_client_id,
+            GOOGLE_CLIENT_SECRET=self.settings.google_client_secret,
+        )
         payload = {
             "client_id": self.settings.google_client_id,
             "client_secret": self.settings.google_client_secret,
@@ -67,7 +78,7 @@ class GoogleAdsConnector(BaseConnector):
             "redirect_uri": redirect_uri,
         }
 
-        response = requests.post(self.TOKEN_URL, data=payload)
+        response = requests.post(self.TOKEN_URL, data=payload, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
 
         data = response.json()
@@ -100,7 +111,7 @@ class GoogleAdsConnector(BaseConnector):
             "grant_type": "refresh_token",
         }
 
-        response = requests.post(self.TOKEN_URL, data=payload)
+        response = requests.post(self.TOKEN_URL, data=payload, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
 
         data = response.json()
@@ -163,7 +174,7 @@ class GoogleAdsConnector(BaseConnector):
 
         spend_records = []
 
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json=payload, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
 
         data = response.json()
@@ -227,7 +238,7 @@ class GoogleAdsConnector(BaseConnector):
 
         payload = {"query": query}
 
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json=payload, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
 
         data = response.json()
@@ -332,7 +343,7 @@ class GoogleAdsConnector(BaseConnector):
             "partialFailure": True,
         }
 
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json=payload, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
         # partialFailure=True means Google returns HTTP 200 even when a
         # conversion row itself was rejected — the real error lands in the

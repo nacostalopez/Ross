@@ -1,12 +1,13 @@
 """LinkedIn Ads connector for ad spend tracking."""
 
+import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import requests
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.connectors import BaseConnector, OAuthToken
+from app.connectors import HTTP_TIMEOUT, BaseConnector, OAuthToken, require_config
 
 
 class LinkedInSettings(BaseSettings):
@@ -29,12 +30,14 @@ class LinkedInConnector(BaseConnector):
     # Rest.li versioned API — LinkedIn-Version is a "YYYYMM" release, not a
     # path segment like Meta's/Google's API_VERSION. Bump it when LinkedIn
     # sunsets the current one (~1yr window) and log what changed here.
-    API_VERSION = "202401"
+    # Overridable without a deploy of code: LINKEDIN_API_VERSION. 202401 is retired (426 NONEXISTENT_VERSION).
+    API_VERSION = os.environ.get("LINKEDIN_API_VERSION", "202607")
     API_BASE = "https://api.linkedin.com/rest"
     AUTH_URL = "https://www.linkedin.com/oauth/v2/authorization"
     TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
     BREAKING_CHANGES = [
         "202401: initial implementation",
+        "202607 (2026-10): moved off the retired 202401",
     ]
 
     def __init__(self, store_id: str, ad_account_id: Optional[str] = None):
@@ -51,6 +54,11 @@ class LinkedInConnector(BaseConnector):
 
     def get_oauth_url(self, state: str) -> str:
         """Get LinkedIn OAuth authorization URL."""
+        require_config(
+            "linkedin",
+            LINKEDIN_CLIENT_ID=self.settings.linkedin_client_id,
+            LINKEDIN_REDIRECT_URI=self.settings.linkedin_redirect_uri,
+        )
         params = {
             "response_type": "code",
             "client_id": self.settings.linkedin_client_id,
@@ -71,6 +79,11 @@ class LinkedInConnector(BaseConnector):
         Platform apps, returns both an access_token (~60 day expiry) and a
         refresh_token (~1yr expiry) — unlike Meta's non-expiring token.
         """
+        require_config(
+            "linkedin",
+            LINKEDIN_CLIENT_ID=self.settings.linkedin_client_id,
+            LINKEDIN_CLIENT_SECRET=self.settings.linkedin_client_secret,
+        )
         payload = {
             "grant_type": "authorization_code",
             "code": code,
@@ -79,7 +92,7 @@ class LinkedInConnector(BaseConnector):
             "redirect_uri": redirect_uri,
         }
 
-        response = requests.post(self.TOKEN_URL, data=payload)
+        response = requests.post(self.TOKEN_URL, data=payload, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
 
         data = response.json()
@@ -103,7 +116,7 @@ class LinkedInConnector(BaseConnector):
             "client_secret": self.settings.linkedin_client_secret,
         }
 
-        response = requests.post(self.TOKEN_URL, data=payload)
+        response = requests.post(self.TOKEN_URL, data=payload, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
 
         data = response.json()
@@ -233,7 +246,7 @@ class LinkedInConnector(BaseConnector):
             "&fields=dateRange,pivotValues,impressions,clicks,costInLocalCurrency"
         )
 
-        response = requests.get(f"{url}?{params}", headers=self._headers(access_token))
+        response = requests.get(f"{url}?{params}", headers=self._headers(access_token), timeout=HTTP_TIMEOUT)
         response.raise_for_status()
 
         return response.json().get("elements", [])

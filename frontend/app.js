@@ -1298,7 +1298,7 @@ function renderSyncStatus(health) {
   const providers = CONNECTOR_STATUS_PROVIDERS.map((provider) => [provider, health?.[provider]]).filter(([, info]) => info);
   const connected = providers.filter(([, info]) => info.connected);
   const failing = providers.filter(([, info]) =>
-    info.last_sync_status === "error" || (!info.connected && info.last_error),
+    info.needs_reconnect || info.last_sync_status === "error" || (!info.connected && info.last_error),
   );
   const synced = connected.map(([, info]) => info.last_synced_at).filter(Boolean).sort();
   el.classList.toggle("sync-status-error", failing.length > 0);
@@ -1338,7 +1338,11 @@ function renderConnectorGrid(health) {
       const isConnected = Boolean(info.connected);
       let dotClass = "none";
       let statusText = "No conectado";
-      if (!isConnected && info.last_error) {
+      if (isConnected && info.needs_reconnect) {
+        // The token expired or was revoked and cannot be renewed: only connecting again fixes it.
+        dotClass = "error";
+        statusText = "Hay que volver a conectarla: la conexión venció o fue revocada.";
+      } else if (!isConnected && info.last_error) {
         dotClass = "error";
         statusText = `Error de conexión: ${info.last_error}`;
       } else if (isConnected && info.last_sync_status === "error") {

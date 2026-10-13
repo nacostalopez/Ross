@@ -13,7 +13,7 @@ from urllib.parse import urlencode
 import requests
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.connectors import BaseConnector, OAuthToken
+from app.connectors import HTTP_TIMEOUT, BaseConnector, OAuthToken, require_config
 
 
 class MercadoLibreSettings(BaseSettings):
@@ -57,6 +57,11 @@ class MercadoLibreConnector(BaseConnector):
 
     def get_oauth_url(self, state: str) -> str:
         """Get Mercado Libre OAuth authorization URL."""
+        require_config(
+            "mercadolibre",
+            MERCADOLIBRE_CLIENT_ID=self.settings.mercadolibre_client_id,
+            MERCADOLIBRE_REDIRECT_URI=self.settings.mercadolibre_redirect_uri,
+        )
         params = {
             "response_type": "code",
             "client_id": self.settings.mercadolibre_client_id,
@@ -71,6 +76,7 @@ class MercadoLibreConnector(BaseConnector):
             f"{self.API_BASE}/oauth/token",
             data=payload,
             headers={"accept": "application/json", "content-type": "application/x-www-form-urlencoded"},
+            timeout=HTTP_TIMEOUT,
         )
         response.raise_for_status()
         return response.json()
@@ -184,7 +190,7 @@ class MercadoLibreConnector(BaseConnector):
         """GET a single order by its notification resource path ("/orders/123")."""
         if not resource.startswith("/orders/"):
             raise ValueError(f"Unexpected resource: {resource}")
-        response = requests.get(f"{self.API_BASE}{resource}", headers={"Authorization": f"Bearer {access_token}"})
+        response = requests.get(f"{self.API_BASE}{resource}", headers={"Authorization": f"Bearer {access_token}"}, timeout=HTTP_TIMEOUT)
         response.raise_for_status()
         return response.json()
 
@@ -204,6 +210,7 @@ class MercadoLibreConnector(BaseConnector):
         response = requests.get(
             f"{self.API_BASE}/shipments/{shipment_id}/costs",
             headers={"Authorization": f"Bearer {access_token}"},
+            timeout=HTTP_TIMEOUT,
         )
         response.raise_for_status()
         senders = response.json().get("senders") or []
@@ -229,7 +236,7 @@ class MercadoLibreConnector(BaseConnector):
 
         orders = []
         while True:
-            response = requests.get(f"{self.API_BASE}/orders/search", headers=headers, params=params)
+            response = requests.get(f"{self.API_BASE}/orders/search", headers=headers, params=params, timeout=HTTP_TIMEOUT)
             response.raise_for_status()
             results = response.json().get("results", [])
             orders.extend(results)
@@ -259,6 +266,7 @@ class MercadoLibreConnector(BaseConnector):
             f"{self.API_BASE}/advertising/advertisers",
             headers=self._ads_headers(access_token, "1"),
             params={"product_id": "PADS"},
+            timeout=HTTP_TIMEOUT,
         )
         # 404 = "No permissions found for user_id": Product Ads isn't enabled
         # for this seller — not an error, there's just no spend to sync.
@@ -307,6 +315,7 @@ class MercadoLibreConnector(BaseConnector):
                 f"{self.API_BASE}/advertising/advertisers/{advertiser_id}/product_ads/campaigns",
                 headers=headers,
                 params=params,
+                timeout=HTTP_TIMEOUT,
             )
             response.raise_for_status()
             results = response.json().get("results", [])
@@ -325,6 +334,7 @@ class MercadoLibreConnector(BaseConnector):
                 f"{self.API_BASE}/advertising/product_ads/campaigns/{campaign['id']}",
                 headers=headers,
                 params={**date_params, "metrics": "cost,prints,clicks", "aggregation_type": "DAILY"},
+                timeout=HTTP_TIMEOUT,
             )
             response.raise_for_status()
             body = response.json()

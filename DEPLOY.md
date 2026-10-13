@@ -106,3 +106,17 @@ Register these addresses in each provider's app, exactly as written:
 
 Most providers also ask for a privacy policy and terms of service URL on the
 same domain.
+
+## Connectors: what to check after a deploy
+
+- **Boot log.** The backend writes one `connector_configuration` line per connector: `configured`, `partial` (some
+  variables set, others not) or `not_configured`, with the names (never the values) of what is missing. A `partial`
+  connector, or one whose redirect URI is not `https` in production, is logged as a warning.
+- **A connector with an empty client id or secret answers 503** ("todavía no está configurado en el servidor") when a
+  user clicks Conectar, instead of sending them to a provider page that refuses it. The log line `connector_not_configured`
+  names the missing variables.
+- **API versions** (`META_API_VERSION`, `GOOGLE_ADS_API_VERSION`, `LINKEDIN_API_VERSION`, `SHOPIFY_API_VERSION`) have current
+  defaults. When a provider retires one before the code is updated, set the variable in the Ross service instead of waiting for a deploy.
+- **Expired or revoked tokens** show "Hay que volver a conectarla" in Estado de conectores. Meta tokens last about 60 days and
+  have no refresh token, so a Meta connector needs to be connected again at that point.
+- Shopify's `shop` must be a `*.myshopify.com` domain, and webhooks without a configured secret or without a signature are rejected (401).
