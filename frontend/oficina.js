@@ -24,12 +24,12 @@
   const CLOTH_NAMES = ["Ropa celeste", "Ropa azul", "Ropa verde", "Ropa amarilla", "Ropa roja", "Ropa violeta"];
 
   const SEATS = [
-    { id: "con", name: "Conectores", role: "Mantiene las tiendas y plataformas sincronizadas.", x: 70, y: 78, face: "down", cloth: "#2d7bc4", skin: "#f1c9a0", hair: "#2b1d14", hue: "#8fc2f0" },
-    { id: "fin", name: "Finanzas", role: "Calcula True ROAS, costos y ganancia neta.", x: 120, y: 78, face: "down", cloth: "#3fae6d", skin: "#c98f64", hair: "#0e0e12", hue: "#8fd9ae" },
-    { id: "ads", name: "Anuncios", role: "Mira el rendimiento de cada campaña y creativo.", x: 170, y: 78, face: "down", cloth: "#e8833a", skin: "#8a5a3c", hair: "#7a4a22", hue: "#f4b585" },
-    { id: "cli", name: "Clientes", role: "Sigue cohortes, valor de vida y recompra.", x: 70, y: 158, face: "up", cloth: "#8a63d2", skin: "#f6d7b8", hair: "#d9b36a", hue: "#c3aaf0" },
-    { id: "ale", name: "Alertas", role: "Vigila costos y retorno, y avisa si se desvían.", x: 120, y: 158, face: "up", cloth: "#d9534f", skin: "#c98f64", hair: "#2b1d14", hue: "#f2a39c" },
-    { id: "rep", name: "Reportes", role: "Arma el resumen semanal de cada tienda.", x: 170, y: 158, face: "up", cloth: "#e0a526", skin: "#f1c9a0", hair: "#0e0e12", hue: "#f0cf7a" },
+    { id: "con", name: "Pulso", mod: "Conectores", mide: "Qué tan frescos están los datos: última sincronización y errores.", role: "Le toma el pulso a la sincronización de tiendas y plataformas.", x: 70, y: 78, face: "down", cloth: "#2d7bc4", skin: "#f1c9a0", hair: "#2b1d14", hue: "#8fc2f0" },
+    { id: "fin", name: "Saldo", mod: "Finanzas", mide: "True ROAS y ganancia real después de anuncios.", role: "Muestra lo que queda al final, después de todos los costos.", x: 120, y: 78, face: "down", cloth: "#3fae6d", skin: "#c98f64", hair: "#0e0e12", hue: "#8fd9ae" },
+    { id: "ads", name: "Foco", mod: "Anuncios", mide: "Gasto, CTR y CPC de cada creativo.", role: "Ayuda a ver dónde conviene poner el gasto.", x: 170, y: 78, face: "down", cloth: "#e8833a", skin: "#8a5a3c", hair: "#7a4a22", hue: "#f4b585" },
+    { id: "cli", name: "Retorno", mod: "Clientes", mide: "Valor de vida por cohorte, recompra y recupero del CAC.", role: "Sigue si los clientes regresan a comprar.", x: 70, y: 158, face: "up", cloth: "#8a63d2", skin: "#f6d7b8", hair: "#d9b36a", hue: "#c3aaf0" },
+    { id: "ale", name: "Vigía", mod: "Alertas", mide: "CAC por canal y ROAS mínimo.", role: "Vigila los números y avisa si se desvían.", x: 120, y: 158, face: "up", cloth: "#d9534f", skin: "#c98f64", hair: "#2b1d14", hue: "#f2a39c" },
+    { id: "rep", name: "Bitácora", mod: "Reportes", mide: "El resumen de la semana de cada tienda.", role: "Lleva el registro de la semana y lo arma como resumen.", x: 170, y: 158, face: "up", cloth: "#e0a526", skin: "#f1c9a0", hair: "#0e0e12", hue: "#f0cf7a" },
   ];
   const HUB = { x: 120, y: 118 };
 
@@ -420,7 +420,7 @@
         return '<button type="button" class="btn btn-primary office-task" data-task="' + i + '"' + (dis ? " disabled" : "") + why + ">" + esc(tk.label) + "</button>";
       }).join("");
       const logHtml = a.log.length ? '<ul class="office-log">' + a.log.slice(0, 5).map((l) => "<li><time>" + esc(l.t) + "</time> " + esc(l.m) + "</li>").join("") + "</ul>" : '<p class="office-hint">Todavía no hizo nada en esta sesión.</p>';
-      return '<p class="office-hint">' + esc(a.role) + "</p>" + (away(a) ? '<p class="office-hint">Está fuera de su puesto. Si le pedís algo, vuelve antes de terminar el café.</p>' : "") +
+      return '<p class="office-hint"><b>Módulo ' + esc(a.mod) + '</b> · mide: ' + esc(a.mide) + '</p><p class="office-hint">' + esc(a.role) + "</p>" + (away(a) ? '<p class="office-hint">Está fuera de su puesto. Si le pedís algo, vuelve antes de terminar el café.</p>' : "") +
         '<div class="office-row">' + tasks + "</div>" + liveBlock(a) + '<div class="office-result-slot">' + resultBlock(a) + '</div><span class="office-label">Actividad reciente</span>' + logHtml;
     }
     function buildAcc() {
