@@ -15,6 +15,7 @@ from pydantic import ValidationError
 from app.config import Settings, settings
 from app.models import WeeklyNarrative
 from app.services import weekly_narrative
+from app.services.narrative_validator import check_figures
 from app.services.narrative_writers import (
     NarrativeRequest,
     NarrativeService,
@@ -29,7 +30,6 @@ from app.services.narrative_writers.anthropic_writer import AnthropicNarrativeWr
 from app.services.weekly_narrative import (
     SYSTEM_PROMPT,
     _prompt_lines,
-    _uses_only_known_figures,
     format_money,
     mood_for,
     template_text,
@@ -111,15 +111,79 @@ class TestTemplate:
         assert f"Lo que más subió {verb} {label}:" in text
 
 
-class TestKnownFigures:
-    def test_accepts_figures_copied_from_the_data(self):
-        lines = _prompt_lines(_facts())
-        text = "Esta semana te quedaron $300.000 de ganancia real, un 20% más. Tu True ROAS fue de 2,50."
-        assert _uses_only_known_figures(text, lines)
+_WITH_DRIVER = _facts(driver={"label": "las comisiones", "increase": 45_000.0})
 
-    def test_rejects_an_invented_figure(self):
-        lines = _prompt_lines(_facts())
-        assert not _uses_only_known_figures("Ganaste $310.000 en los últimos 7 días.", lines)
+
+class TestKnownFigures:
+    """The figure check, probed with texts a model could plausibly write. Each case says whether
+    the owner may be shown it."""
+
+    @pytest.mark.parametrize(
+        "text, problem",
+        [
+            # Right
+            ("Te quedaron $300.000 de ganancia real.", None),
+            ("La ganancia real subió un 20%.", None),
+            ("Ganaste 300000 pesos.", None),
+            ("Ganaste 300 mil pesos.", None),
+            ("Vendiste 1,5 millones.", None),
+            ("Tu True ROAS fue de 2,50.", None),
+            ("Tu True ROAS fue de 2.50.", None),
+            ("Vendiste $1.500.000 y te quedaron $300.000 de ganancia real, un 20% más.", None),
+            ("Las ventas subieron un 25% y la ganancia real un 20%.", None),
+            ("Invertiste $200.000 en publicidad en los últimos 7 días.", None),
+            ("Lo que más subió fueron las comisiones: $45.000 más que la semana anterior.", None),
+            # Wrong
+            ("Te quedaron $310.000 de ganancia real.", "unknown_figure"),
+            ("La ganancia real subió un 33%.", "unknown_figure"),
+            ("Gastaste $20.000 en publicidad.", "unknown_figure"),
+            ("Ganaste 300 mil pesos y 1 millón.", "unknown_figure"),
+            ("Tu True ROAS fue de 2,60.", "unknown_figure"),
+            ("La ganancia real subió un 25%.", "wrong_metric"),  # 25 is the sales change
+            ("Gastaste $300.000 en publicidad.", "wrong_metric"),  # real, but it is the profit
+            ("Vendiste $300.000.", "wrong_metric"),
+            ("Perdiste $300.000 esta semana.", "wrong_sign"),
+            ("La ganancia real bajó un 20%.", "wrong_direction"),
+            ("Las ventas bajaron un 25%.", "wrong_direction"),
+            ("La ganancia real subió un 20% menos que antes.", "wrong_direction"),
+        ],
+    )
+    def test_probes(self, text, problem):
+        assert check_figures(text, _WITH_DRIVER) == problem
+
+    def test_a_loss_told_as_profit_is_rejected(self):
+        facts = _facts(real_profit=-80_000.0, profit_change=None)
+        assert check_figures("Te quedaron $80.000 de ganancia real.", facts) == "wrong_sign"
+        assert check_figures("Perdiste $80.000 esta semana.", facts) is None
+
+    def test_a_percentage_the_data_does_not_have_is_rejected(self):
+        facts = _facts(profit_change=None)
+        assert check_figures("La ganancia real subió un 20%.", facts) == "unknown_figure"
+
+    def test_a_cost_has_no_percentage(self):
+        assert check_figures("Las comisiones subieron un 20%.", _WITH_DRIVER) == "wrong_metric"
+
+    def test_text_without_figures_passes(self):
+        assert check_figures("Buena semana, seguí así.", _facts()) is None
+
+    @pytest.mark.parametrize(
+        "facts",
+        [
+            _facts(),
+            _WITH_DRIVER,
+            _facts(real_profit=120_000.0, profit_change=-52.0, revenue_change=-18.0, true_roas=0.6),
+            _facts(real_profit=-80_000.0, profit_change=None, true_roas=-0.4),
+            _facts(profit_change=0.4, revenue_change=1.0),
+            _facts(previous_revenue=0.0, previous_real_profit=0.0, revenue_change=None, profit_change=None),
+            _facts(ad_spend=0.0, true_roas=None),
+            _facts(currency="USD", revenue=18_400.0, real_profit=3_150.0, ad_spend=2_300.0, true_roas=1.9),
+            _facts(revenue=48_250_000.0, real_profit=9_800_000.0, ad_spend=6_100_000.0),
+            _facts(revenue=4_300.0, real_profit=900.0, ad_spend=700.0, true_roas=1.3),
+            _facts(driver={"label": "el gasto en publicidad", "increase": 30_000.0}),
+        ],
+    )
+    def test_the_template_always_passes_its_own_check(self, facts):
+        assert check_figures(template_text(facts), facts) is None
 
 
 def _seed(client, auth_header, store_id):
@@ -169,7 +233,7 @@ def _use_writer(monkeypatch, writer):
 
 
 def _service(writer):
-    return NarrativeService(writer, TemplateNarrativeWriter(template_text), _uses_only_known_figures)
+    return NarrativeService(writer, TemplateNarrativeWriter(template_text), check_figures)
 
 
 def _request(**facts):
@@ -207,7 +271,7 @@ class TestNarrativeService:
 
     def test_an_invented_figure_gives_the_template_and_is_not_cached(self):
         result = _service(FakeWriter(written("Ganaste $310.000 esta semana."))).generate(_request())
-        assert (result.source, result.cacheable, result.reason) == ("plantilla", False, "rejected_figures")
+        assert (result.source, result.cacheable, result.reason) == ("plantilla", False, "rejected_unknown_figure")
         assert "310.000" not in result.text
 
     def test_an_empty_text_is_not_used(self):

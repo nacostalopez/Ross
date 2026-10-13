@@ -30,11 +30,12 @@ class NarrativeService:
         self,
         writer: Optional[NarrativeWriter],
         template: TemplateNarrativeWriter,
-        figures_ok: Callable[[str, list[str]], bool],
+        figures_check: Callable[[str, dict], Optional[str]],
     ):
         self._writer = writer
         self._template = template
-        self._figures_ok = figures_ok
+        # Returns None if the text's figures agree with the facts, else a short code for the problem.
+        self._figures_check = figures_check
 
     def _from_template(
         self, request: NarrativeRequest, *, cacheable: bool, reason: Optional[str] = None
@@ -66,10 +67,12 @@ class NarrativeService:
         text = (result.text or "").strip()
         if result.outcome is Outcome.FAILED or not text:
             return self._from_template(request, cacheable=False, reason=result.reason or "empty")
-        if not self._figures_ok(text, request.lines):
+        problem = self._figures_check(text, request.facts)
+        if problem:
             logger.warning(
-                "narrative_rejected_unknown_figures", extra={"provider": result.provider, "model": result.model}
+                "narrative_rejected_figures",
+                extra={"provider": result.provider, "model": result.model, "problem": problem},
             )
-            return self._from_template(request, cacheable=False, reason="rejected_figures")
+            return self._from_template(request, cacheable=False, reason=f"rejected_{problem}")
 
         return NarrativeResult(text=text, source="ia", provider=result.provider, model=result.model, cacheable=True)

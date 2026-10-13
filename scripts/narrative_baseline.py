@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 
 from app.config import settings  # noqa: E402
 from app.services import weekly_narrative as wn  # noqa: E402
+from app.services.narrative_validator import check_figures  # noqa: E402
 from app.services.narrative_writers import NarrativeRequest, build_writer, resolve_provider  # noqa: E402
 
 
@@ -80,17 +81,15 @@ def offline():
         text = wn.template_text(f)
         mood = wn.mood_for(f)
         shown = wn.display_facts(f)
-        lines = wn._prompt_lines(f)
         dt = (time.perf_counter() - t0) * 1000
-        rows.append((name, mood, words(text), wn._uses_only_known_figures(text, lines), len(shown), dt, text))
+        rows.append((name, mood, words(text), check_figures(text, f) is None, len(shown), dt, text))
     return rows
 
 
 def probes():
-    lines = wn._prompt_lines(PROBE_FACTS)
     out = []
     for label, text, correct in PROBES:
-        accepted = wn._uses_only_known_figures(text, lines)
+        accepted = check_figures(text, PROBE_FACTS) is None
         out.append((label, text, accepted, correct, "ok" if accepted == correct else "REVISAR"))
     return out
 
@@ -112,8 +111,9 @@ def live(repeat):
             dt = time.perf_counter() - t0
             text = (result.text or "").strip() or None
             reason = result.reason
-            if text and not wn._uses_only_known_figures(text, request.lines):
-                text, reason = None, "rejected_figures"
+            problem = check_figures(text, f) if text else None
+            if problem:
+                text, reason = None, f"rejected_{problem}"
             results.append((name, dt, text, [reason] if reason else []))
     return results
 
@@ -145,7 +145,7 @@ def report(repeat, do_live):
     for label, text, accepted, correct, verdict in pr:
         out.append(f"| {label} | {text} | {'sí' if accepted else 'no'} | {'sí' if correct else 'no'} | {verdict} |")
     n_bad = sum(1 for p in pr if p[4] != "ok")
-    out += ["", f"El chequeo coincide con lo esperado en {len(pr) - n_bad} de {len(pr)} situaciones. Las marcadas REVISAR son lo que hay que resolver en la fase de validación."]
+    out += ["", f"El chequeo coincide con lo esperado en {len(pr) - n_bad} de {len(pr)} situaciones. Las marcadas REVISAR son las que el validador todavía no resuelve."]
 
     out += ["", "## 3. Latencia y calidad con Claude", ""]
     if not do_live:

@@ -3,8 +3,8 @@
 The numbers never come from the model. collect_facts() computes them here,
 from the same P&L query the dashboard uses, and formats every figure the text
 may mention. A model, when one is configured, only writes the sentences around
-those figures, and _uses_only_known_figures() throws the text away if it
-contains a number that isn't one of them, so a writing mistake can never show
+those figures, and check_figures() throws the text away if it
+contains a figure that doesn't agree with them, so a writing mistake can never show
 the owner a wrong amount. With no model configured, or when the call fails or
 the check rejects the text, the summary comes from template_text() instead.
 
@@ -17,7 +17,6 @@ dashboard doesn't call the API every time.
 """
 
 import logging
-import re
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 
@@ -26,6 +25,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import Store, WeeklyNarrative
 from app.routes.metrics import PNL_SQL
+from app.services.narrative_validator import check_figures
 from app.services.narrative_writers import NarrativeRequest, NarrativeService, TemplateNarrativeWriter, build_writer
 
 logger = logging.getLogger("ross.narrative")
@@ -52,8 +52,6 @@ Reglas:
 - Usá únicamente las cifras de los datos, copiadas exactamente como están escritas. No calcules ni redondees cifras nuevas.
 - No uses adjetivos ni artículos que le den género a Ross. Ross habla en primera persona sin marcar género.
 - Sin markdown, sin emojis, sin saludos ni despedidas. Devolvé solo el texto."""
-
-_NUMBER = re.compile(r"\d[\d.,]*")
 
 
 def format_money(value: float, currency: str) -> str:
@@ -212,19 +210,13 @@ def _prompt_lines(facts: dict) -> list[str]:
     return lines
 
 
-def _uses_only_known_figures(text: str, prompt_lines: list[str]) -> bool:
-    allowed = {match.rstrip(".,") for line in prompt_lines for match in _NUMBER.findall(line)}
-    allowed |= {"7", "14"}  # the windows themselves ("los últimos 7 días")
-    return all(match.rstrip(".,") in allowed for match in _NUMBER.findall(text))
-
-
 def narrative_service() -> NarrativeService:
     """The service for the current settings. Built per call, so a changed setting takes effect and a
     test can swap it."""
     return NarrativeService(
         writer=build_writer(settings),
         template=TemplateNarrativeWriter(template_text),
-        figures_ok=_uses_only_known_figures,
+        figures_check=check_figures,
     )
 
 
