@@ -25,7 +25,7 @@ Create a project from the GitHub repo, then one service per folder
 | Service | Root directory | Settings |
 |---|---|---|
 | `db` | `db` | A volume mounted at `/var/lib/postgresql/data`. Variables `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`. No public domain: the backend reaches it over the private network. |
-| `backend` | `backend` | The backend variables in `.env.production.example` (with `NARRATIVE_PROVIDER` and `ANTHROPIC_API_KEY` both empty, "Ross explica tu semana" uses the fixed template; one of them turns on Claude). Public domain `api.ross.ar`. Health check path `/health`. |
+| `backend` | `backend` | The backend variables in `.env.production.example` ("Ross explica tu semana" is written by a fixed template and needs no AI key). Public domain `api.ross.ar`. Health check path `/health`. |
 | `frontend` | `frontend` | Target port 80. Public domains `ross.ar` and `www.ross.ar`. |
 
 Each service also has watch paths (Settings → Source → Watch Paths), so a push

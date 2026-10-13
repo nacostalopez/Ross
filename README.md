@@ -422,20 +422,16 @@ The dashboard's "Ross explica tu semana" widget (in the default layout)
 shows it, and the weekly report email opens with it.
 
 `app/services/weekly_narrative.py` computes every number from `PNL_SQL`.
-Who writes the sentences around them is decided in
-`app/services/narrative_writers/`: the fixed template is the default and
-needs nothing configured, and a model is only used when a provider is set up
-(`NARRATIVE_PROVIDER=anthropic`, or just an `ANTHROPIC_API_KEY`; the model is
-`NARRATIVE_MODEL`, default `claude-opus-5-5`, at low effort). Any number in a
-model's text that isn't one of the figures it was given makes the service drop
-the text and use the template instead, so a writing mistake can't show a wrong
-amount. A provider that fails, times out or raises is handled the same way,
-and the `anthropic` package is only imported when that provider is selected.
+The sentences around them are written by a fixed template, which needs no
+configuration and no AI key; the experiment to see whether a model would write
+them better was set aside (`docs/ia/`). `app/services/narrative_writers/` keeps
+the place where a model would plug in: any number in its text that isn't one of
+the figures it was given (`app/services/narrative_validator.py` also checks what
+each figure is said to be, its sign and its direction) makes the service drop the
+text and use the template instead, so a writing mistake can't show a wrong
+amount, and a writer that fails, times out or raises is handled the same way.
 Each store's summary is cached for the day in `weekly_narratives`, which also
-records the `provider` and `model` that wrote it; a result that fell back
-because a model failed isn't cached, so the next visit tries the model again.
-A typo in `NARRATIVE_PROVIDER` stops the app at boot instead of quietly using
-the template.
+records the `provider` and `model` that wrote it.
 
 ### CAPI feedback loop
 

@@ -9,8 +9,7 @@ the owner a wrong amount. With no model configured, or when the call fails or
 the check rejects the text, the summary comes from template_text() instead.
 
 Who writes it is decided in app/services/narrative_writers/: the template is
-the default, and a provider is only used when NARRATIVE_PROVIDER (or an
-ANTHROPIC_API_KEY) says so.
+the only one today, and a provider would be added there.
 
 The result is cached per store per day (weekly_narratives), so opening the
 dashboard doesn't call the API every time.

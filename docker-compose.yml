@@ -48,9 +48,6 @@ services:
       DEMO_REQUEST_NOTIFY_EMAIL: ${DEMO_REQUEST_NOTIFY_EMAIL:-ross@aramal.co}
       DEMO_VIEWER_EMAIL: ${DEMO_VIEWER_EMAIL:-}
       # "Ross explica tu semana": who writes it. Empty provider and no key = the fixed template.
-      NARRATIVE_PROVIDER: ${NARRATIVE_PROVIDER:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      NARRATIVE_MODEL: ${NARRATIVE_MODEL:-claude-opus-5-5}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USERNAME: ${SMTP_USERNAME:-}

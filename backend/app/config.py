@@ -39,12 +39,10 @@ class Settings(BaseSettings):
     # production refuses to start with it (see validate_production_ready).
     cors_allowed_origins: str = "*"
 
-    # "Ross explica tu semana" (app/services/weekly_narrative.py). Who writes the summary:
-    # "template" (fixed sentences, no model) or "anthropic". Empty = "anthropic" if an
-    # ANTHROPIC_API_KEY is set, "template" otherwise. A mistake here stops the app at boot.
+    # "Ross explica tu semana" (app/services/weekly_narrative.py). Who writes the summary. Only
+    # "template" (fixed sentences, no model) exists today; empty means the same. A mistake here stops
+    # the app at boot.
     narrative_provider: str = ""
-    anthropic_api_key: str = ""
-    narrative_model: str = "claude-opus-5-5"
 
     environment: str = "development"  # "development" | "test" | "production"
     log_level: str = "INFO"
@@ -56,7 +54,7 @@ class Settings(BaseSettings):
         # Imported here: the writers package must stay importable without the settings being ready.
         from app.services.narrative_writers.factory import check_provider
 
-        check_provider(self.narrative_provider, self.anthropic_api_key)
+        check_provider(self.narrative_provider)
         return self
 
     def validate_production_ready(self) -> None:

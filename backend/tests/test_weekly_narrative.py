@@ -6,8 +6,6 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
-import anthropic
-import httpx2 as httpx
 import pytest
 from fastapi import status
 from pydantic import ValidationError
@@ -22,11 +20,9 @@ from app.services.narrative_writers import (
     Outcome,
     TemplateNarrativeWriter,
     WriteResult,
-    anthropic_writer,
     build_writer,
     resolve_provider,
 )
-from app.services.narrative_writers.anthropic_writer import AnthropicNarrativeWriter
 from app.services.weekly_narrative import (
     SYSTEM_PROMPT,
     _prompt_lines,
@@ -284,40 +280,29 @@ class TestNarrativeService:
 
 
 class TestProviderChoice:
-    def test_no_key_and_no_provider_means_the_template(self):
-        assert resolve_provider("", "") == "template"
-        assert build_writer(SimpleNamespace(narrative_provider="", anthropic_api_key="", narrative_model="m")) is None
+    def test_no_provider_means_the_template(self):
+        assert resolve_provider("") == "template"
+        assert build_writer(SimpleNamespace(narrative_provider="")) is None
 
-    def test_a_key_alone_keeps_meaning_claude(self):
-        assert resolve_provider("", "key") == "anthropic"
+    def test_template_can_be_asked_for_by_name(self):
+        assert resolve_provider(" Template ") == "template"
+        assert build_writer(SimpleNamespace(narrative_provider="template")) is None
 
-    def test_an_explicit_template_wins_over_a_key(self):
-        cfg = SimpleNamespace(narrative_provider="template", anthropic_api_key="key", narrative_model="m")
-        assert build_writer(cfg) is None
-
-    def test_builds_the_anthropic_writer_with_the_model(self):
-        cfg = SimpleNamespace(narrative_provider="anthropic", anthropic_api_key="key", narrative_model="some-model")
-        writer = build_writer(cfg)
-        assert isinstance(writer, AnthropicNarrativeWriter)
-        assert (writer.provider, writer.model) == ("anthropic", "some-model")
+    def test_a_provider_that_does_not_exist_stops_the_settings_from_loading(self):
+        with pytest.raises(ValidationError):
+            Settings(narrative_provider="anthropic")
 
     def test_a_typo_in_the_provider_stops_the_settings_from_loading(self):
         with pytest.raises(ValidationError):
             Settings(narrative_provider="olama")
 
-    def test_anthropic_without_a_key_stops_the_settings_from_loading(self):
-        with pytest.raises(ValidationError):
-            Settings(narrative_provider="anthropic", anthropic_api_key="")
 
-
-class TestNoHardDependencyOnAnthropic:
-    def test_the_narrative_works_when_the_package_is_missing(self):
+class TestNoAiDependency:
+    def test_the_narrative_works_without_the_anthropic_package(self):
         # Setting sys.modules["anthropic"] to None makes any `import anthropic` raise ImportError.
         code = (
             "import sys; sys.modules['anthropic'] = None\n"
             "from app.services import weekly_narrative as wn\n"
-            "from app.config import settings\n"
-            "settings.anthropic_api_key = ''; settings.narrative_provider = ''\n"
             "svc = wn.narrative_service()\n"
             "f = {'currency': 'ARS', 'revenue': 1.0, 'real_profit': 1.0, 'ad_spend': 0.0, 'true_roas': None,\n"
             "     'previous_revenue': 0.0, 'previous_real_profit': 0.0, 'revenue_change': None,\n"
@@ -330,68 +315,15 @@ class TestNoHardDependencyOnAnthropic:
         assert out.returncode == 0, out.stderr
         assert out.stdout.strip() == "plantilla"
 
-
-def _fake_anthropic(monkeypatch, *, text="Vendiste $1.500.000.", stop_reason="end_turn", error=None):
-    calls = []
-
-    class FakeMessages:
-        def create(self, **kwargs):
-            calls.append(kwargs)
-            if error:
-                raise error
-            return SimpleNamespace(stop_reason=stop_reason, content=[SimpleNamespace(type="text", text=text)] if text else [])
-
-    class FakeClient:
-        def __init__(self, **kwargs):
-            self.beta = SimpleNamespace(messages=FakeMessages())
-
-    monkeypatch.setattr(anthropic_writer.anthropic, "Anthropic", FakeClient)
-    return calls
-
-
-class TestAnthropicWriter:
-    def _write(self):
-        return AnthropicNarrativeWriter("key", "some-model").write(_request())
-
-    def test_returns_the_text_with_provider_and_model(self, monkeypatch):
-        calls = _fake_anthropic(monkeypatch, text="Vendiste $1.500.000 esta semana.")
-        result = self._write()
-        assert (result.outcome, result.text, result.provider, result.model) == (
-            Outcome.WRITTEN, "Vendiste $1.500.000 esta semana.", "anthropic", "some-model"
-        )
-        assert calls[0]["model"] == "some-model"
-        assert calls[0]["fallbacks"] == "default"
-        assert calls[0]["system"] == SYSTEM_PROMPT
-
-    def test_an_unfinished_response_is_a_failure(self, monkeypatch):
-        _fake_anthropic(monkeypatch, stop_reason="max_tokens")
-        assert (self._write().outcome, self._write().reason) == (Outcome.FAILED, "not_finished")
-
-    def test_an_empty_response_is_a_failure(self, monkeypatch):
-        _fake_anthropic(monkeypatch, text="")
-        assert self._write().reason == "empty"
-
-    def test_a_rate_limit_is_a_failure(self, monkeypatch):
-        request = httpx.Request("POST", "https://example.test")
-        error = anthropic.RateLimitError("slow down", response=httpx.Response(429, request=request), body=None)
-        _fake_anthropic(monkeypatch, error=error)
-        assert (self._write().outcome, self._write().reason) == (Outcome.FAILED, "rate_limited")
-
-    def test_a_connection_problem_is_a_failure(self, monkeypatch):
-        error = anthropic.APIConnectionError(request=httpx.Request("POST", "https://example.test"))
-        _fake_anthropic(monkeypatch, error=error)
-        assert self._write().reason == "connection_error"
-
-    def test_any_other_library_error_is_a_failure_and_not_an_exception(self, monkeypatch):
-        error = anthropic.APIError("something odd", request=httpx.Request("POST", "https://example.test"), body=None)
-        _fake_anthropic(monkeypatch, error=error)
-        assert (self._write().outcome, self._write().reason) == (Outcome.FAILED, "provider_error")
+    def test_no_module_imports_it(self):
+        app = Path(__file__).resolve().parent.parent / "app"
+        offenders = [str(p) for p in app.rglob("*.py") if "import anthropic" in p.read_text(encoding="utf-8")]
+        assert offenders == []
 
 
 @pytest.mark.db
 class TestGetOrBuild:
     def test_uses_the_template_without_a_provider(self, client, auth_header, test_store, test_db_session, monkeypatch):
-        monkeypatch.setattr(settings, "anthropic_api_key", "")
         monkeypatch.setattr(settings, "narrative_provider", "")
         _seed(client, auth_header, test_store.id)
 
@@ -473,7 +405,6 @@ class TestGetOrBuild:
 @pytest.mark.db
 class TestNarrativeRoute:
     def test_returns_text_mood_and_facts(self, client, auth_header, test_store, monkeypatch):
-        monkeypatch.setattr(settings, "anthropic_api_key", "")
         monkeypatch.setattr(settings, "narrative_provider", "")
         response = client.get(f"/stores/{test_store.id}/narrative", headers=auth_header)
 

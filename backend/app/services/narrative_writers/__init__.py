@@ -2,7 +2,7 @@
 
 weekly_narrative.py works out the figures and owns the cache; this package decides who turns them
 into a sentence (the fixed template, or a model) and what to do when that fails. The template is
-the default and needs nothing configured: a model is only used when a provider is set up.
+the only writer today and needs nothing configured; see factory.py for where a model would be added.
 """
 
 from app.services.narrative_writers.base import NarrativeRequest, NarrativeWriter, Outcome, WriteResult

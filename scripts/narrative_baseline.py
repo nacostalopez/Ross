@@ -3,12 +3,12 @@
 
 Run from backend/ (it imports the app, but needs no database):
     cd backend && python ../scripts/narrative_baseline.py            # offline: template + validator
-    cd backend && python ../scripts/narrative_baseline.py --live     # also calls Claude (needs ANTHROPIC_API_KEY)
+    cd backend && python ../scripts/narrative_baseline.py --live     # also calls a model provider (none exists today)
     cd backend && python ../scripts/narrative_baseline.py --live --repeat 3 --out baseline.md
 
 Offline, it runs the fixed template and the figure check over a set of synthetic stores (none of it
 is real data) and probes how the check treats formats the plan has to get right. With --live it also
-asks the configured provider for each case and records latency, how often the text survives the check, and why not.
+asks the configured provider (none exists today; see narrative_writers/factory.py) for each case and records latency, how often the text survives the check, and why not.
 Whatever a new provider does later is measured against this output.
 """
 import argparse
@@ -125,8 +125,8 @@ def pct(values, p):
 
 def report(repeat, do_live):
     out = ["# Línea base de la narrativa semanal", ""]
-    provider = resolve_provider(settings.narrative_provider, settings.anthropic_api_key)
-    out.append(f"Proveedor en efecto: `{provider}`. Modelo configurado: `{settings.narrative_model}`.")
+    provider = resolve_provider(settings.narrative_provider)
+    out.append(f"Proveedor en efecto: `{provider}`.")
     out += ["", "## 1. Plantilla (sin IA) sobre casos sintéticos", "",
             "| Caso | Ánimo | Palabras | Pasa su propio chequeo | Datos mostrados | ms |", "|---|---|---|---|---|---|"]
     rows = offline()
@@ -147,13 +147,13 @@ def report(repeat, do_live):
     n_bad = sum(1 for p in pr if p[4] != "ok")
     out += ["", f"El chequeo coincide con lo esperado en {len(pr) - n_bad} de {len(pr)} situaciones. Las marcadas REVISAR son las que el validador todavía no resuelve."]
 
-    out += ["", "## 3. Latencia y calidad con Claude", ""]
+    out += ["", "## 3. Latencia y calidad de un modelo", ""]
     if not do_live:
         out.append("No se corrió (falta `--live`).")
     else:
         res = live(repeat)
         if res is None:
-            out.append("No se corrió: no hay un proveedor configurado en este entorno (`NARRATIVE_PROVIDER` o `ANTHROPIC_API_KEY`).")
+            out.append("No se corrió: no hay ningún proveedor de IA configurado (hoy solo existe la plantilla).")
         else:
             lat = [r[1] for r in res]
             kept = [r for r in res if r[2]]
@@ -176,7 +176,7 @@ def report(repeat, do_live):
 def main():
     sys.stdout.reconfigure(encoding="utf-8")  # Windows consoles default to a legacy code page
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--live", action="store_true", help="also call Claude for each case")
+    ap.add_argument("--live", action="store_true", help="also call a model provider for each case")
     ap.add_argument("--repeat", type=int, default=1, help="calls per case with --live")
     ap.add_argument("--out", help="write the report to this file as well")
     args = ap.parse_args()

@@ -133,7 +133,7 @@ class WeeklyNarrative(Base):
     text = Column(Text, nullable=False)
     mood = Column(String(20), nullable=False)
     source = Column(String(20), nullable=False)
-    # Which writer produced the text ("template", "anthropic", ...) and with which model, if any.
+    # Which writer produced the text ("template", or a model provider if one is added) and with which model, if any.
     provider = Column(String(40), nullable=False, default="template", server_default="template")
     model = Column(String(100), nullable=True)
     facts = Column(JSONB, nullable=False, default=list)
