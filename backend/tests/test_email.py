@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.email import send_email
+from app.email import SMTP_TIMEOUT_SECONDS, send_email, send_email_quietly
 
 
 class TestSendEmail:
@@ -41,7 +41,8 @@ class TestSendEmail:
         with patch("app.email.smtplib.SMTP", return_value=mock_server) as mock_smtp:
             send_email(to="someone@example.com", subject="Hi", body="Body text")
 
-        mock_smtp.assert_called_once_with("smtp.example.com", 587)
+        # The timeout keeps a blocked SMTP port from hanging the worker.
+        mock_smtp.assert_called_once_with("smtp.example.com", 587, timeout=SMTP_TIMEOUT_SECONDS)
         mock_server.starttls.assert_called_once()
         mock_server.login.assert_called_once_with("user@example.com", "secret")
         mock_server.send_message.assert_called_once()
@@ -64,3 +65,11 @@ class TestCreateInviteWithNoSmtpConfigured:
         )
         assert response.status_code == 201
         assert response.json()["token"]
+
+
+class TestSendEmailQuietly:
+    def test_a_failed_send_is_logged_and_not_raised(self, monkeypatch, caplog):
+        monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+        with patch("app.email.smtplib.SMTP", side_effect=OSError("port blocked")):
+            send_email_quietly("someone@example.com", "Hi", "Body", failure_event="test_email_failed", user_id="u1")
+        assert any(r.message == "test_email_failed" for r in caplog.records)
