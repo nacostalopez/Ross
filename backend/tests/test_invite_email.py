@@ -3,15 +3,15 @@
 import pytest
 from fastapi import status
 
+from app import email as email_module
 from app.models import AccountInvite
-from app.routes import accounts as accounts_route
 from app.security import hash_token
 
 
 @pytest.fixture
 def sent(monkeypatch):
     outbox = []
-    monkeypatch.setattr(accounts_route, "send_email", lambda **kw: outbox.append(kw))
+    monkeypatch.setattr(email_module, "send_email", lambda **kw: outbox.append(kw))
     return outbox
 
 

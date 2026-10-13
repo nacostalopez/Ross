@@ -8,11 +8,10 @@ Run from backend/ (it imports the app, but needs no database):
 
 Offline, it runs the fixed template and the figure check over a set of synthetic stores (none of it
 is real data) and probes how the check treats formats the plan has to get right. With --live it also
-asks Claude for each case and records latency, how often the text survives the check, and why not.
+asks the configured provider for each case and records latency, how often the text survives the check, and why not.
 Whatever a new provider does later is measured against this output.
 """
 import argparse
-import logging
 import statistics
 import sys
 import time
@@ -22,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 
 from app.config import settings  # noqa: E402
 from app.services import weekly_narrative as wn  # noqa: E402
+from app.services.narrative_writers import NarrativeRequest, build_writer, resolve_provider  # noqa: E402
 
 
 def facts(**o):
@@ -95,32 +95,26 @@ def probes():
     return out
 
 
-class Reasons(logging.Handler):
-    """Collects why ai_text() gave up; it only returns None, the reason goes to the log."""
-
-    def __init__(self):
-        super().__init__()
-        self.seen = []
-
-    def emit(self, record):
-        self.seen.append(record.getMessage())
-
-
 def live(repeat):
-    if not settings.anthropic_api_key:
+    """Asks the configured provider for each case. The provider writes the text; the figure check
+    that decides whether it is used runs here, exactly as the service runs it."""
+    writer = build_writer(settings)
+    if writer is None:
         return None
-    handler = Reasons()
-    logging.getLogger("ross.narrative").addHandler(handler)
     results = []
     for name, f in CASES.items():
         if not f["has_data"]:
             continue
+        request = NarrativeRequest(facts=f, lines=wn._prompt_lines(f), system_prompt=wn.SYSTEM_PROMPT)
         for _ in range(repeat):
-            handler.seen.clear()
             t0 = time.perf_counter()
-            text = wn.ai_text(f)
+            result = writer.write(request)
             dt = time.perf_counter() - t0
-            results.append((name, dt, text, list(handler.seen)))
+            text = (result.text or "").strip() or None
+            reason = result.reason
+            if text and not wn._uses_only_known_figures(text, request.lines):
+                text, reason = None, "rejected_figures"
+            results.append((name, dt, text, [reason] if reason else []))
     return results
 
 
@@ -131,7 +125,8 @@ def pct(values, p):
 
 def report(repeat, do_live):
     out = ["# Línea base de la narrativa semanal", ""]
-    out.append(f"Modelo configurado: `{settings.narrative_model}`. Clave de Anthropic: {'cargada' if settings.anthropic_api_key else 'no cargada'}.")
+    provider = resolve_provider(settings.narrative_provider, settings.anthropic_api_key)
+    out.append(f"Proveedor en efecto: `{provider}`. Modelo configurado: `{settings.narrative_model}`.")
     out += ["", "## 1. Plantilla (sin IA) sobre casos sintéticos", "",
             "| Caso | Ánimo | Palabras | Pasa su propio chequeo | Datos mostrados | ms |", "|---|---|---|---|---|---|"]
     rows = offline()
@@ -158,7 +153,7 @@ def report(repeat, do_live):
     else:
         res = live(repeat)
         if res is None:
-            out.append("No se corrió: no hay `ANTHROPIC_API_KEY` cargada en este entorno. Ejecutarlo con la clave para completar esta sección.")
+            out.append("No se corrió: no hay un proveedor configurado en este entorno (`NARRATIVE_PROVIDER` o `ANTHROPIC_API_KEY`).")
         else:
             lat = [r[1] for r in res]
             kept = [r for r in res if r[2]]

@@ -1,15 +1,33 @@
 """Tests for "Ross explica tu semana" (app/services/weekly_narrative.py, app/routes/narrative.py)."""
 
+import subprocess
+import sys
 from datetime import date, datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
+import anthropic
+import httpx2 as httpx
 import pytest
 from fastapi import status
+from pydantic import ValidationError
 
-from app.config import settings
+from app.config import Settings, settings
 from app.models import WeeklyNarrative
 from app.services import weekly_narrative
+from app.services.narrative_writers import (
+    NarrativeRequest,
+    NarrativeService,
+    Outcome,
+    TemplateNarrativeWriter,
+    WriteResult,
+    anthropic_writer,
+    build_writer,
+    resolve_provider,
+)
+from app.services.narrative_writers.anthropic_writer import AnthropicNarrativeWriter
 from app.services.weekly_narrative import (
+    SYSTEM_PROMPT,
     _prompt_lines,
     _uses_only_known_figures,
     format_money,
@@ -78,6 +96,20 @@ class TestTemplate:
     def test_explains_how_to_get_started_without_data(self):
         assert "Cuando conectes tu tienda" in template_text(_facts(has_data=False))
 
+    @pytest.mark.parametrize(
+        "label, verb",
+        [
+            ("los descuentos", "fueron"),
+            ("las comisiones", "fueron"),
+            ("el costo de envío", "fue"),
+            ("el costo de mercadería", "fue"),
+            ("el gasto en publicidad", "fue"),
+        ],
+    )
+    def test_the_verb_agrees_with_the_cost_that_grew(self, label, verb):
+        text = template_text(_facts(driver={"label": label, "increase": 40_000.0}))
+        assert f"Lo que más subió {verb} {label}:" in text
+
 
 class TestKnownFigures:
     def test_accepts_figures_copied_from_the_data(self):
@@ -106,78 +138,271 @@ def _seed(client, auth_header, store_id):
     assert client.post(f"/stores/{store_id}/ad-spend", headers=auth_header, json=spend).status_code == 201
 
 
-def _fake_claude(monkeypatch, text, stop_reason="end_turn"):
+class FakeWriter:
+    """A stand-in for a provider: returns the result it was given, or raises."""
+
+    def __init__(self, result=None, error=None, provider="fake", model="fake-1"):
+        self.provider = provider
+        self.model = model
+        self._result = result
+        self._error = error
+        self.calls = []
+
+    def write(self, request):
+        self.calls.append(request)
+        if self._error:
+            raise self._error
+        return self._result
+
+
+def written(text, provider="fake", model="fake-1"):
+    return WriteResult(Outcome.WRITTEN, text, provider=provider, model=model)
+
+
+def failed(reason="timeout"):
+    return WriteResult(Outcome.FAILED, provider="fake", model="fake-1", reason=reason)
+
+
+def _use_writer(monkeypatch, writer):
+    monkeypatch.setattr(weekly_narrative, "build_writer", lambda _settings: writer)
+    return writer
+
+
+def _service(writer):
+    return NarrativeService(writer, TemplateNarrativeWriter(template_text), _uses_only_known_figures)
+
+
+def _request(**facts):
+    f = _facts(**facts)
+    return NarrativeRequest(facts=f, lines=_prompt_lines(f), system_prompt=SYSTEM_PROMPT)
+
+
+class TestNarrativeService:
+    def test_uses_the_template_when_no_writer_is_configured(self):
+        result = _service(None).generate(_request())
+        assert (result.source, result.provider, result.model, result.cacheable) == ("plantilla", "template", None, True)
+        assert "vendiste $1.500.000" in result.text
+
+    def test_does_not_call_the_writer_when_told_not_to(self):
+        writer = FakeWriter(written("irrelevante"))
+        result = _service(writer).generate(_request(), use_model=False)
+        assert writer.calls == []
+        assert result.source == "plantilla" and result.cacheable
+
+    def test_keeps_a_writers_text_that_only_uses_known_figures(self):
+        writer = FakeWriter(written("Te quedaron $300.000 de ganancia real."))
+        result = _service(writer).generate(_request())
+        assert (result.source, result.provider, result.model, result.cacheable) == ("ia", "fake", "fake-1", True)
+        assert result.text == "Te quedaron $300.000 de ganancia real."
+        assert writer.calls[0].system_prompt == SYSTEM_PROMPT
+
+    def test_a_failed_writer_gives_the_template_and_is_not_cached(self):
+        result = _service(FakeWriter(failed("rate_limited"))).generate(_request())
+        assert (result.source, result.cacheable, result.reason) == ("plantilla", False, "rate_limited")
+
+    def test_a_disabled_writer_is_a_normal_template_and_is_cached(self):
+        disabled = WriteResult(Outcome.DISABLED, provider="fake")
+        result = _service(FakeWriter(disabled)).generate(_request())
+        assert (result.source, result.cacheable, result.reason) == ("plantilla", True, "disabled")
+
+    def test_an_invented_figure_gives_the_template_and_is_not_cached(self):
+        result = _service(FakeWriter(written("Ganaste $310.000 esta semana."))).generate(_request())
+        assert (result.source, result.cacheable, result.reason) == ("plantilla", False, "rejected_figures")
+        assert "310.000" not in result.text
+
+    def test_an_empty_text_is_not_used(self):
+        result = _service(FakeWriter(written("   "))).generate(_request())
+        assert result.source == "plantilla" and not result.cacheable
+
+    def test_a_writer_that_raises_never_reaches_the_caller(self):
+        result = _service(FakeWriter(error=RuntimeError("boom"))).generate(_request())
+        assert (result.source, result.cacheable, result.reason) == ("plantilla", False, "unexpected_error")
+
+
+class TestProviderChoice:
+    def test_no_key_and_no_provider_means_the_template(self):
+        assert resolve_provider("", "") == "template"
+        assert build_writer(SimpleNamespace(narrative_provider="", anthropic_api_key="", narrative_model="m")) is None
+
+    def test_a_key_alone_keeps_meaning_claude(self):
+        assert resolve_provider("", "key") == "anthropic"
+
+    def test_an_explicit_template_wins_over_a_key(self):
+        cfg = SimpleNamespace(narrative_provider="template", anthropic_api_key="key", narrative_model="m")
+        assert build_writer(cfg) is None
+
+    def test_builds_the_anthropic_writer_with_the_model(self):
+        cfg = SimpleNamespace(narrative_provider="anthropic", anthropic_api_key="key", narrative_model="some-model")
+        writer = build_writer(cfg)
+        assert isinstance(writer, AnthropicNarrativeWriter)
+        assert (writer.provider, writer.model) == ("anthropic", "some-model")
+
+    def test_a_typo_in_the_provider_stops_the_settings_from_loading(self):
+        with pytest.raises(ValidationError):
+            Settings(narrative_provider="olama")
+
+    def test_anthropic_without_a_key_stops_the_settings_from_loading(self):
+        with pytest.raises(ValidationError):
+            Settings(narrative_provider="anthropic", anthropic_api_key="")
+
+
+class TestNoHardDependencyOnAnthropic:
+    def test_the_narrative_works_when_the_package_is_missing(self):
+        # Setting sys.modules["anthropic"] to None makes any `import anthropic` raise ImportError.
+        code = (
+            "import sys; sys.modules['anthropic'] = None\n"
+            "from app.services import weekly_narrative as wn\n"
+            "from app.config import settings\n"
+            "settings.anthropic_api_key = ''; settings.narrative_provider = ''\n"
+            "svc = wn.narrative_service()\n"
+            "f = {'currency': 'ARS', 'revenue': 1.0, 'real_profit': 1.0, 'ad_spend': 0.0, 'true_roas': None,\n"
+            "     'previous_revenue': 0.0, 'previous_real_profit': 0.0, 'revenue_change': None,\n"
+            "     'profit_change': None, 'driver': None, 'has_data': True}\n"
+            "from app.services.narrative_writers import NarrativeRequest\n"
+            "print(svc.generate(NarrativeRequest(f, wn._prompt_lines(f), wn.SYSTEM_PROMPT)).source)\n"
+        )
+        backend = Path(__file__).resolve().parent.parent
+        out = subprocess.run([sys.executable, "-c", code], cwd=backend, capture_output=True, text=True, timeout=60)
+        assert out.returncode == 0, out.stderr
+        assert out.stdout.strip() == "plantilla"
+
+
+def _fake_anthropic(monkeypatch, *, text="Vendiste $1.500.000.", stop_reason="end_turn", error=None):
     calls = []
 
     class FakeMessages:
         def create(self, **kwargs):
             calls.append(kwargs)
-            return SimpleNamespace(stop_reason=stop_reason, content=[SimpleNamespace(type="text", text=text)])
+            if error:
+                raise error
+            return SimpleNamespace(stop_reason=stop_reason, content=[SimpleNamespace(type="text", text=text)] if text else [])
 
     class FakeClient:
         def __init__(self, **kwargs):
             self.beta = SimpleNamespace(messages=FakeMessages())
 
-    monkeypatch.setattr(weekly_narrative.anthropic, "Anthropic", FakeClient)
-    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    monkeypatch.setattr(anthropic_writer.anthropic, "Anthropic", FakeClient)
     return calls
+
+
+class TestAnthropicWriter:
+    def _write(self):
+        return AnthropicNarrativeWriter("key", "some-model").write(_request())
+
+    def test_returns_the_text_with_provider_and_model(self, monkeypatch):
+        calls = _fake_anthropic(monkeypatch, text="Vendiste $1.500.000 esta semana.")
+        result = self._write()
+        assert (result.outcome, result.text, result.provider, result.model) == (
+            Outcome.WRITTEN, "Vendiste $1.500.000 esta semana.", "anthropic", "some-model"
+        )
+        assert calls[0]["model"] == "some-model"
+        assert calls[0]["fallbacks"] == "default"
+        assert calls[0]["system"] == SYSTEM_PROMPT
+
+    def test_an_unfinished_response_is_a_failure(self, monkeypatch):
+        _fake_anthropic(monkeypatch, stop_reason="max_tokens")
+        assert (self._write().outcome, self._write().reason) == (Outcome.FAILED, "not_finished")
+
+    def test_an_empty_response_is_a_failure(self, monkeypatch):
+        _fake_anthropic(monkeypatch, text="")
+        assert self._write().reason == "empty"
+
+    def test_a_rate_limit_is_a_failure(self, monkeypatch):
+        request = httpx.Request("POST", "https://example.test")
+        error = anthropic.RateLimitError("slow down", response=httpx.Response(429, request=request), body=None)
+        _fake_anthropic(monkeypatch, error=error)
+        assert (self._write().outcome, self._write().reason) == (Outcome.FAILED, "rate_limited")
+
+    def test_a_connection_problem_is_a_failure(self, monkeypatch):
+        error = anthropic.APIConnectionError(request=httpx.Request("POST", "https://example.test"))
+        _fake_anthropic(monkeypatch, error=error)
+        assert self._write().reason == "connection_error"
+
+    def test_any_other_library_error_is_a_failure_and_not_an_exception(self, monkeypatch):
+        error = anthropic.APIError("something odd", request=httpx.Request("POST", "https://example.test"), body=None)
+        _fake_anthropic(monkeypatch, error=error)
+        assert (self._write().outcome, self._write().reason) == (Outcome.FAILED, "provider_error")
 
 
 @pytest.mark.db
 class TestGetOrBuild:
-    def test_uses_the_template_without_an_api_key(self, client, auth_header, test_store, test_db_session, monkeypatch):
+    def test_uses_the_template_without_a_provider(self, client, auth_header, test_store, test_db_session, monkeypatch):
         monkeypatch.setattr(settings, "anthropic_api_key", "")
+        monkeypatch.setattr(settings, "narrative_provider", "")
         _seed(client, auth_header, test_store.id)
 
         narrative = weekly_narrative.get_or_build(test_db_session, test_store, NOW)
 
         assert narrative.source == "plantilla"
+        assert (narrative.provider, narrative.model) == ("template", None)
         assert narrative.mood == "festeja"
         assert "vendiste US$1.500" in narrative.text
         assert narrative.facts[0] == {"label": "Ventas", "value": "US$1.500", "change_pct": 50.0}
         assert test_db_session.get(WeeklyNarrative, (test_store.id, date(2026, 3, 13))) is not None
 
-    def test_keeps_claudes_text_when_it_only_uses_known_figures(
+    def test_keeps_a_models_text_and_records_who_wrote_it(
         self, client, auth_header, test_store, test_db_session, monkeypatch
     ):
         _seed(client, auth_header, test_store.id)
-        calls = _fake_claude(monkeypatch, "Vendiste US$1.500 y te quedaron US$1.200 de ganancia real.")
+        writer = _use_writer(monkeypatch, FakeWriter(written("Vendiste US$1.500 y te quedaron US$1.200 de ganancia real.")))
 
         narrative = weekly_narrative.get_or_build(test_db_session, test_store, NOW)
 
         assert narrative.source == "ia"
         assert narrative.text.startswith("Vendiste US$1.500")
-        assert calls[0]["model"] == settings.narrative_model
-        assert calls[0]["fallbacks"] == "default"
+        saved = test_db_session.get(WeeklyNarrative, (test_store.id, date(2026, 3, 13)))
+        assert (saved.provider, saved.model) == ("fake", "fake-1")
+        assert writer.calls[0].system_prompt == SYSTEM_PROMPT
 
-    def test_falls_back_and_retries_later_when_claude_invents_a_figure(
+    def test_falls_back_and_retries_later_when_the_model_invents_a_figure(
         self, client, auth_header, test_store, test_db_session, monkeypatch
     ):
         _seed(client, auth_header, test_store.id)
-        _fake_claude(monkeypatch, "Ganaste US$9.999 esta semana.")
+        _use_writer(monkeypatch, FakeWriter(written("Ganaste US$9.999 esta semana.")))
 
         narrative = weekly_narrative.get_or_build(test_db_session, test_store, NOW)
 
         assert narrative.source == "plantilla"
         assert "9.999" not in narrative.text
-        # Not cached: the next visit gets another chance at Claude's version.
+        # Not cached: the next visit gets another chance at the model's version.
         assert test_db_session.get(WeeklyNarrative, (test_store.id, date(2026, 3, 13))) is None
 
-    def test_reuses_the_days_summary(self, client, auth_header, test_store, test_db_session, monkeypatch):
+    def test_falls_back_and_retries_later_when_the_model_fails(
+        self, client, auth_header, test_store, test_db_session, monkeypatch
+    ):
         _seed(client, auth_header, test_store.id)
-        calls = _fake_claude(monkeypatch, "Vendiste US$1.500 en los últimos 7 días.")
-
-        weekly_narrative.get_or_build(test_db_session, test_store, NOW)
-        weekly_narrative.get_or_build(test_db_session, test_store, NOW)
-
-        assert len(calls) == 1
-
-    def test_does_not_call_claude_without_data(self, test_store, test_db_session, monkeypatch):
-        calls = _fake_claude(monkeypatch, "irrelevante")
+        _use_writer(monkeypatch, FakeWriter(failed("timeout")))
 
         narrative = weekly_narrative.get_or_build(test_db_session, test_store, NOW)
 
-        assert calls == []
+        assert (narrative.source, narrative.provider) == ("plantilla", "template")
+        assert test_db_session.get(WeeklyNarrative, (test_store.id, date(2026, 3, 13))) is None
+
+    def test_a_writer_that_crashes_does_not_break_the_narrative(
+        self, client, auth_header, test_store, test_db_session, monkeypatch
+    ):
+        _seed(client, auth_header, test_store.id)
+        _use_writer(monkeypatch, FakeWriter(error=RuntimeError("boom")))
+
+        narrative = weekly_narrative.get_or_build(test_db_session, test_store, NOW)
+
+        assert narrative.source == "plantilla"
+
+    def test_reuses_the_days_summary(self, client, auth_header, test_store, test_db_session, monkeypatch):
+        _seed(client, auth_header, test_store.id)
+        writer = _use_writer(monkeypatch, FakeWriter(written("Vendiste US$1.500 en los últimos 7 días.")))
+
+        weekly_narrative.get_or_build(test_db_session, test_store, NOW)
+        weekly_narrative.get_or_build(test_db_session, test_store, NOW)
+
+        assert len(writer.calls) == 1
+
+    def test_does_not_call_the_model_without_data(self, test_store, test_db_session, monkeypatch):
+        writer = _use_writer(monkeypatch, FakeWriter(written("irrelevante")))
+
+        narrative = weekly_narrative.get_or_build(test_db_session, test_store, NOW)
+
+        assert writer.calls == []
         assert narrative.mood == "neutral"
 
 
@@ -185,6 +410,7 @@ class TestGetOrBuild:
 class TestNarrativeRoute:
     def test_returns_text_mood_and_facts(self, client, auth_header, test_store, monkeypatch):
         monkeypatch.setattr(settings, "anthropic_api_key", "")
+        monkeypatch.setattr(settings, "narrative_provider", "")
         response = client.get(f"/stores/{test_store.id}/narrative", headers=auth_header)
 
         assert response.status_code == status.HTTP_200_OK

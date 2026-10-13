@@ -14,7 +14,7 @@ class NarrativeFact(BaseModel):
 class NarrativeOut(BaseModel):
     text: str
     mood: Literal["festeja", "preocupada", "neutral"]
-    # "ia" when Claude wrote the text, "plantilla" when it came from the fixed template.
+    # "ia" when a model wrote the text, "plantilla" when it came from the fixed template.
     source: Literal["ia", "plantilla"]
     # The text covers the 7 full days before this date.
     period_end: date

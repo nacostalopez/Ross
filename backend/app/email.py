@@ -66,6 +66,6 @@ def send_email_quietly(to: str, subject: str, body: str, *, failure_event: str, 
     second or more, so routes queue the send and answer first. Nobody is left to receive an
     exception here, so a failure is only logged."""
     try:
-        send_email(to, subject, body)
+        send_email(to=to, subject=subject, body=body)
     except Exception:
         logger.exception(failure_event, extra=log_extra)

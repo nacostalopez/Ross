@@ -8,6 +8,22 @@ el comportamiento de la aplicación. Deja medido el punto de partida y los riesg
 - **Línea base ejecutable:** [`scripts/narrative_baseline.py`](../../scripts/narrative_baseline.py).
   Su salida de este relevamiento está en [fase-0-linea-base.md](fase-0-linea-base.md).
 
+## Hallazgo central
+
+**No hay clave de Anthropic en producción** (confirmado el 13 de octubre de 2026). Entonces `ai_text()` devuelve `None`
+y la narrativa semanal siempre sale de la plantilla: en el dashboard, en el resumen por email y en todos los entornos.
+La IA para esta función nunca corrió en producción.
+
+Lo que implica para el plan:
+
+- **La dependencia de Anthropic es solo de código, no de operación.** Si Anthropic dejara de existir mañana, ningún usuario lo notaría.
+  Sí queda una dependencia de arranque: `import anthropic` está al inicio de `weekly_narrative.py`, así que la aplicación
+  no inicia si el paquete falta.
+- **No hay línea base de Claude que medir.** No hay historial de textos escritos por IA (la tabla `weekly_narratives` solo tiene
+  `source = 'plantilla'`) ni latencia real que comparar.
+- **La pregunta pasa de "cómo reemplazar a Anthropic" a "¿queremos IA en la narrativa, y con qué proveedor?".** Esa
+  decisión nunca se tomó con datos. Ver la sección 11.
+
 ## 1. Inventario de dependencias
 
 Anthropic aparece en un solo punto de ejecución. Todo lo demás es configuración, pruebas o documentación.
@@ -34,11 +50,10 @@ No hay uso de Anthropic en el frontend, en el cron ni en otros servicios. La nar
 | Desarrollo local (`.env` de esta máquina) | No está cargada | No está | Siempre plantilla |
 | Docker Compose | **No se reenvía** al contenedor | **No se reenvía** | Siempre plantilla, aunque la tengas en `.env` |
 | CI | No está | No está | Plantilla y cliente falso en los tests |
-| Producción, servicio `backend` | Figura en `.env.production.example`. **Si está cargada en Railway no lo puedo ver** | No figura: usa `claude-opus-5-5` | Pendiente de confirmar |
-| Producción, servicio `cron` | Hereda las del backend por referencia | Idem | Si el backend la tiene, el resumen semanal usa Claude |
+| Producción, servicio `backend` | **No está cargada** (confirmado) | No figura | Siempre plantilla |
+| Producción, servicio `cron` | Hereda las del backend por referencia: tampoco | Idem | El resumen semanal también usa la plantilla |
 
-Para confirmar en Railway: servicio **Ross** → Variables → buscar `ANTHROPIC_API_KEY`. Sin eso, la narrativa que ven hoy
-los usuarios es la plantilla.
+Los usuarios ven hoy la plantilla en todos lados.
 
 ## 3. Pruebas existentes
 
@@ -59,8 +74,8 @@ timeout y se agregó una prueba de `send_email_quietly`. Con eso los 92 tests si
 
 ## 4. Latencia
 
-Se midió lo que se puede sin clave y se dedujo del código lo demás. **La latencia real de Claude queda pendiente**:
-requiere ejecutar `scripts/narrative_baseline.py --live` con la clave.
+Se midió lo que se puede sin clave y se dedujo del código lo demás. **La latencia de Claude no se puede medir** porque no hay clave,
+y hoy no afecta a nadie: la llamada no se hace. Lo que sigue describe el comportamiento si algún día se carga una.
 
 **Medido (offline):** armar la plantilla, el ánimo, los datos mostrados y las líneas del prompt toma menos de 0,1 ms
 por caso. La plantilla no es un problema de rendimiento.
@@ -89,6 +104,7 @@ por caso. La plantilla no es un problema de rendimiento.
 | Falla al guardar en la base | `get_or_build()` | Error 500 | No |
 
 Hay que tener en cuenta que el job semanal atrapa los errores por tienda y sigue con las demás, pero la ruta del dashboard no.
+**Como hoy no hay clave, solo se recorren las dos primeras filas y la de "sin datos".** El resto describe lo que pasaría al activar un proveedor.
 
 ## 6. Línea base de calidad
 
@@ -125,14 +141,14 @@ Los importes siguen siendo datos del negocio. Conviene guardarlos con acceso res
 
 | # | Riesgo | Probabilidad | Impacto | Acción |
 |---|---|---|---|---|
-| 1 | La clave de Anthropic no está cargada en producción y nadie lo sabe | Media | Medio | Confirmar en Railway ya |
-| 2 | Si Claude falla, cada visita reintenta y espera hasta 60 s | Media | Medio | Memoria negativa corta y timeout menor (Fase 1) |
-| 3 | Una excepción no prevista de la librería tumba `GET /narrative` | Baja | Medio | Capturar todo error del proveedor (Fase 1) |
+| 1 | Planificar 16 semanas de infraestructura para una función que nunca usó IA | **Alta** | Alto | Decidir primero si la IA aporta valor sobre la plantilla (sección 11) |
+| 2 | Al activar un proveedor, si falla, cada visita reintenta y espera hasta 60 s | Latente | Medio | Memoria negativa corta y timeout menor (Fase 1) |
+| 3 | Al activar un proveedor, una excepción no prevista tumba `GET /narrative` | Latente | Medio | Capturar todo error del proveedor (Fase 1) |
 | 4 | El chequeo de cifras deja pasar textos falsos con cifras reales | Media | **Alto** | Validación por magnitud, signo y sentido (Fase 2) |
 | 5 | El chequeo rechaza textos correctos y se usa la plantilla de más | Alta con un modelo chico | Bajo | Normalizar formatos (Fase 2) |
 | 6 | No se registra qué modelo escribió cada texto, y no se puede comparar el piloto | Alta | Medio | Registrar proveedor y modelo (Fase 1) |
 | 7 | Docker Compose nunca usa IA aunque haya clave | Cierta | Bajo | Reenviar las variables (Fase 1) |
-| 8 | Quitar Anthropic sin una vía de vuelta deja sin respaldo probado | Media | Medio | Mantener Anthropic como proveedor opcional hasta el piloto |
+| 8 | La app no arranca si falta el paquete `anthropic` aunque no se use | Cierta | Bajo | Importarlo solo cuando haya clave (Fase 1) |
 | 9 | 327 tests con base no se corren localmente | Cierta | Bajo | Encender Docker Desktop para la Fase 1 |
 | 10 | Un modelo local en hardware modesto es lento o de mala calidad | Alta en esta máquina | Medio | Medir con el script antes de decidir (Fase 2) |
 
@@ -144,7 +160,7 @@ Los números de latencia y de tasa de descarte se fijan **después** de correr l
 |---|---|
 | 1 | Los 18 tests de la narrativa pasan con un escritor falso y **sin** instalar `anthropic`. La plantilla pasa su chequeo en 11 de 11 casos y ya no dice "fue las comisiones". Las variables nuevas llegan por Docker Compose. Cada narrativa registra proveedor y modelo. |
 | 2 | El chequeo de cifras acierta en **13 de 13** situaciones de prueba. Hay pruebas para respuestas vacías, incompletas, inventadas y mal formateadas. El peor caso de una llamada queda acotado por configuración. |
-| 3 | El piloto compara el modelo nuevo contra la línea base: tasa de descarte, palabras (hasta 60), voseo y tono revisados a mano sobre los casos sintéticos. Se puede volver a la plantilla solo con una variable. |
+| 3 | Si se activa un proveedor: el piloto compara su texto contra la plantilla sobre los casos sintéticos (tasa de descarte, palabras hasta 60, voseo y tono revisados a mano) y se vuelve a la plantilla con una sola variable. |
 | 4 | Un diseño de asistente y CRM que reutilice la interfaz de generación y no cambie el cálculo de métricas. |
 
 ## 9. Cómo repetir la medición
@@ -155,19 +171,38 @@ cd backend
 ../.venv/Scripts/python ../scripts/narrative_baseline.py --live --repeat 3 --out ../docs/ia/fase-0-linea-base.md
 ```
 
-La segunda corrida necesita `ANTHROPIC_API_KEY` en el entorno y completa la sección de latencia y calidad con Claude.
+La segunda corrida solo sirve si se carga una clave. Hoy no hay, así que la línea base es la offline.
 
 ## 10. Estado de la fase
 
 | Actividad del roadmap | Estado |
 |---|---|
 | 1. Revisar archivos de configuración y dependencias | Hecho |
-| 2. Cómo se configuran las variables en Compose y producción | Hecho. Falta confirmar la clave en Railway |
-| 3. Todos los usos de Anthropic | Hecho: un solo punto de ejecución |
+| 2. Cómo se configuran las variables en Compose y producción | Hecho: no hay clave en ningún entorno |
+| 3. Todos los usos de Anthropic | Hecho: un solo punto de ejecución, sin uso real en producción |
 | 4. Tests existentes y cuáles usan base de datos | Hecho: 92 sin base corren; 327 con base requieren Docker |
-| 5. Latencia y escenarios de falla | Parcial: escenarios completos, latencia de Claude pendiente de la clave |
-| 6. Ejemplos para evaluar calidad | Parcial: 11 casos sintéticos; falta el histórico real anonimizado |
+| 5. Latencia y escenarios de falla | Hecho: escenarios completos; no hay latencia de IA que medir |
+| 6. Ejemplos para evaluar calidad | Hecho con 11 casos sintéticos: no existe histórico de IA, y no habría con qué compararlo |
 
-**Criterio de salida del roadmap:** *se conoce el alcance real de la dependencia y existe una línea base reproducible.* El alcance está
-conocido y la línea base offline es reproducible. Faltan tres entradas que dependen de vos: confirmar la clave en Railway,
-correr el script con la clave, y exportar el histórico anonimizado.
+**Criterio de salida del roadmap:** *se conoce el alcance real de la dependencia y existe una línea base reproducible.* Cumplido: la dependencia
+es de código y no de operación, y la línea base offline es reproducible. Lo único que podría sumarse es el resultado de
+`--live`, y solo si se decide activar un proveedor.
+
+## 11. Consecuencia para el roadmap y decisión pendiente
+
+El roadmap original supone una dependencia operativa que no existe. Propuesta de ajuste:
+
+| Antes | Ahora |
+|---|---|
+| Fase 1: desacoplar para poder cambiar de proveedor | Se mantiene, **más liviana**: corregir la plantilla, registrar proveedor y modelo, no importar `anthropic` sin clave, reenviar las variables en Compose, capturar errores del proveedor |
+| Fase 2: modelo local en Ollama con 5 semanas | **No se justifica todavía.** Primero hay que saber si la IA mejora el texto |
+| Fase 3: eliminar Anthropic | Se reduce a **limpieza**: sacar el SDK y la configuración si se decide no usarlo |
+| Fase 4: asistente y CRM | Sin cambios |
+
+**Decisión que hay que tomar antes de seguir:** ¿la narrativa tiene que escribirla un modelo, o alcanza con una plantilla mejorada?
+
+1. **Plantilla mejorada, sin IA.** Costo cero, resultado exacto y sin riesgo de cifras falsas. Se puede enriquecer con más casos (por ejemplo, qué canal cambió más).
+2. **IA con un proveedor alojado.** La forma más barata de probar si el texto mejora. No hace falta infraestructura propia.
+3. **Modelo local.** Solo se justificaría por privacidad o por costo a gran escala. Con la narrativa actual ninguna de las dos aplica: al modelo solo llegan cifras agregadas, y el volumen es una llamada por tienda por día.
+
+Recomendación: la opción 1 ahora, y probar la 2 con un experimento corto si el equipo siente que el texto de la plantilla queda corto.

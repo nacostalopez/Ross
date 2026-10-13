@@ -5,8 +5,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi import status
 
+from app import email as email_module
 from app.models import PasswordResetToken
-from app.routes import auth as auth_route
 from app.security import hash_token, verify_password
 
 
@@ -33,7 +33,7 @@ class TestForgotPassword:
 
     def test_known_email_gets_a_spanish_email_with_a_working_link(self, client, test_user, test_db_session, monkeypatch):
         sent = []
-        monkeypatch.setattr(auth_route, "send_email", lambda **kw: sent.append(kw))
+        monkeypatch.setattr(email_module, "send_email", lambda **kw: sent.append(kw))
 
         response = client.post("/auth/forgot-password", json={"email": "testuser@example.com"})
 
@@ -48,7 +48,7 @@ class TestForgotPassword:
 
     def test_unknown_email_sends_nothing(self, client, monkeypatch):
         sent = []
-        monkeypatch.setattr(auth_route, "send_email", lambda **kw: sent.append(kw))
+        monkeypatch.setattr(email_module, "send_email", lambda **kw: sent.append(kw))
 
         client.post("/auth/forgot-password", json={"email": "nobody@example.com"})
 

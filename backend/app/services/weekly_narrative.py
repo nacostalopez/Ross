@@ -2,11 +2,15 @@
 
 The numbers never come from the model. collect_facts() computes them here,
 from the same P&L query the dashboard uses, and formats every figure the text
-may mention. Claude only writes the sentences around those figures, and
-_uses_only_known_figures() throws the text away if it contains a number that
-isn't one of them, so a writing mistake can never show the owner a wrong
-amount. With no ANTHROPIC_API_KEY, or when the call fails or the check
-rejects the text, the summary comes from template_text() instead.
+may mention. A model, when one is configured, only writes the sentences around
+those figures, and _uses_only_known_figures() throws the text away if it
+contains a number that isn't one of them, so a writing mistake can never show
+the owner a wrong amount. With no model configured, or when the call fails or
+the check rejects the text, the summary comes from template_text() instead.
+
+Who writes it is decided in app/services/narrative_writers/: the template is
+the default, and a provider is only used when NARRATIVE_PROVIDER (or an
+ANTHROPIC_API_KEY) says so.
 
 The result is cached per store per day (weekly_narratives), so opening the
 dashboard doesn't call the API every time.
@@ -17,12 +21,12 @@ import re
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Optional
 
-import anthropic
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Store, WeeklyNarrative
 from app.routes.metrics import PNL_SQL
+from app.services.narrative_writers import NarrativeRequest, NarrativeService, TemplateNarrativeWriter, build_writer
 
 logger = logging.getLogger("ross.narrative")
 
@@ -171,8 +175,11 @@ def template_text(facts: dict) -> str:
         )
     parts = [first]
     if facts["driver"]:
+        label = facts["driver"]["label"]
+        # "las comisiones" and "los descuentos" are plural: "fueron", not "fue".
+        verb = "fueron" if label.split()[0] in ("los", "las") else "fue"
         parts.append(
-            f"Lo que más subió fue {facts['driver']['label']}: "
+            f"Lo que más subió {verb} {label}: "
             f"{format_money(facts['driver']['increase'], cur)} más que la semana anterior."
         )
     if facts["true_roas"] is not None:
@@ -211,41 +218,14 @@ def _uses_only_known_figures(text: str, prompt_lines: list[str]) -> bool:
     return all(match.rstrip(".,") in allowed for match in _NUMBER.findall(text))
 
 
-def ai_text(facts: dict) -> Optional[str]:
-    """Claude's version of the summary, or None to fall back to the template."""
-    if not settings.anthropic_api_key:
-        return None
-    lines = _prompt_lines(facts)
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key, timeout=30.0, max_retries=1)
-    try:
-        response = client.beta.messages.create(
-            model=settings.narrative_model,
-            max_tokens=4000,
-            output_config={"effort": "low"},
-            # A refused request is retried on the fallback model Anthropic recommends.
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": "Datos de la tienda:\n" + "\n".join(lines)}],
-        )
-    except anthropic.RateLimitError:
-        logger.warning("narrative_rate_limited")
-        return None
-    except anthropic.APIStatusError as exc:
-        logger.warning("narrative_api_error", extra={"status_code": exc.status_code})
-        return None
-    except anthropic.APIConnectionError:
-        logger.warning("narrative_connection_error")
-        return None
-
-    if response.stop_reason != "end_turn":
-        logger.warning("narrative_not_finished", extra={"stop_reason": response.stop_reason})
-        return None
-    text = " ".join(block.text for block in response.content if block.type == "text").strip()
-    if not text or not _uses_only_known_figures(text, lines):
-        logger.warning("narrative_rejected_unknown_figures")
-        return None
-    return text
+def narrative_service() -> NarrativeService:
+    """The service for the current settings. Built per call, so a changed setting takes effect and a
+    test can swap it."""
+    return NarrativeService(
+        writer=build_writer(settings),
+        template=TemplateNarrativeWriter(template_text),
+        figures_ok=_uses_only_known_figures,
+    )
 
 
 def get_or_build(db: Session, store: Store, now: Optional[datetime] = None) -> WeeklyNarrative:
@@ -256,18 +236,24 @@ def get_or_build(db: Session, store: Store, now: Optional[datetime] = None) -> W
         return cached
 
     facts = collect_facts(db, store, period_end)
-    written = ai_text(facts) if facts["has_data"] else None
+    result = narrative_service().generate(
+        NarrativeRequest(facts=facts, lines=_prompt_lines(facts), system_prompt=SYSTEM_PROMPT),
+        # With no sales and no spend there is nothing for a model to write about.
+        use_model=facts["has_data"],
+    )
     narrative = WeeklyNarrative(
         store_id=store.id,
         period_end=period_end,
-        text=written or template_text(facts),
+        text=result.text,
         mood=mood_for(facts),
-        source="ia" if written else "plantilla",
+        source=result.source,
+        provider=result.provider,
+        model=result.model,
         facts=display_facts(facts),
     )
-    # If Claude was supposed to write it and couldn't, don't keep the template version for the
+    # If a model was supposed to write it and couldn't, don't keep the template version for the
     # whole day: the next visit tries again.
-    if written or not settings.anthropic_api_key or not facts["has_data"]:
+    if result.cacheable:
         db.merge(narrative)
         db.commit()
     return narrative

@@ -3,8 +3,8 @@
 import pytest
 from fastapi import status
 
+from app import email as email_module
 from app.models import DemoRequest
-from app.routes import demo_requests as demo_requests_route
 
 VALID = {"name": "Ana Pérez", "email": "ana@tienda.com", "platform": "tiendanube"}
 
@@ -13,7 +13,7 @@ VALID = {"name": "Ana Pérez", "email": "ana@tienda.com", "platform": "tiendanub
 class TestCreateDemoRequest:
     def test_stores_the_request_and_notifies_the_team(self, client, test_db_session, monkeypatch):
         sent = []
-        monkeypatch.setattr(demo_requests_route, "send_email", lambda **kw: sent.append(kw))
+        monkeypatch.setattr(email_module, "send_email", lambda **kw: sent.append(kw))
 
         response = client.post("/demo-requests", json=VALID)
 
@@ -30,7 +30,7 @@ class TestCreateDemoRequest:
         def boom(**kw):
             raise OSError("SMTP down")
 
-        monkeypatch.setattr(demo_requests_route, "send_email", boom)
+        monkeypatch.setattr(email_module, "send_email", boom)
 
         response = client.post("/demo-requests", json=VALID)
 
@@ -53,7 +53,7 @@ class TestCreateDemoRequest:
         assert test_db_session.query(DemoRequest).count() == 0
 
     def test_rate_limited_per_ip(self, client, monkeypatch):
-        monkeypatch.setattr(demo_requests_route, "send_email", lambda **kw: None)
+        monkeypatch.setattr(email_module, "send_email", lambda **kw: None)
 
         codes = [client.post("/demo-requests", json=VALID).status_code for _ in range(6)]
 
