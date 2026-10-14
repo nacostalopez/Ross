@@ -17,14 +17,6 @@ from app.schemas.metrics import (
     PnlOut,
 )
 from app.services.metrics import service as metrics_service
-from app.services.metrics.queries import (
-    ATTRIBUTION_BY_CHANNEL_SQL,
-    CAC_BY_CHANNEL_SQL,
-    CREATIVES_SQL,
-    DAILY_SQL,
-    PNL_SQL,
-    SUMMARY_SQL,
-)
 
 router = APIRouter(prefix="/stores/{store_id}/metrics", tags=["metrics"])
 
@@ -36,8 +28,7 @@ def metrics_summary(
     store: Store = Depends(get_owned_store),
     db: Session = Depends(get_db),
 ):
-    row = db.execute(SUMMARY_SQL, {"store_id": str(store.id), "start": start, "end": end}).mappings().one()
-    return row
+    return metrics_service.summary(db, str(store.id), start, end)
 
 
 @router.get("/pnl", response_model=PnlOut)
@@ -47,8 +38,7 @@ def metrics_pnl(
     store: Store = Depends(get_owned_store),
     db: Session = Depends(get_db),
 ):
-    row = db.execute(PNL_SQL, {"store_id": str(store.id), "start": start, "end": end}).mappings().one()
-    return row
+    return metrics_service.pnl(db, str(store.id), start, end)
 
 
 @router.get("/daily", response_model=list[DailyMetricOut])
@@ -58,8 +48,7 @@ def metrics_daily(
     store: Store = Depends(get_owned_store),
     db: Session = Depends(get_db),
 ):
-    rows = db.execute(DAILY_SQL, {"store_id": str(store.id), "start": start, "end": end}).mappings().all()
-    return rows
+    return metrics_service.daily(db, str(store.id), start, end)
 
 
 @router.get("/creatives", response_model=list[CreativeMetricOut])
@@ -70,8 +59,7 @@ def metrics_creatives(
     _: User = Depends(require_plan_feature("creative_performance")),
     db: Session = Depends(get_db),
 ):
-    rows = db.execute(CREATIVES_SQL, {"store_id": str(store.id), "start": start, "end": end}).mappings().all()
-    return rows
+    return metrics_service.creatives(db, str(store.id), start, end)
 
 
 @router.get("/ltv-cohorts", response_model=list[CohortLtvOut])
@@ -94,10 +82,7 @@ def metrics_cac_by_channel(
     _: User = Depends(require_plan_feature("cac_by_channel")),
     db: Session = Depends(get_db),
 ):
-    rows = (
-        db.execute(CAC_BY_CHANNEL_SQL, {"store_id": str(store.id), "start": start, "end": end}).mappings().all()
-    )
-    return rows
+    return metrics_service.cac_by_channel(db, str(store.id), start, end)
 
 
 @router.get("/attribution-by-channel", response_model=list[ChannelAttributionOut])
@@ -108,12 +93,7 @@ def metrics_attribution_by_channel(
     _: User = Depends(require_plan_feature("attribution_by_channel")),
     db: Session = Depends(get_db),
 ):
-    rows = (
-        db.execute(ATTRIBUTION_BY_CHANNEL_SQL, {"store_id": str(store.id), "start": start, "end": end})
-        .mappings()
-        .all()
-    )
-    return rows
+    return metrics_service.attribution_by_channel(db, str(store.id), start, end)
 
 
 @router.get("/forecast", response_model=ForecastOut)

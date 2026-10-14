@@ -11,12 +11,53 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.services.forecasting import linear_forecast
-from app.services.metrics.queries import FORECAST_HISTORY_SQL, LTV_COHORTS_SQL
+from app.services.metrics.queries import (
+    ATTRIBUTION_BY_CHANNEL_SQL,
+    CAC_BY_CHANNEL_SQL,
+    CREATIVES_SQL,
+    DAILY_SQL,
+    FORECAST_HISTORY_SQL,
+    LTV_COHORTS_SQL,
+    PNL_SQL,
+    SUMMARY_SQL,
+)
 
 # Below this many days of history, a linear fit is more noise than signal —
 # an empty forecast (rather than a wild extrapolation from 2-3 data points)
 # is the honest answer.
 MIN_FORECAST_HISTORY_DAYS = 7
+
+
+def _one(db: Session, sql, store_id: str, start: datetime, end: datetime) -> dict:
+    return dict(db.execute(sql, {"store_id": store_id, "start": start, "end": end}).mappings().one())
+
+
+def _all(db: Session, sql, store_id: str, start: datetime, end: datetime) -> list[dict]:
+    return [dict(row) for row in db.execute(sql, {"store_id": store_id, "start": start, "end": end}).mappings().all()]
+
+
+def summary(db: Session, store_id: str, start: datetime, end: datetime) -> dict:
+    return _one(db, SUMMARY_SQL, store_id, start, end)
+
+
+def pnl(db: Session, store_id: str, start: datetime, end: datetime) -> dict:
+    return _one(db, PNL_SQL, store_id, start, end)
+
+
+def daily(db: Session, store_id: str, start: datetime, end: datetime) -> list[dict]:
+    return _all(db, DAILY_SQL, store_id, start, end)
+
+
+def creatives(db: Session, store_id: str, start: datetime, end: datetime) -> list[dict]:
+    return _all(db, CREATIVES_SQL, store_id, start, end)
+
+
+def cac_by_channel(db: Session, store_id: str, start: datetime, end: datetime) -> list[dict]:
+    return _all(db, CAC_BY_CHANNEL_SQL, store_id, start, end)
+
+
+def attribution_by_channel(db: Session, store_id: str, start: datetime, end: datetime) -> list[dict]:
+    return _all(db, ATTRIBUTION_BY_CHANNEL_SQL, store_id, start, end)
 
 
 def ltv_cohorts(db: Session, store_id: str, start: datetime, end: datetime, months: int) -> list[dict]:
