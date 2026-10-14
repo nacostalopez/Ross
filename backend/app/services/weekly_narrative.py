@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Store, WeeklyNarrative
-from app.routes.metrics import PNL_SQL
+from app.services.metrics.queries import PNL_SQL
 from app.services.narrative_validator import check_figures
 from app.services.narrative_writers import NarrativeRequest, NarrativeService, TemplateNarrativeWriter, build_writer
 

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import Store, StoreReportPreference
-from app.routes.metrics import CAC_BY_CHANNEL_SQL, SUMMARY_SQL
+from app.services.metrics.queries import CAC_BY_CHANNEL_SQL, SUMMARY_SQL
 from app.services.notifications import send_to_store
 from app.services.weekly_narrative import get_or_build
 
