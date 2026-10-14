@@ -1,0 +1,271 @@
+{
+  "attribution_by_channel": [
+    {
+      "channel": "google",
+      "net_profit": 64.0,
+      "orders": 2,
+      "repeat_orders": 1,
+      "revenue": 125.0,
+      "roas": 3.333333,
+      "spend": 37.5
+    },
+    {
+      "channel": "meta",
+      "net_profit": 169.0,
+      "orders": 3,
+      "repeat_orders": 1,
+      "revenue": 310.0,
+      "roas": 2.48,
+      "spend": 125.0
+    },
+    {
+      "channel": "other",
+      "net_profit": 55.0,
+      "orders": 1,
+      "repeat_orders": 0,
+      "revenue": 120.0,
+      "roas": null,
+      "spend": null
+    },
+    {
+      "channel": "tiktok",
+      "net_profit": 22.0,
+      "orders": 1,
+      "repeat_orders": 1,
+      "revenue": 35.0,
+      "roas": 1.944444,
+      "spend": 18.0
+    }
+  ],
+  "cac_by_channel": [
+    {
+      "cac": 40.0,
+      "channel": "meta",
+      "cohort_month": "2026-01-01",
+      "new_customers": 1,
+      "spend": 40.0
+    },
+    {
+      "cac": 22.5,
+      "channel": "google",
+      "cohort_month": "2026-02-01",
+      "new_customers": 1,
+      "spend": 22.5
+    },
+    {
+      "cac": null,
+      "channel": "other",
+      "cohort_month": "2026-03-01",
+      "new_customers": 1,
+      "spend": null
+    },
+    {
+      "cac": 55.0,
+      "channel": "meta",
+      "cohort_month": "2026-04-01",
+      "new_customers": 1,
+      "spend": 55.0
+    }
+  ],
+  "creatives": [
+    {
+      "ad_id": "ad-a",
+      "ad_name": "Creative A",
+      "campaign_name": "Camp",
+      "clicks": 120,
+      "cpc": 0.5833,
+      "cpm": 10.7692,
+      "ctr": 1.85,
+      "impressions": 6500,
+      "platform": "meta",
+      "spend": 70.0,
+      "thumbnail_url": null
+    },
+    {
+      "ad_id": "ad-b",
+      "ad_name": "Creative B",
+      "campaign_name": "Search",
+      "clicks": 0,
+      "cpc": null,
+      "cpm": null,
+      "ctr": null,
+      "impressions": 0,
+      "platform": "google",
+      "spend": 22.5,
+      "thumbnail_url": null
+    }
+  ],
+  "daily": [
+    {
+      "ad_spend": 0.0,
+      "day": "2026-01-05",
+      "total_cogs": 20.0,
+      "total_gateway_fees": 3.0,
+      "total_net_profit": 64.0,
+      "total_orders": 1,
+      "total_revenue": 100.0
+    },
+    {
+      "ad_spend": 0.0,
+      "day": "2026-01-18",
+      "total_cogs": 12.0,
+      "total_gateway_fees": 2.0,
+      "total_net_profit": 40.0,
+      "total_orders": 1,
+      "total_revenue": 60.0
+    },
+    {
+      "ad_spend": 0.0,
+      "day": "2026-02-02",
+      "total_cogs": 25.0,
+      "total_gateway_fees": 3.0,
+      "total_net_profit": 35.0,
+      "total_orders": 1,
+      "total_revenue": 80.0
+    },
+    {
+      "ad_spend": 0.0,
+      "day": "2026-02-20",
+      "total_cogs": 9.0,
+      "total_gateway_fees": 2.0,
+      "total_net_profit": 29.0,
+      "total_orders": 1,
+      "total_revenue": 45.0
+    },
+    {
+      "ad_spend": 0.0,
+      "day": "2026-03-07",
+      "total_cogs": 48.0,
+      "total_gateway_fees": 5.0,
+      "total_net_profit": 77.0,
+      "total_orders": 2,
+      "total_revenue": 155.0
+    },
+    {
+      "ad_spend": 0.0,
+      "day": "2026-04-11",
+      "total_cogs": 55.0,
+      "total_gateway_fees": 5.0,
+      "total_net_profit": 65.0,
+      "total_orders": 1,
+      "total_revenue": 150.0
+    }
+  ],
+  "forecast": {
+    "days": [
+      {
+        "ad_spend": 20.903226,
+        "net_profit": 118.967742,
+        "revenue": 118.967742,
+        "true_roas": 5.69
+      },
+      {
+        "ad_spend": 21.725806,
+        "net_profit": 123.862903,
+        "revenue": 123.862903,
+        "true_roas": 5.7
+      },
+      {
+        "ad_spend": 22.548387,
+        "net_profit": 128.758065,
+        "revenue": 128.758065,
+        "true_roas": 5.71
+      },
+      {
+        "ad_spend": 23.370968,
+        "net_profit": 133.653226,
+        "revenue": 133.653226,
+        "true_roas": 5.72
+      },
+      {
+        "ad_spend": 24.193548,
+        "net_profit": 138.548387,
+        "revenue": 138.548387,
+        "true_roas": 5.73
+      },
+      {
+        "ad_spend": 25.016129,
+        "net_profit": 143.443548,
+        "revenue": 143.443548,
+        "true_roas": 5.73
+      },
+      {
+        "ad_spend": 25.83871,
+        "net_profit": 148.33871,
+        "revenue": 148.33871,
+        "true_roas": 5.74
+      }
+    ],
+    "total_ad_spend": 163.596774,
+    "total_net_profit": 935.572581,
+    "total_revenue": 935.572581,
+    "true_roas": 5.72
+  },
+  "ltv_cohorts": [
+    {
+      "cac": 55.0,
+      "cohort_month": "2026-01-01",
+      "ltv_by_month": [
+        104.0,
+        133.0,
+        133.0,
+        133.0
+      ],
+      "new_customers": 1,
+      "payback_month": 0
+    },
+    {
+      "cac": 52.5,
+      "cohort_month": "2026-02-01",
+      "ltv_by_month": [
+        35.0,
+        57.0,
+        57.0,
+        57.0
+      ],
+      "new_customers": 1,
+      "payback_month": 1
+    },
+    {
+      "cac": 18.0,
+      "cohort_month": "2026-03-01",
+      "ltv_by_month": [
+        55.0,
+        55.0,
+        55.0,
+        55.0
+      ],
+      "new_customers": 1,
+      "payback_month": 0
+    },
+    {
+      "cac": 55.0,
+      "cohort_month": "2026-04-01",
+      "ltv_by_month": [
+        65.0,
+        65.0,
+        65.0,
+        65.0
+      ],
+      "new_customers": 1,
+      "payback_month": 0
+    }
+  ],
+  "pnl": {
+    "cogs_total": 169.0,
+    "discounts": 42.0,
+    "net_profit": 310.0,
+    "payment_gateway_fee": 20.0,
+    "real_profit_after_ads": 129.5,
+    "revenue": 590.0,
+    "shipping_fee": 49.0,
+    "total_ad_spend": 180.5
+  },
+  "summary": {
+    "net_profit": 310.0,
+    "real_profit_after_ads": 129.5,
+    "revenue": 590.0,
+    "total_ad_spend": 180.5,
+    "true_roas": 1.72
+  }
+}
