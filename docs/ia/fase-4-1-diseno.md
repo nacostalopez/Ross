@@ -108,7 +108,7 @@ Tool
 ToolContext            lo arma el servidor, nunca el modelo ni el usuario
   db, user, store, role efectivo en esa tienda, plan
 
-policy.authorize(ctx, tool, params)   Permitir | Denegar(motivo)
+policy.authorize(ctx, tool)   Permitir | Denegar(motivo)
   motivos: plan_requerido, sin_permiso, modulo_inactivo, requiere_confirmacion
 ```
 
