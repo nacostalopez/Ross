@@ -208,15 +208,15 @@ Notas de orden:
 | Período de una herramienta | Ventana móvil de N días que termina ahora. Los períodos de calendario se agregan después, como un cambio aparte |
 | Qué devuelve el servicio de métricas | Diccionarios simples. Las herramientas los validan con los modelos de `schemas/metrics.py` |
 | Ventana máxima por consulta | 90 días, configurable |
-| Principio de los datos del CRM | ROSS organiza y transporta: los datos no se reflejan en claro (ni en registros, trazas ni copias) y viajan y se guardan cifrados. **Por definir:** si alcanza con cifrado por campo en el servidor o se exige que ROSS no pueda leerlos |
+| Principio de los datos del CRM | ROSS organiza y transporta: los datos no se reflejan en claro (ni en registros, trazas ni copias) y viajan y se guardan cifrados. **Decidido: cifrado por campo en el servidor, con una clave por cuenta**, descifrado solo en memoria para un usuario autorizado, con un hash para buscar por coincidencia exacta. El diseño deja abierta la opción de una clave en poder de la cuenta |
 | Alojamiento | Todo en el plano nacional por ahora. Se profundiza más adelante. **A verificar:** la región del alojamiento actual |
-| Exportar los datos de un contacto | Lo ve quien tenga acceso a auditorías y los comerciales que traten con clientes. Plazo de 30 días. **Por confirmar:** qué significa que luego "se guarda en una card" y cómo se modela el rol comercial |
-| Borrar un contacto | Deja constancia durante 7 días. **Por confirmar:** qué contiene esa constancia |
-| Retención | 180 días para borrar todo definitivamente. **Por confirmar:** desde qué momento corre el plazo |
-| Seguridad | Se exige cifrado en reposo. El nivel de registro de accesos se elige entre las propuestas |
+| Exportar los datos de un contacto | Lo ve quien tenga acceso a auditorías y los comerciales que traten con clientes. La exportación se conserva 30 días y luego queda archivada en una ficha del pedido, sin los datos exportados. **Roles y funciones en propuesta:** `fase-4-roles-crm.md` |
+| Borrar un contacto | Deja constancia durante 7 días, sin datos personales: solo el identificador, la fecha y quién borró |
+| Retención | 180 días para borrar todo definitivamente, contados desde que se baja el plan. Reactivar dentro del plazo restituye los datos |
+| Seguridad | Se exige cifrado en reposo. **Registro de accesos de nivel 2, con 12 meses de conservación:** exportaciones y borrados, cada apertura de la ficha de un contacto, los accesos del asistente, los intentos denegados y los cambios de permisos. Guarda identificadores, nunca el dato |
 | Base legal y finalidad (consulta 2) | **Se adopta la solución propuesta:** origen y finalidad obligatorios en cada contacto, y declaración de base legítima al activar el módulo y al importar un CSV, registrada con fecha y usuario |
-| Notas de texto libre (consulta 8) | **Se adopta la solución propuesta:** aviso junto al campo, prohibición de datos sensibles en los términos de servicio, límite de longitud, y el asistente solo lee las notas si el usuario lo pide |
-| Interacciones con el asistente (consulta 9) | **Se adopta la solución propuesta:** solo estructura, nunca el contenido de una cuenta en otra, aviso explícito con opción de no participar y registros que vencen. **Falta fijar el plazo de vencimiento** |
+| Notas de texto libre (consulta 8) | **Se adopta la solución propuesta:** aviso junto al campo, prohibición de datos sensibles en los términos de servicio, límite de longitud de 2.000 caracteres, configurable, y el asistente solo lee las notas si el usuario lo pide |
+| Interacciones con el asistente (consulta 9) | **Se adopta la solución propuesta:** solo estructura, nunca el contenido de una cuenta en otra, aviso explícito con opción de no participar y registros que vencen a los 180 días |
 | Acciones del asistente (consulta 10) | **Se adopta la solución propuesta:** mismos permisos que el usuario, toda modificación con confirmación y registro, enviar mensajes, borrar y operar finanzas deshabilitados, y sin decisiones automatizadas sobre personas |
 | Esperando respuesta del área legal | Consulta 3 (registro de bases de datos). Las consultas 2, 8, 9 y 10 se adoptan como solución de trabajo y se ajustan si el área legal responde otra cosa |
 
