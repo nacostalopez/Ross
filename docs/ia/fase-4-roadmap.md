@@ -224,3 +224,22 @@ Notas de orden:
 | Esperando respuesta del área legal | Consulta 3 (registro de bases de datos). Las consultas 2, 8, 9 y 10 se adoptan como solución de trabajo y se ajustan si el área legal responde otra cosa |
 
 Siguiente documento: [fase-4-1-diseno.md](fase-4-1-diseno.md), el diseño detallado de la etapa 4.1.
+
+## 11. Cumplimiento básico de ROSS, independiente del CRM
+
+Sale de contrastar un resumen de la ley 25.326 con el producto. Vale para los datos que ROSS ya guarda hoy (emails de usuarios y solicitudes de demo), sin esperar al CRM.
+
+| Requisito | Estado |
+|---|---|
+| Política de privacidad y términos de servicio | Borrador publicado en `privacidad.html` y `terminos.html`, con los campos por completar marcados. Pendiente de revisión legal |
+| Consentimiento | Casilla obligatoria en el registro, al aceptar una invitación y en el formulario de demo. Se guarda qué versión se aceptó y cuándo (`backend/app/legal.py`) |
+| Acceso a los propios datos | Perfil, Privacidad y mis datos: descargar todo lo que ROSS guarda sobre la persona |
+| Supresión | Cualquier persona elimina su usuario. El propietario elimina la cuenta completa con su contraseña y la palabra ELIMINAR. La baja borra también las tablas sin clave foránea y se bloquea si hay una suscripción paga vigente |
+| Rectificación | Por correo al canal de privacidad, que falta completar |
+| Registro ante la AAIP | Consulta 3 de la consulta legal |
+
+Pendiente:
+- Completar en los textos el correo de privacidad, la razón social y el domicilio, la región del alojamiento y los plazos.
+- Las cuentas creadas antes de estos textos nunca los aceptaron. Falta decidir si se les pide la aceptación en su próximo ingreso.
+- Aplicar la migración `db/init/035_consent_and_erasure.sql` en cada base **antes** de desplegar esta versión: el código lee las columnas nuevas.
+- Que el área legal revise los dos textos.
