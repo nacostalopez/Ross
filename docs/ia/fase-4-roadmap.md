@@ -210,8 +210,11 @@ Notas de orden:
 | Ventana máxima por consulta | 90 días, configurable |
 | Principio de los datos del CRM | ROSS organiza y transporta: los datos no se reflejan en claro (ni en registros, trazas ni copias) y viajan y se guardan cifrados. **Decidido: cifrado por campo en el servidor, con una clave por cuenta**, descifrado solo en memoria para un usuario autorizado, con un hash para buscar por coincidencia exacta. El diseño deja abierta la opción de una clave en poder de la cuenta |
 | Alojamiento | Todo en el plano nacional por ahora. Se profundiza más adelante. **A verificar:** la región del alojamiento actual |
-| Exportar los datos de un contacto | Lo ve quien tenga acceso a auditorías y los comerciales que traten con clientes. La exportación se conserva 30 días y luego queda archivada en una ficha del pedido, sin los datos exportados. **Roles y funciones en propuesta:** `fase-4-roles-crm.md` |
+| Exportar los datos de un contacto | Lo ve quien tenga acceso a auditorías y los comerciales que traten con clientes. La exportación se conserva 30 días y luego queda archivada en una ficha del pedido, sin los datos exportados. Quién puede qué está en `fase-4-roles-crm.md` |
 | Borrar un contacto | Deja constancia durante 7 días, sin datos personales: solo el identificador, la fecha y quién borró |
+| Roles del CRM | Owner, Admin, Viewer y dos roles nuevos, **Comercial** y **Auditor**, guardados en una tabla aparte solo para cuentas con el módulo. El comercial no borra: genera una consulta de borrado que resuelve un admin u owner. El auditor ve el detalle de los contactos |
+| Registro de accesos del CRM | Incluido en todos los planes con CRM, Growth y Scale |
+| Asistentes del dashboard | Las tareas del CRM se reparten entre los seis: Retorno, Vigía, Bitácora, Pulso, Saldo y Foco |
 | Retención | 180 días para borrar todo definitivamente, contados desde que se baja el plan. Reactivar dentro del plazo restituye los datos |
 | Seguridad | Se exige cifrado en reposo. **Registro de accesos de nivel 2, con 12 meses de conservación:** exportaciones y borrados, cada apertura de la ficha de un contacto, los accesos del asistente, los intentos denegados y los cambios de permisos. Guarda identificadores, nunca el dato |
 | Base legal y finalidad (consulta 2) | **Se adopta la solución propuesta:** origen y finalidad obligatorios en cada contacto, y declaración de base legítima al activar el módulo y al importar un CSV, registrada con fecha y usuario |

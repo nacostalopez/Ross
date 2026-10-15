@@ -1,6 +1,6 @@
 # Fase 4 — Roles y funciones del CRM, a partir de los asistentes del dashboard
 
-Propuesta para decidir. Parte de lo que ya existe en el producto y suma lo que pidieron las decisiones legales: exportar los datos de un contacto
+Decidido, con las decisiones al final. Parte de lo que ya existe en el producto y suma lo que pidieron las decisiones legales: exportar los datos de un contacto
 lo ven quienes tienen acceso a auditorías y los comerciales que tratan con clientes.
 
 ## 1. Punto de partida
@@ -24,7 +24,7 @@ Se separan en permisos concretos para poder repartirlos entre roles.
 | Gestionar trato | Crear y mover oportunidades, y crear y cerrar tareas |
 | Importar | Cargar contactos desde un CSV |
 | Exportar un contacto | Exportar los datos de un contacto (el pedido de un titular) |
-| Borrar un contacto | Borrado definitivo, que deja constancia durante 7 días |
+| Borrar un contacto | Borrado definitivo, que deja constancia durante 7 días. Quien no puede borrar genera una consulta de borrado |
 | Ver auditoría | Ver el registro de accesos, las constancias de borrado y las fichas de pedidos |
 | Administrar el módulo | Activar y desactivar el CRM, y asignar roles del CRM |
 | Borrar todo | Eliminar todo el CRM de la cuenta |
@@ -40,14 +40,14 @@ Los tres roles actuales más dos nuevos, propuestos a partir de lo que pediste: 
 | Gestionar trato | Sí | Sí | Sí | No | No |
 | Importar | Sí | Sí | Sí | No | No |
 | Exportar un contacto | Sí | Sí | Sí | Sí | No |
-| Borrar un contacto | Sí | Sí | No | No | No |
+| Borrar un contacto | Sí | Sí | Consulta | No | No |
 | Ver auditoría | Sí | Sí | No | Sí | No |
 | Administrar el módulo | Sí | Sí | No | No | No |
 | Borrar todo | Sí | No | No | No | No |
 
 Criterios detrás de la tabla:
 - **Borrar todo** y **administrar el módulo** por ser irreversible y ligado al plan: lo más conservador es que lo haga solo `owner`. Se puede abrir a `admin`.
-- **Comercial** no borra: puede pedir el borrado a un `admin`. Se puede abrir si trabajan solos.
+- **Comercial** no borra: genera una consulta de borrado que un `admin` o `owner` resuelve.
 - **Auditor** ve y exporta, pero no modifica nada, para que pueda revisar sin alterar lo que revisa.
 - **Viewer** lee, pero no exporta ni ve la auditoría, igual que hoy no ve la auditoría de pedidos.
 
@@ -56,10 +56,10 @@ Criterios detrás de la tabla:
 | Opción | Pros | Contras |
 |---|---|---|
 | A. Agregar `comercial` y `auditor` a los roles de cuenta | Un solo sistema de roles | Hay que cambiar la restricción de roles en las tablas de usuarios y de roles por tienda, y los dos roles nuevos aparecerían en todo el producto aunque no use el CRM |
-| **B. Un rol del CRM aparte, solo para cuentas con el módulo** *(recomendada)* | No toca los roles actuales ni sus restricciones. Owner y admin son administradores del CRM sin hacer nada | Dos sistemas de roles que hay que explicar |
+| **B. Un rol del CRM aparte, solo para cuentas con el módulo** *(elegida)* | No toca los roles actuales ni sus restricciones. Owner y admin son administradores del CRM sin hacer nada | Dos sistemas de roles que hay que explicar |
 | C. Permisos sueltos por usuario | Máxima flexibilidad | Difícil de auditar y de explicar a quien administra |
 
-Con B, una tabla `crm_members` guarda, por cuenta y usuario, uno de: `comercial`, `auditor` o `lectura`. Quien es `owner` o `admin` de la cuenta tiene los permisos de administrador del CRM sin fila.
+Se eligió la opción B. Con ella, una tabla `crm_members` guarda, por cuenta y usuario, uno de: `comercial`, `auditor` o `lectura`. Quien es `owner` o `admin` de la cuenta tiene los permisos de administrador del CRM sin fila.
 
 ## 4. Los asistentes del dashboard y el CRM
 
@@ -74,14 +74,29 @@ Cada asistente toma tareas del CRM según lo que ya mide. Una tarea solo aparece
 | **Saldo** (finanzas) | True ROAS y ganancia real | Valor del embudo de oportunidades, si las oportunidades llevan un monto | Ver |
 | **Foco** (anuncios) | Gasto, CTR y CPC por creativo | Contactos por origen: qué canales traen contactos. Pide que el origen tenga valores controlados | Ver |
 
-**Reutilizar o sumar un asistente.** Se pueden repartir las tareas entre los seis (recomendado, sin cambiar la oficina) o sumar un séptimo asistente solo para el CRM. Con seis, el CRM queda repartido; con siete, queda concentrado pero hay que dibujar un asiento nuevo.
+**Reutilizar o sumar un asistente.** Se eligió repartir las tareas entre los seis, sin cambiar la oficina. Un séptimo asistente solo para el CRM queda como posibilidad futura.
 
 **Asistente conversacional.** Usa las mismas reglas: las herramientas del CRM son un módulo, y se les agrega el permiso que exigen además del rol. La política sigue siendo un único punto de decisión.
 
-## 5. Decisiones abiertas
+## 5. Consulta de borrado
 
-1. **El comercial ¿puede borrar un contacto?** La propuesta es que no.
-2. **El auditor ¿ve el detalle de los contactos?** La propuesta es que sí, para poder exportar. Si no, solo vería registros y constancias.
-3. **El registro de accesos del CRM ¿se limita a Scale, como la auditoría de pedidos?** El nivel de registro que se eligió es obligatorio, así que no puede depender del plan. La propuesta es incluirlo en todos los planes con CRM (Growth y Scale).
-4. **Roles guardados:** opción A, B o C. Se recomienda B.
-5. **Asistentes:** repartir el CRM entre los seis o sumar un séptimo. Se recomienda repartir.
+El comercial no borra, pero puede pedirlo. Genera una **consulta de borrado** sobre un contacto, con el motivo. Un `admin` o `owner` la ve y la resuelve.
+
+| Paso | Qué pasa |
+|---|---|
+| Genera | El comercial crea la consulta. Queda registrada con su usuario y la fecha, sin copiar datos personales |
+| Resuelve | Un `admin` u `owner` la aprueba o la rechaza, con una nota |
+| Si se aprueba | Se borra el contacto de forma definitiva y queda la constancia de 7 días |
+| Si se rechaza | El contacto queda como estaba y la consulta guarda la respuesta |
+
+Los plazos de resolución de una consulta de borrado los define el área legal junto con el resto de los plazos de atención de derechos.
+
+## 6. Decisiones
+
+| Tema | Decisión |
+|---|---|
+| El comercial y el borrado | No borra. Genera una consulta de borrado |
+| El auditor | Ve el detalle de los contactos, para poder exportar |
+| Registro de accesos del CRM | Incluido en todos los planes con CRM, Growth y Scale |
+| Dónde se guardan los roles | Tabla aparte para los roles del CRM (opción B) |
+| Asistentes | Las tareas se reparten entre los seis |
