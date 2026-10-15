@@ -106,7 +106,7 @@ Qué es "el modelo de ROSS" (propio, alojado por ROSS o de un tercero) cambia co
 | Activación | La cuenta lo activa desde su configuración. No se crea ningún dato hasta entonces. Se controla con una bandera por cuenta y con `require_plan_feature("crm")` |
 | Alcance mínimo | Contactos, empresas, embudo simple de oportunidades, tareas y notas. Alta manual e importación CSV. **Sin envío de email ni WhatsApp en esta fase** |
 | Origen y finalidad | Cada contacto lleva su **origen** y la **finalidad** para la que se guarda. Los contactos comerciales de la cuenta se mantienen separados de los compradores de sus tiendas |
-| Plan | Hay que agregar la función `crm` a `plans.features`. La migración de planes pide que toda función con puerta figure al menos en `scale`. **Decidido: Growth y Scale** (Starter no). Pendiente: qué pasa con los datos de una cuenta que baja a un plan sin CRM (propuesta: conservarlos en solo lectura y exportables) |
+| Plan | Hay que agregar la función `crm` a `plans.features`. La migración de planes pide que toda función con puerta figure al menos en `scale`. **Decidido: Growth y Scale** (Starter no). **Decidido:** una cuenta sin CRM (lo desactiva o baja a un plan que no lo incluye) funciona sin la lógica del CRM, y los datos que tenía quedan resguardados: conservados, aislados y sin acceso desde el producto. Propuesta a confirmar: exportar y borrar siguen disponibles aun con el módulo inactivo, para poder atender los derechos de las personas |
 | Aislamiento | Toda tabla lleva `account_id`. Todo acceso pasa por las dependencias actuales. **Test de aislamiento entre cuentas obligatorio por ruta y por herramienta** |
 | Roles | `viewer` lee. `admin` y `owner` escriben. El asistente hereda el rol de quien le habla |
 | Datos personales | ROSS pasa a ser encargado del tratamiento de los contactos de la cuenta. En primera instancia lo aprueban el administrador y quien lleve la contaduría. **La revisión legal o de privacidad es un requisito formal antes de empezar la etapa 4.4**, a cargo del responsable legal. La consulta está redactada en `fase-4-crm-consulta-legal.docx` |
@@ -121,7 +121,7 @@ Qué es "el modelo de ROSS" (propio, alojado por ROSS o de un tercero) cambia co
 | B. Se sincronizan desde las órdenes de las tiendas | Es lo que más valor daría: compradores, recompra, segmentos | Hoy `Customer` guarda solo hashes. Habría que capturar nombre y email en claro desde Shopify y Tiendanube. Decisión legal y de seguridad grande |
 | C. A primero, B después y opcional | Entrega el CRM sin esperar la decisión legal | Quien tiene tienda pide B desde el inicio |
 
-**Recomendación: C.**
+**Decidido: C.** Lo posterior es el cruce por hash (etapa 4.8), no la sincronización de compradores en claro.
 
 ### Privacidad de las trazas
 
@@ -157,7 +157,7 @@ Qué es "el modelo de ROSS" (propio, alojado por ROSS o de un tercero) cambia co
 | **4.5 Gateway de IA y modelo** | Contrato con capacidades separadas, escritor falso, presupuestos y caída a escalones bajos. **Primer proveedor: modelo local con Ollama**, desarrollado en una máquina disponible. Las APIs comerciales quedan como opción, desactivadas por defecto. Se elige proveedor por capacidad y por sensibilidad del dato (propuesta: los datos del CRM solo van a un proveedor local). Se conecta en L2 y L3 y se compara contra el router | La escalera completa funciona con el escritor falso. Con el modelo real, el validador no rechaza más que antes y todo se apaga con una variable. **Antes de activarlo en producción se define dónde corre el modelo local** (el entorno actual no tiene GPU) |
 | **4.6 Promoción y autonomía creciente** | Modo sombra, umbral de promoción, revisión humana, versionado, reversión, exploración y tablero de indicadores | Los patrones promovidos igualan o superan el score del modelo. La tasa de resolución sin modelo sube sin caer la utilidad |
 | **4.7 El asistente opera el CRM** | Primero lectura ("¿a quién tengo que seguir esta semana?"). Después escrituras de bajo riesgo con confirmación visible y registro, y "preparar un mensaje para revisión" (sin enviarlo). **Enviar mensajes, borrar registros y acciones financieras son de alto riesgo y exigen controles adicionales**, que se definen antes de habilitarlas. Respuestas que cruzan métricas y CRM | Ninguna escritura sin confirmación. Un `viewer` no escribe ni por el asistente. Las acciones se pueden auditar. Las de alto riesgo están deshabilitadas |
-| **4.8 Contactos desde las tiendas** *(opcional)* | Sincronizar compradores, por tienda y con activación explícita. **Antes de habilitarla se define para qué se usarán, quién accede y qué base legal corresponde.** No se importan automáticamente | Revisión de privacidad hecha antes y no al final. Consentimiento y baja resueltos. Aislamiento por tienda probado |
+| **4.8 Historial de compras de los contactos, por cruce de hash** *(opcional)* | Un contacto que la cuenta cargó muestra su historial de compras y su LTV comparando el hash de su email con el de los compradores de las tiendas de esa misma cuenta. No se capturan datos nuevos. **Sincronizar compradores en claro queda fuera y exige una revisión propia: para qué se usarían, quién accede y qué base legal corresponde** | El cruce solo opera dentro de una misma cuenta. Revisión de privacidad hecha antes y no al final. Aislamiento por tienda probado |
 
 Notas de orden:
 - **Las trazas empiezan en la 4.2.** Es lo único que no se puede recuperar después: la independencia progresiva se alimenta de lo registrado desde el principio.
@@ -200,8 +200,8 @@ Notas de orden:
 |---|---|
 | Modelo de IA | **Híbrido**. Primero un modelo local (Ollama). Las APIs comerciales son opcionales y están desactivadas por defecto. Se elige proveedor por capacidad |
 | Promoción de patrones | Aprobación humana en cada una al principio |
-| Contactos del CRM | **Confirmado:** solo los que carga la cuenta (formulario o CSV), sin vínculo con `customers` ni con los pedidos. Los compradores de las tiendas son opcionales, nunca automáticos, y exigen definir finalidad, acceso y base legal antes. Sin decidir: el cruce por hash como contenido de la 4.8 |
-| Planes que incluyen el CRM | **Growth y Scale.** Pendiente: el tratamiento de los datos de una cuenta que baja de plan |
+| Contactos del CRM | **Confirmado:** solo los que carga la cuenta (formulario o CSV), sin vínculo con `customers` ni con los pedidos. Los compradores de las tiendas son opcionales, nunca automáticos, y exigen definir finalidad, acceso y base legal antes. **Decidido:** el cruce por hash es el contenido de la etapa 4.8 |
+| Planes que incluyen el CRM | **Growth y Scale.** **Decidido:** una cuenta sin CRM (lo desactiva o baja a un plan que no lo incluye) funciona sin la lógica del CRM, y los datos que tenía quedan resguardados: conservados, aislados y sin acceso desde el producto. Propuesta a confirmar: exportar y borrar siguen disponibles aun con el módulo inactivo, para poder atender los derechos de las personas |
 | Datos personales | Administrador y contaduría en primera instancia, **más** revisión del responsable legal como requisito formal antes de la 4.4. Documento de consulta: `fase-4-crm-consulta-legal.docx` |
 | Selección de respuestas | Puntaje híbrido con pesos iniciales como hipótesis y tres comportamientos según la confianza. Nunca autoriza |
 | Ubicación de las herramientas | `backend/app/ai/tools/` |
