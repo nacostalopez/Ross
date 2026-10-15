@@ -214,6 +214,10 @@ Notas de orden:
 | Borrar un contacto | Deja constancia durante 7 días. **Por confirmar:** qué contiene esa constancia |
 | Retención | 180 días para borrar todo definitivamente. **Por confirmar:** desde qué momento corre el plazo |
 | Seguridad | Se exige cifrado en reposo. El nivel de registro de accesos se elige entre las propuestas |
-| Esperando respuesta del área legal | Consultas 2, 3, 8, 9 y 10 |
+| Base legal y finalidad (consulta 2) | **Se adopta la solución propuesta:** origen y finalidad obligatorios en cada contacto, y declaración de base legítima al activar el módulo y al importar un CSV, registrada con fecha y usuario |
+| Notas de texto libre (consulta 8) | **Se adopta la solución propuesta:** aviso junto al campo, prohibición de datos sensibles en los términos de servicio, límite de longitud, y el asistente solo lee las notas si el usuario lo pide |
+| Interacciones con el asistente (consulta 9) | **Se adopta la solución propuesta:** solo estructura, nunca el contenido de una cuenta en otra, aviso explícito con opción de no participar y registros que vencen. **Falta fijar el plazo de vencimiento** |
+| Acciones del asistente (consulta 10) | **Se adopta la solución propuesta:** mismos permisos que el usuario, toda modificación con confirmación y registro, enviar mensajes, borrar y operar finanzas deshabilitados, y sin decisiones automatizadas sobre personas |
+| Esperando respuesta del área legal | Consulta 3 (registro de bases de datos). Las consultas 2, 8, 9 y 10 se adoptan como solución de trabajo y se ajustan si el área legal responde otra cosa |
 
 Siguiente documento: [fase-4-1-diseno.md](fase-4-1-diseno.md), el diseño detallado de la etapa 4.1.
