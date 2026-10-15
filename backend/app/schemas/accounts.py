@@ -50,6 +50,7 @@ class InviteOut(BaseModel):
 class InviteAcceptIn(BaseModel):
     token: str
     password: str = Field(min_length=8)
+    accept_terms: bool = False
 
 
 class RoleUpdateIn(BaseModel):

@@ -29,6 +29,7 @@ from app.routes import (
     notification_preferences,
     orders,
     pixel_events,
+    privacy,
     products,
     push,
     reports,
@@ -118,6 +119,7 @@ app.include_router(alerts.router)
 app.include_router(reports.router)
 app.include_router(push.router)
 app.include_router(notification_preferences.router)
+app.include_router(privacy.router)
 
 
 @app.get("/health")

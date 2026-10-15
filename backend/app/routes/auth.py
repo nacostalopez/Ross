@@ -9,6 +9,7 @@ from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user, is_demo_user
 from app.email import send_email_quietly
+from app.legal import LEGAL_VERSION, TERMS_NOT_ACCEPTED, require_acceptance
 from app.models import Account, PasswordResetToken, RefreshToken, Subscription, User
 from app.rate_limit import limiter
 from app.schemas.auth import (
@@ -61,6 +62,7 @@ def issue_tokens(db: Session, user: User) -> TokenOut:
 @router.post("/register", response_model=TokenOut, status_code=201)
 @limiter.limit("5/minute")
 def register(request: Request, payload: RegisterIn, db: Session = Depends(get_db)):
+    require_acceptance(payload.accept_terms, TERMS_NOT_ACCEPTED)
     if find_user_by_email(db, payload.email):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=EMAIL_TAKEN)
 
@@ -79,6 +81,8 @@ def register(request: Request, payload: RegisterIn, db: Session = Depends(get_db
         email=payload.email,
         hashed_password=hash_password(payload.password),
         role="owner",
+        terms_accepted_at=datetime.now(timezone.utc),
+        terms_version=LEGAL_VERSION,
     )
     db.add(user)
     try:

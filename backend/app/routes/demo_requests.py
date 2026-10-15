@@ -3,6 +3,7 @@ so it is rate limited per IP like registration; the request is stored first
 and the team notified by email second, best-effort."""
 
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.orm import Session
@@ -10,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.email import send_email_quietly
+from app.legal import LEGAL_VERSION, PRIVACY_NOT_ACCEPTED, require_acceptance
 from app.models import DemoRequest
 from app.rate_limit import limiter
 from app.schemas.demo_requests import DemoRequestIn, DemoRequestOut
@@ -30,7 +32,14 @@ PLATFORM_LABELS = {
 def create_demo_request(
     request: Request, payload: DemoRequestIn, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
 ):
-    demo_request = DemoRequest(name=payload.name.strip(), email=payload.email, platform=payload.platform)
+    require_acceptance(payload.accept_privacy, PRIVACY_NOT_ACCEPTED)
+    demo_request = DemoRequest(
+        name=payload.name.strip(),
+        email=payload.email,
+        platform=payload.platform,
+        privacy_accepted_at=datetime.now(timezone.utc),
+        privacy_version=LEGAL_VERSION,
+    )
     db.add(demo_request)
     db.commit()
 

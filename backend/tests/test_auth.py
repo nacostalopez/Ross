@@ -12,6 +12,7 @@ class TestRegister:
         response = client.post(
             "/auth/register",
             json={
+                "accept_terms": True,
                 "account_name": "New Account",
                 "email": "newuser@example.com",
                 "password": "securepass123",
@@ -29,6 +30,7 @@ class TestRegister:
         response = client.post(
             "/auth/register",
             json={
+                "accept_terms": True,
                 "account_name": "Another Account",
                 "email": "testuser@example.com",
                 "password": "securepass123",
@@ -43,7 +45,7 @@ class TestRegister:
         """A phone capitalising the first letter used to open a second account for the same person."""
         response = client.post(
             "/auth/register",
-            json={"account_name": "Otra cuenta", "email": email, "password": "securepass123"},
+            json={ "accept_terms": True, "account_name": "Otra cuenta", "email": email, "password": "securepass123"},
         )
 
         assert response.status_code == status.HTTP_409_CONFLICT
@@ -51,7 +53,7 @@ class TestRegister:
     def test_register_stores_the_email_lowercased(self, client, test_db_session):
         response = client.post(
             "/auth/register",
-            json={"account_name": "Nueva", "email": " Ana.Perez@Example.com ", "password": "securepass123"},
+            json={ "accept_terms": True, "account_name": "Nueva", "email": " Ana.Perez@Example.com ", "password": "securepass123"},
         )
 
         assert response.status_code == status.HTTP_201_CREATED
@@ -61,7 +63,7 @@ class TestRegister:
     def test_register_rejects_an_empty_account_name(self, client):
         response = client.post(
             "/auth/register",
-            json={"account_name": "", "email": "someone@example.com", "password": "securepass123"},
+            json={ "accept_terms": True, "account_name": "", "email": "someone@example.com", "password": "securepass123"},
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -86,6 +88,7 @@ class TestRegister:
         response = client.post(
             "/auth/register",
             json={
+                "accept_terms": True,
                 "account_name": "New Account",
                 "email": "not-an-email",
                 "password": "securepass123",

@@ -48,6 +48,10 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    # Which version of the terms and privacy policy this person accepted, and when (app/legal.py).
+    # NULL for accounts created before the texts existed.
+    terms_accepted_at = Column(DateTime(timezone=True))
+    terms_version = Column(String(40))
 
     account = relationship("Account", back_populates="users")
 
@@ -311,3 +315,6 @@ class DemoRequest(Base):
     email = Column(Text, nullable=False)
     platform = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    # The privacy policy the prospect accepted when sending the form (app/legal.py).
+    privacy_accepted_at = Column(DateTime(timezone=True))
+    privacy_version = Column(String(40))

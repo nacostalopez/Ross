@@ -180,7 +180,7 @@ class TestInviteFlow:
 
         accept_response = client.post(
             "/accounts/invites/accept",
-            json={"token": token, "password": "inviteepassword123"},
+            json={ "accept_terms": True, "token": token, "password": "inviteepassword123"},
         )
         assert accept_response.status_code == status.HTTP_200_OK
         access_token = accept_response.json()["access_token"]
@@ -222,20 +222,20 @@ class TestInviteFlow:
         )
         registered = client.post(
             "/auth/register",
-            json={"account_name": "Propia", "email": "INVITEE@example.com", "password": "securepass123"},
+            json={ "accept_terms": True, "account_name": "Propia", "email": "INVITEE@example.com", "password": "securepass123"},
         )
         assert registered.status_code == status.HTTP_201_CREATED
 
         response = client.post(
             "/accounts/invites/accept",
-            json={"token": invite.json()["token"], "password": "inviteepassword123"},
+            json={ "accept_terms": True, "token": invite.json()["token"], "password": "inviteepassword123"},
         )
         assert response.status_code == status.HTTP_409_CONFLICT
 
     def test_accept_invalid_token_rejected(self, client):
         response = client.post(
             "/accounts/invites/accept",
-            json={"token": "not-a-real-token", "password": "somepassword123"},
+            json={ "accept_terms": True, "token": "not-a-real-token", "password": "somepassword123"},
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
@@ -253,7 +253,7 @@ class TestInviteFlow:
 
         accept_response = client.post(
             "/accounts/invites/accept",
-            json={"token": token, "password": "somepassword123"},
+            json={ "accept_terms": True, "token": token, "password": "somepassword123"},
         )
         assert accept_response.status_code == status.HTTP_400_BAD_REQUEST
 
@@ -273,13 +273,13 @@ class TestInviteFlow:
 
         old_token_attempt = client.post(
             "/accounts/invites/accept",
-            json={"token": original_token, "password": "somepassword123"},
+            json={ "accept_terms": True, "token": original_token, "password": "somepassword123"},
         )
         assert old_token_attempt.status_code == status.HTTP_400_BAD_REQUEST
 
         new_token_attempt = client.post(
             "/accounts/invites/accept",
-            json={"token": new_token, "password": "somepassword123"},
+            json={ "accept_terms": True, "token": new_token, "password": "somepassword123"},
         )
         assert new_token_attempt.status_code == status.HTTP_200_OK
 

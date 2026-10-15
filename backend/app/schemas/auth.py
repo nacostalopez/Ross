@@ -13,6 +13,9 @@ class RegisterIn(BaseModel):
     account_name: str = Field(min_length=1, max_length=255)
     email: NormalizedEmail
     password: str = Field(min_length=8)
+    # Checked by the route (which answers with a plain message), not by validation, so the
+    # person is told what to do rather than shown a list of field errors.
+    accept_terms: bool = False
 
 
 class LoginIn(BaseModel):

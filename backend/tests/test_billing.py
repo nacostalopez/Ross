@@ -74,7 +74,7 @@ class TestRegistrationCreatesSubscription:
     def test_register_creates_a_scale_subscription(self, client, test_db_session):
         response = client.post(
             "/auth/register",
-            json={"account_name": "New Co", "email": "newco@example.com", "password": "supersecret123"},
+            json={ "accept_terms": True, "account_name": "New Co", "email": "newco@example.com", "password": "supersecret123"},
         )
         assert response.status_code == status.HTTP_201_CREATED
 

@@ -12,6 +12,7 @@ from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 from app.email import send_email_quietly
+from app.legal import LEGAL_VERSION, TERMS_NOT_ACCEPTED, require_acceptance
 from app.models import AccountActivityLog, AccountInvite, RefreshToken, User
 from app.routes.auth import EMAIL_TAKEN, issue_tokens
 from app.schemas.accounts import (
@@ -199,6 +200,7 @@ def revoke_invite(
 
 @router.post("/invites/accept", response_model=TokenOut)
 def accept_invite(payload: InviteAcceptIn, db: Session = Depends(get_db)):
+    require_acceptance(payload.accept_terms, TERMS_NOT_ACCEPTED)
     invite = db.query(AccountInvite).filter_by(token_hash=hash_token(payload.token)).first()
 
     now = datetime.now(timezone.utc)
@@ -214,6 +216,8 @@ def accept_invite(payload: InviteAcceptIn, db: Session = Depends(get_db)):
         email=normalize_email(invite.email),
         hashed_password=hash_password(payload.password),
         role=invite.role,
+        terms_accepted_at=now,
+        terms_version=LEGAL_VERSION,
     )
     db.add(user)
 

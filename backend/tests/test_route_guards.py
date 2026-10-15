@@ -39,6 +39,7 @@ PERSONAL_WRITES = {
     ("POST", "/push/subscribe"),
     ("DELETE", "/push/subscribe"),
     ("DELETE", "/push/subscriptions/{subscription_id}"),
+    ("POST", "/privacy/delete-me"),
 }
 
 
