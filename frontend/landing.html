@@ -146,6 +146,10 @@
           <option value="otra">Otra plataforma</option>
         </select>
       </label>
+      <label class="consent">
+        <input type="checkbox" name="accept_privacy" required />
+        <span>Acepto la <a href="privacidad.html" target="_blank" rel="noopener">política de privacidad</a>.</span>
+      </label>
       <button type="submit" class="btn btn-primary l-cta-btn">Pedir demo</button>
       <p class="l-demo-error" id="demo-error" role="alert" hidden></p>
     </form>
@@ -158,6 +162,7 @@
   <footer class="l-footer">
     <span>ROSS</span>
     <span>Rentabilidad real para tu e-commerce.</span>
+    <span class="l-footer-links"><a href="privacidad.html">Privacidad</a> · <a href="terminos.html">Términos</a></span>
   </footer>
 
   <script src="agentes/agentes.js"></script>
@@ -209,6 +214,11 @@
         demoError.hidden = false;
         return;
       }
+      if (!demoForm.elements.accept_privacy.checked) {
+        demoError.textContent = "Aceptá la política de privacidad para enviar el pedido.";
+        demoError.hidden = false;
+        return;
+      }
       const button = demoForm.querySelector("button[type=submit]");
       button.disabled = true;
       button.textContent = "Enviando…";
@@ -216,7 +226,7 @@
         const res = await fetch(`${API_BASE}/demo-requests`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: data.name.trim(), email: data.email.trim(), platform: data.platform }),
+          body: JSON.stringify({ name: data.name.trim(), email: data.email.trim(), platform: data.platform, accept_privacy: true }),
         });
         if (res.status === 429) throw new Error("Recibimos varios pedidos seguidos. Probá de nuevo en un minuto.");
         if (!res.ok) throw new Error("Revisá tus datos e intentá de nuevo.");
