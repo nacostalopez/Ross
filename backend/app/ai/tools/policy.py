@@ -35,6 +35,11 @@ def module_active(ctx: ToolContext, module: str) -> bool:
 
 
 def authorize(ctx: ToolContext, tool: Tool) -> Decision:
+    # resolve_context only builds a context for a store of the user's account. This holds even for a
+    # context assembled by hand, so no tool can run on another account's store.
+    if ctx.store.account_id != ctx.user.account_id:
+        return _deny(DenialReason.FORBIDDEN, "No encontramos esa tienda")
+
     if not module_active(ctx, tool.module):
         return _deny(DenialReason.MODULE_INACTIVE, "Esta función no está activada en tu cuenta")
 

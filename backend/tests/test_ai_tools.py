@@ -56,10 +56,11 @@ def _fake_tool(**overrides):
 
 def _bare_context(role="viewer", email="someone@example.com"):
     """A context for the policy checks that never reach the database."""
+    account_id = uuid4()
     return ToolContext(
         db=None,
-        user=SimpleNamespace(email=email, account_id=uuid4()),
-        store=SimpleNamespace(id=uuid4(), currency="USD"),
+        user=SimpleNamespace(email=email, account_id=account_id),
+        store=SimpleNamespace(id=uuid4(), currency="USD", account_id=account_id),
         role=role,
         now=NOW,
     )
