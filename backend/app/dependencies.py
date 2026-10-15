@@ -1,3 +1,4 @@
+from typing import Optional
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
@@ -40,13 +41,25 @@ def get_current_user(
     return user
 
 
+def find_owned_store(db: Session, user: User, store_id: UUID) -> Optional[Store]:
+    """The store, if it belongs to the user's account; None otherwise, whether it exists or not.
+
+    The one rule for "this store is mine": get_owned_store turns a None into a 404 for a route, and the
+    assistant's tools turn it into "store not found", so both answer the same for another account's store.
+    """
+    store = db.get(Store, store_id)
+    if not store or store.account_id != user.account_id:
+        return None
+    return store
+
+
 def get_owned_store(
     store_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Store:
-    store = db.get(Store, store_id)
-    if not store or store.account_id != current_user.account_id:
+    store = find_owned_store(db, current_user, store_id)
+    if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found")
     return store
 
