@@ -46,7 +46,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\"account_name\": \"Postman Test Account\", \"email\": \"postman-{{runId}}@ross-postman.dev\", \"password\": \"Postman12345!\"}"
+          "raw": "{\"account_name\": \"Postman Test Account\", \"email\": \"postman-{{runId}}@ross-postman.dev\", \"password\": \"Postman12345!\", \"accept_terms\": true}"
         },
         "url": "{{baseUrl}}/auth/register"
       }

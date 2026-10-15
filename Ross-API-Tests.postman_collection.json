@@ -53,7 +53,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"account_name\": \"Test Account {{$timestamp}}\",\n  \"email\": \"test{{$timestamp}}@example.com\",\n  \"password\": \"SecurePassword123!\"\n}"
+              "raw": "{\n  \"account_name\": \"Test Account {{$timestamp}}\",\n  \"email\": \"test{{$timestamp}}@example.com\",\n  \"password\": \"SecurePassword123!\",\n  \"accept_terms\": true\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
@@ -1588,7 +1588,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"{{invite_token}}\",\n  \"password\": \"MemberPassword123!\"\n}"
+              "raw": "{\n  \"token\": \"{{invite_token}}\",\n  \"password\": \"MemberPassword123!\",\n  \"accept_terms\": true\n}"
             },
             "url": {
               "raw": "{{base_url}}/accounts/invites/accept",
@@ -1627,7 +1627,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"{{invite_token}}\",\n  \"password\": \"MemberPassword123!\"\n}"
+              "raw": "{\n  \"token\": \"{{invite_token}}\",\n  \"password\": \"MemberPassword123!\",\n  \"accept_terms\": true\n}"
             },
             "url": {
               "raw": "{{base_url}}/accounts/invites/accept",
@@ -3120,7 +3120,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Prospecto Postman\",\n  \"email\": \"prospect{{$timestamp}}@example.com\",\n  \"platform\": \"tiendanube\"\n}"
+              "raw": "{\n  \"name\": \"Prospecto Postman\",\n  \"email\": \"prospect{{$timestamp}}@example.com\",\n  \"platform\": \"tiendanube\",\n  \"accept_privacy\": true\n}"
             },
             "url": {
               "raw": "{{base_url}}/demo-requests",
@@ -3157,7 +3157,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Prospecto Postman\",\n  \"email\": \"prospect{{$timestamp}}@example.com\",\n  \"platform\": \"amazon\"\n}"
+              "raw": "{\n  \"name\": \"Prospecto Postman\",\n  \"email\": \"prospect{{$timestamp}}@example.com\",\n  \"platform\": \"amazon\",\n  \"accept_privacy\": true\n}"
             },
             "url": {
               "raw": "{{base_url}}/demo-requests",

@@ -151,7 +151,7 @@ async function shot(page, name, options = {}) {
 
 (async () => {
   const browser = await chromium.launch();
-  const account = { account_name: "Agentes QA", email: `agentes-qa-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7" };
+  const account = { account_name: "Agentes QA", email: `agentes-qa-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7", accept_terms: true };
   const tokens = await post("/auth/register", account);
   console.log(`Registered ${account.email} on ${API_URL}`);
 
@@ -399,6 +399,7 @@ async function shot(page, name, options = {}) {
       await page.fill("#register-account-name", "Bienvenida QA");
       await page.fill("#register-email", `bienvenida-${reducedMotion}-${Date.now()}@example.com`);
       await page.fill("#register-password", "Rossapp-2026-Xq!7");
+      await page.check("#register-accept");
       const start = Date.now();
       await page.click('#register-form button[type="submit"]');
       const celebrated = await sceneIs(page, "login-festeja");
@@ -454,7 +455,7 @@ async function shot(page, name, options = {}) {
 
   // 8) App mascot: True ROAS mood, loading block, error toast.
   {
-    const seeded = await post("/auth/register", { account_name: "Mascota QA", email: `mascota-qa-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7" });
+    const seeded = await post("/auth/register", { account_name: "Mascota QA", email: `mascota-qa-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7", accept_terms: true });
     const store = await post("/stores", { name: "Local QA", platform: "shopify", currency: "ARS" }, seeded.access_token);
     {
       const { context, page } = await open(browser, { theme: "light", viewport: VIEWPORTS.desktop, tokens: seeded });
@@ -579,7 +580,7 @@ async function shot(page, name, options = {}) {
   {
     // Registering is limited to 5 a minute per address: wait for the window instead of failing.
     const fresh = async (label, { store = true } = {}) => {
-      const body = { account_name: `${label} QA`, email: `${label.toLowerCase().replace(/\W/g, "-")}-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7" };
+      const body = { account_name: `${label} QA`, email: `${label.toLowerCase().replace(/\W/g, "-")}-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7", accept_terms: true };
       let tokensFor;
       for (;;) {
         try {

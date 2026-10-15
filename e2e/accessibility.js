@@ -87,6 +87,8 @@ async function audit(browser, { name, url, width, theme, tokens, prepare }) {
   for (const width of WIDTHS) {
     await audit(browser, { name: "landing", url: "landing.html", width });
     await audit(browser, { name: "pricing", url: "pricing.html", width });
+    await audit(browser, { name: "privacidad", url: "privacidad.html", width });
+    await audit(browser, { name: "terminos", url: "terminos.html", width });
     await audit(browser, { name: "login", url: "index.html", width });
   }
 
@@ -94,6 +96,7 @@ async function audit(browser, { name, url, width, theme, tokens, prepare }) {
     account_name: "Accesibilidad QA",
     email: `a11y-qa-${Date.now()}@example.com`,
     password: "Ross-QA-2026!xQ7",
+    accept_terms: true,
   });
   await post("/stores", { name: "Tienda QA", platform: "shopify", currency: "USD" }, tokens.access_token);
   let seeded = false;

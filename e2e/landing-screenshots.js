@@ -70,6 +70,7 @@ async function capture(browser, tokens, theme, seed) {
     account_name: "Demo ROSS",
     email: `demo-ross-${Date.now()}@example.com`,
     password: "Ross-Demo-2026!xQ7",
+    accept_terms: true,
   });
   await post("/stores", { name: "Tienda de demostración", platform: "shopify", currency: "USD" }, tokens.access_token);
   await capture(browser, tokens, "light", true);
