@@ -219,3 +219,25 @@ Como en `test_route_guards`, hay una prueba que comprueba que el recorrido encue
 Con las decisiones de la sección 1 cerradas, esta etapa se puede implementar en el orden de la sección 4.3. Lo único previo a escribir código es confirmar este diseño.
 
 La etapa 4.2 agrega las tablas de eventos, señales, trazas y score (migración `035`), probadas con la narrativa semanal, que se registra aquí como la herramienta `weekly_narrative`. La etapa 4.3 suma el puntaje de selección del [roadmap](fase-4-roadmap.md).
+
+## 10. Estado: etapa cerrada
+
+| Criterio de salida | Resultado |
+|---|---|
+| Ningún número cambió | La instantánea de los ocho endpoints es idéntica antes y después. Los tests existentes pasan sin modificarse |
+| `/summary` y `/creatives` fijados por tests | Cuatro tests nuevos de `/summary`. `/creatives` ya tenía cinco |
+| Ningún servicio depende de las rutas | `tests/test_service_layering.py`, que falla sobre el código anterior y nombra a los tres infractores |
+| Cada herramienta pasa aislamiento, puerta de plan y rol | `tests/test_ai_tools_isolation.py`: 81 casos sobre las 9 herramientas, parametrizados sobre el registro |
+| Una herramienta nueva no se registra sin su prueba | `tests/test_ai_tools_guards.py`. La batería se genera desde el registro, así que cubre las nuevas sola |
+| `ruff` limpio y suite completa | 684 tests pasan, `ruff` limpio |
+
+Se comprobó que las pruebas detectan fallas rompiendo el código a propósito: sin el filtro de tienda en una consulta falla el aislamiento, y sin el chequeo de rol, sin el de plan o sin la defensa de contexto armado a mano fallan los tests de la política.
+
+Cambios respecto del diseño original:
+
+- `policy.authorize` recibe `(ctx, tool)`, sin `params`.
+- El servicio devuelve diccionarios y las herramientas los validan con los esquemas de `schemas/metrics.py`.
+- La política deniega también un contexto armado a mano con la tienda de otra cuenta, además de que `resolve_context` no lo construya.
+- `find_owned_store` es la única regla de "esta tienda es mía", compartida por la API y el contexto.
+
+Pendiente, fuera de esta etapa: el período de calendario con el huso horario de la tienda, que queda para un cambio aparte.
