@@ -208,5 +208,12 @@ Notas de orden:
 | Período de una herramienta | Ventana móvil de N días que termina ahora. Los períodos de calendario se agregan después, como un cambio aparte |
 | Qué devuelve el servicio de métricas | Diccionarios simples. Las herramientas los validan con los modelos de `schemas/metrics.py` |
 | Ventana máxima por consulta | 90 días, configurable |
+| Principio de los datos del CRM | ROSS organiza y transporta: los datos no se reflejan en claro (ni en registros, trazas ni copias) y viajan y se guardan cifrados. **Por definir:** si alcanza con cifrado por campo en el servidor o se exige que ROSS no pueda leerlos |
+| Alojamiento | Todo en el plano nacional por ahora. Se profundiza más adelante. **A verificar:** la región del alojamiento actual |
+| Exportar los datos de un contacto | Lo ve quien tenga acceso a auditorías y los comerciales que traten con clientes. Plazo de 30 días. **Por confirmar:** qué significa que luego "se guarda en una card" y cómo se modela el rol comercial |
+| Borrar un contacto | Deja constancia durante 7 días. **Por confirmar:** qué contiene esa constancia |
+| Retención | 180 días para borrar todo definitivamente. **Por confirmar:** desde qué momento corre el plazo |
+| Seguridad | Se exige cifrado en reposo. El nivel de registro de accesos se elige entre las propuestas |
+| Esperando respuesta del área legal | Consultas 2, 3, 8, 9 y 10 |
 
 Siguiente documento: [fase-4-1-diseno.md](fase-4-1-diseno.md), el diseño detallado de la etapa 4.1.
