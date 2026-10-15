@@ -106,10 +106,10 @@ Qué es "el modelo de ROSS" (propio, alojado por ROSS o de un tercero) cambia co
 | Activación | La cuenta lo activa desde su configuración. No se crea ningún dato hasta entonces. Se controla con una bandera por cuenta y con `require_plan_feature("crm")` |
 | Alcance mínimo | Contactos, empresas, embudo simple de oportunidades, tareas y notas. Alta manual e importación CSV. **Sin envío de email ni WhatsApp en esta fase** |
 | Origen y finalidad | Cada contacto lleva su **origen** y la **finalidad** para la que se guarda. Los contactos comerciales de la cuenta se mantienen separados de los compradores de sus tiendas |
-| Plan | Hay que agregar la función `crm` a `plans.features`. La migración de planes pide que toda función con puerta figure al menos en `scale`. Qué planes la incluyen es una decisión comercial |
+| Plan | Hay que agregar la función `crm` a `plans.features`. La migración de planes pide que toda función con puerta figure al menos en `scale`. **Decidido: Growth y Scale** (Starter no). Pendiente: qué pasa con los datos de una cuenta que baja a un plan sin CRM (propuesta: conservarlos en solo lectura y exportables) |
 | Aislamiento | Toda tabla lleva `account_id`. Todo acceso pasa por las dependencias actuales. **Test de aislamiento entre cuentas obligatorio por ruta y por herramienta** |
 | Roles | `viewer` lee. `admin` y `owner` escriben. El asistente hereda el rol de quien le habla |
-| Datos personales | ROSS pasa a ser encargado del tratamiento de los contactos de la cuenta. En primera instancia lo aprueban el administrador y quien lleve la contaduría. **La revisión legal o de privacidad es un requisito formal antes de empezar la etapa 4.4** |
+| Datos personales | ROSS pasa a ser encargado del tratamiento de los contactos de la cuenta. En primera instancia lo aprueban el administrador y quien lleve la contaduría. **La revisión legal o de privacidad es un requisito formal antes de empezar la etapa 4.4**, a cargo del responsable legal. La consulta está redactada en `fase-4-crm-consulta-legal.docx` |
 | Derechos | Exportar y borrar todo el CRM de una cuenta, y borrar un contacto, desde el primer día |
 | Cuenta demo | No escribe en el CRM ni puntúa |
 
@@ -200,9 +200,9 @@ Notas de orden:
 |---|---|
 | Modelo de IA | **Híbrido**. Primero un modelo local (Ollama). Las APIs comerciales son opcionales y están desactivadas por defecto. Se elige proveedor por capacidad |
 | Promoción de patrones | Aprobación humana en cada una al principio |
-| Contactos del CRM | Primero los que carga la cuenta. Los compradores de las tiendas son opcionales, nunca automáticos, y exigen definir finalidad, acceso y base legal antes |
-| Planes que incluyen el CRM | Se decide cuando el módulo esté terminado |
-| Datos personales | Administrador y contaduría en primera instancia, **más** revisión legal o de privacidad como requisito formal antes de la 4.4 |
+| Contactos del CRM | **Confirmado:** solo los que carga la cuenta (formulario o CSV), sin vínculo con `customers` ni con los pedidos. Los compradores de las tiendas son opcionales, nunca automáticos, y exigen definir finalidad, acceso y base legal antes. Sin decidir: el cruce por hash como contenido de la 4.8 |
+| Planes que incluyen el CRM | **Growth y Scale.** Pendiente: el tratamiento de los datos de una cuenta que baja de plan |
+| Datos personales | Administrador y contaduría en primera instancia, **más** revisión del responsable legal como requisito formal antes de la 4.4. Documento de consulta: `fase-4-crm-consulta-legal.docx` |
 | Selección de respuestas | Puntaje híbrido con pesos iniciales como hipótesis y tres comportamientos según la confianza. Nunca autoriza |
 | Ubicación de las herramientas | `backend/app/ai/tools/` |
 | Período de una herramienta | Ventana móvil de N días que termina ahora. Los períodos de calendario se agregan después, como un cambio aparte |

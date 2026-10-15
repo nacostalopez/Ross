@@ -9,9 +9,9 @@ las cifras que el asistente use salen de funciones reutilizables, y cada herrami
 |---|---|
 | Modelo de IA | **Híbrido**: primero local (Ollama), APIs comerciales desactivadas por defecto, proveedor elegible por capacidad. No afecta a la etapa 4.1 |
 | Aprobación de promociones | Humana en cada una al principio |
-| Contactos del CRM | Primero los que carga la cuenta. Compradores de tiendas: opcionales, nunca automáticos, con finalidad, acceso y base legal definidos antes |
-| Planes que incluyen el CRM | Se decide cuando el módulo esté terminado |
-| Datos personales | Administrador y contaduría en primera instancia, más revisión legal o de privacidad antes de la etapa 4.4 |
+| Contactos del CRM | **Confirmado:** solo los que carga la cuenta. Compradores de tiendas: opcionales, nunca automáticos, con finalidad, acceso y base legal definidos antes |
+| Planes que incluyen el CRM | **Growth y Scale.** Pendiente: qué pasa con los datos al bajar de plan |
+| Datos personales | Administrador y contaduría en primera instancia, más revisión del responsable legal antes de la etapa 4.4 (consulta en `fase-4-crm-consulta-legal.docx`) |
 | **Ubicación del paquete** | `backend/app/ai/tools/` |
 | **Período de una herramienta** | Ventana móvil de N días que termina ahora. Los períodos de calendario se diseñan en el contrato pero se implementan después |
 | **Qué devuelve el servicio** | Diccionarios simples. **Las herramientas** los validan con los modelos de `schemas/metrics.py` |
