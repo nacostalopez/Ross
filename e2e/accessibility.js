@@ -74,6 +74,14 @@ async function audit(browser, { name, url, width, theme, tokens, prepare }) {
   );
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   check(`${tag} no horizontal scroll`, overflow <= 0, overflow > 0 ? `${overflow}px wider than the viewport` : "");
+  if (width <= 560 && (await page.$(".topbar"))) {
+    const height = await page.$eval(".topbar", (el) => el.getBoundingClientRect().height);
+    check(`${tag} the top bar stays on one row`, height <= 72, `${Math.round(height)}px tall`);
+  }
+  if (width <= 560 && name === "login") {
+    const bottom = await page.$eval('#login-form button[type="submit"]', (el) => el.getBoundingClientRect().bottom);
+    check(`${tag} the sign-in button is on the first screen`, bottom <= 900, `at ${Math.round(bottom)}px`);
+  }
   check(`${tag} no console errors`, errors.length === 0, errors.join(" | "));
 
   await page.screenshot({ path: path.join(SHOTS_DIR, `${name}-${theme || "light"}-${width}.png`), fullPage: true });

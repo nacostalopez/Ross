@@ -1172,3 +1172,40 @@ a:hover { text-decoration: underline; }
 .privacy-note { margin: 12px 0 0; font-size: 13px; }
 #privacy-modal .modal-card { width: 420px; }
 #privacy-modal .privacy-warning { font-size: 13.5px; color: var(--text); margin: 8px 0 0; }
+
+/* ---------------------------------------------------------------------------
+   Teléfono: barra superior en una sola fila, login con el formulario a la vista,
+   navegación de las páginas públicas alineada y el punto de los botones fuera del texto
+   --------------------------------------------------------------------------- */
+/* The brand in the public pages' nav reuses the login hero's class, which carries a 36px bottom margin. */
+.l-nav .auth-hero-brand { margin-bottom: 0; }
+
+/* The decorative dot of the blue buttons sits in the corner, clear of the label. */
+.btn-primary::after { top: 5px; right: 6px; width: 4px; height: 4px; }
+
+@media (max-width: 860px) {
+  /* The form is what someone on a phone came for: keep only the headline of the pitch above it. */
+  .auth-hero-content { padding: 24px 20px; max-width: none; }
+  .auth-hero .auth-hero-brand, .auth-hero-sub, .auth-hero-preview, .auth-hero-trust { display: none; }
+  .auth-hero-title { font-size: 24px; margin: 0; }
+  .auth-formside { padding: 20px 0 32px; }
+}
+
+@media (max-width: 560px) {
+  /* One row: menu, brand, then theme, pause and sign out. The account name and its chip are the first to go. */
+  .topbar { flex-wrap: nowrap; padding: 10px 16px; gap: 8px; }
+  .topbar-left { min-width: 0; }
+  .topbar-right { flex-wrap: nowrap; gap: 6px; }
+  .topbar-account { gap: 6px; }
+  .topbar #account-name, .topbar .account-chip { display: none; }
+  #logout-btn { padding: 8px 10px; font-size: 13px; white-space: nowrap; }
+}
+
+/* Stacked table cells keep the heading of their column. */
+.legal-table td[data-label]::before { content: attr(data-label); display: none; }
+@media (max-width: 640px) {
+  .legal-table td[data-label]::before {
+    display: block; margin-bottom: 2px; color: var(--muted); font-size: 11.5px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+}
