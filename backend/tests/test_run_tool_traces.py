@@ -114,3 +114,21 @@ class TestRecordingNeverGetsInTheWay:
 
         assert result == expected
         assert len(_rows(test_db_session)) == before
+
+
+class TestAToolThatBreaks:
+    def test_the_error_reaches_the_caller_and_leaves_a_trace(self, test_db_session, test_user, ctx, monkeypatch):
+        from app.ai.tools import registry
+        from app.ai.tools.base import NoParams, Tool
+
+        def explode(_ctx, _params):
+            raise RuntimeError("falló la consulta")
+
+        broken = Tool(name="roto", module="analytics", description="x", params=NoParams, result=dict, run=explode)
+        monkeypatch.setitem(registry._TOOLS, "roto", broken)
+
+        with pytest.raises(RuntimeError):
+            run_tool("roto", ctx, {})
+
+        (row,) = _rows(test_db_session, test_user.account_id)
+        assert row.tool == "roto" and row.outcome == "error"

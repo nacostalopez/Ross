@@ -14,6 +14,7 @@ from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.dependencies import is_demo_user
@@ -97,6 +98,18 @@ def record_event(db: Session, *, user: User, trace_id: UUID, kind: str) -> Optio
     if trace is None:
         return None
 
+    # Two requests for the same mark can race: the second insert hits the unique key. The mark is
+    # already there, so one retry finds it and just refreshes it.
+    for attempt in (1, 2):
+        try:
+            return _save_event(db, user, trace, kind)
+        except IntegrityError:
+            db.rollback()
+            if attempt == 2:
+                raise
+
+
+def _save_event(db: Session, user: User, trace: AssistantTrace, kind: str) -> AssistantEvent:
     if kind in _VERDICTS:
         (
             db.query(AssistantEvent)
@@ -108,10 +121,14 @@ def record_event(db: Session, *, user: User, trace_id: UUID, kind: str) -> Optio
             )
             .delete(synchronize_session=False)
         )
+    now = datetime.now(timezone.utc)
     event = db.query(AssistantEvent).filter_by(trace_id=trace.id, user_id=user.id, kind=kind).first()
     if event is None:
         event = AssistantEvent(id=uuid.uuid4(), trace_id=trace.id, account_id=user.account_id, user_id=user.id, kind=kind)
         db.add(event)
+    else:
+        # Saying it again is the latest judgement: the score window counts from now, not from the first click.
+        event.created_at = now
     db.commit()
     return event
 

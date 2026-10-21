@@ -49,22 +49,34 @@ def run_tool(name: str, ctx: ToolContext, raw_params: Optional[dict] = None) -> 
     with a typed denial the assistant can explain. Every call, answered or denied, leaves one trace here
     and nowhere else; recording is observation and never changes the answer."""
     started = time.perf_counter()
-    result, validated, rejected = _execute(name, ctx, raw_params)
     try:
+        result, validated, rejected = _execute(name, ctx, raw_params)
+    except Exception:
+        # A tool that breaks is the outcome most worth counting. The error still reaches the caller.
+        _record(name, ctx, "error", started, None, False)
+        raise
+    _record(name, ctx, "ok" if result.ok else result.denial.value, started, validated, rejected)
+    return result
+
+
+def _record(name: str, ctx: ToolContext, outcome: str, started: float, params: Optional[dict], rejected: bool) -> None:
+    try:
+        if outcome == "error":
+            # The failed statement may have left the transaction unusable.
+            ctx.db.rollback()
         traces.record_trace(
             ctx.db,
             user=ctx.user,
             store_id=ctx.store.id,
             tool=name,
-            outcome="ok" if result.ok else result.denial.value,
+            outcome=outcome,
             latency_ms=round((time.perf_counter() - started) * 1000),
             role=ctx.role,
-            params=validated,
+            params=params,
             validator_rejected=rejected,
         )
     except Exception:
         logger.warning("trace_not_recorded", extra={"tool": name}, exc_info=True)
-    return result
 
 
 def _execute(name: str, ctx: ToolContext, raw_params: Optional[dict]) -> tuple[ToolResult, Optional[dict], bool]:

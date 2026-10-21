@@ -137,3 +137,40 @@ class TestPrivacyHooks:
         body = client.get("/privacy/export", headers=auth_header).json()
         assert [(e["tool"], e["kind"]) for e in body["assistant_events"]] == [("weekly_narrative", "useful")]
         assert "param_shape" not in str(body)
+
+
+@pytest.mark.db
+class TestEventDetails:
+    def test_saying_the_same_thing_again_refreshes_its_date(self, test_db_session, test_user):
+        trace_id = _trace(test_db_session, test_user)
+        traces.record_event(test_db_session, user=test_user, trace_id=trace_id, kind="useful")
+        old = datetime.now(timezone.utc) - timedelta(days=29)
+        test_db_session.query(AssistantEvent).update({"created_at": old})
+        test_db_session.commit()
+
+        traces.record_event(test_db_session, user=test_user, trace_id=trace_id, kind="useful")
+
+        (event,) = test_db_session.query(AssistantEvent).all()
+        assert event.created_at > old + timedelta(days=28)
+
+    def test_a_racing_duplicate_is_absorbed(self, test_db_session, test_user, monkeypatch):
+        trace_id = _trace(test_db_session, test_user)
+        traces.record_event(test_db_session, user=test_user, trace_id=trace_id, kind="useful")
+        real = traces._save_event
+        calls = []
+
+        def racing(db, user, trace, kind):
+            # The first attempt behaves as if another request inserted the same row a moment earlier.
+            calls.append(1)
+            if len(calls) == 1:
+                from sqlalchemy.exc import IntegrityError
+
+                raise IntegrityError("insert", {}, Exception("duplicate key"))
+            return real(db, user, trace, kind)
+
+        monkeypatch.setattr(traces, "_save_event", racing)
+
+        event = traces.record_event(test_db_session, user=test_user, trace_id=trace_id, kind="useful")
+
+        assert event is not None and len(calls) == 2
+        assert test_db_session.query(AssistantEvent).count() == 1
