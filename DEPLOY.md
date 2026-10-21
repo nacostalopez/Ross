@@ -46,10 +46,13 @@ start command and a schedule instead of a domain. Railway runs cron
 schedules in UTC; Argentina is UTC-3.
 
 - Schedule: `0 12 * * *` (09:00 in Argentina).
-- Start command: the daily alert check, plus the weekly report on Mondays:
-  `sh -c 'python -m app.cli.run_alert_checks; if [ "$(date -u +%u)" = 1 ]; then python -m app.cli.send_weekly_reports; fi'`
+- Start command: the daily alert check, the assistant retention purge, plus the weekly report on Mondays:
+  `sh -c 'python -m app.cli.run_alert_checks; python -m app.cli.purge_assistant_traces; if [ "$(date -u +%u)" = 1 ]; then python -m app.cli.send_weekly_reports; fi'`
 - Restart policy: never, so a failed run waits for the next day instead of
   looping.
+
+`purge_assistant_traces` deletes the assistant's traces and events older than
+180 days and logs only the counts.
 
 One service rather than one per job because the trial plan caps the number
 of services. Once the live demo is on (`DEMO_VIEWER_EMAIL`), add
