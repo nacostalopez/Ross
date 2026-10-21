@@ -18,6 +18,7 @@ from app.routes import (
     accounts,
     ad_spend,
     alerts,
+    assistant,
     auth,
     billing,
     connectors,
@@ -120,6 +121,7 @@ app.include_router(reports.router)
 app.include_router(push.router)
 app.include_router(notification_preferences.router)
 app.include_router(privacy.router)
+app.include_router(assistant.router)
 
 
 @app.get("/health")
