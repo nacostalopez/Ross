@@ -1,3 +1,4 @@
+from typing import Optional
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
@@ -40,13 +41,25 @@ def get_current_user(
     return user
 
 
+def find_owned_store(db: Session, user: User, store_id: UUID) -> Optional[Store]:
+    """The store, if it belongs to the user's account; None otherwise, whether it exists or not.
+
+    The one rule for "this store is mine": get_owned_store turns a None into a 404 for a route, and the
+    assistant's tools turn it into "store not found", so both answer the same for another account's store.
+    """
+    store = db.get(Store, store_id)
+    if not store or store.account_id != user.account_id:
+        return None
+    return store
+
+
 def get_owned_store(
     store_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Store:
-    store = db.get(Store, store_id)
-    if not store or store.account_id != current_user.account_id:
+    store = find_owned_store(db, current_user, store_id)
+    if store is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Store not found")
     return store
 
@@ -130,6 +143,16 @@ def _plan_for_account(db: Session, account_id: UUID) -> Plan:
     return db.get(Plan, plan_id)
 
 
+def check_plan_feature(db: Session, account_id: UUID, feature: str) -> tuple[bool, Plan]:
+    """Whether the account's plan unlocks `feature`, and the plan itself (for its name).
+
+    The one place the rule lives: require_plan_feature below turns a "no" into a 402 for a route, and
+    the assistant's tools turn it into a typed "plan required" answer. Same rule, same fallback.
+    """
+    plan = _plan_for_account(db, account_id)
+    return feature in plan.features, plan
+
+
 def require_plan_feature(feature: str):
     """Gate a route behind a plan's feature list, e.g.
     Depends(require_plan_feature("forecast")). A feature key not present
@@ -138,8 +161,8 @@ def require_plan_feature(feature: str):
     least "scale" (db/init/028_billing.sql) or no account could ever use it.
     """
     def _check(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
-        plan = _plan_for_account(db, current_user.account_id)
-        if feature not in plan.features:
+        allowed, plan = check_plan_feature(db, current_user.account_id, feature)
+        if not allowed:
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail=f"Esta funcionalidad requiere un plan superior a {plan.name}",

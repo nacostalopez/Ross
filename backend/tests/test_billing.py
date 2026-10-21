@@ -8,7 +8,7 @@ plan doesn't include a feature.
 import pytest
 from fastapi import status
 
-from app.dependencies import _plan_for_account, require_plan_feature
+from app.dependencies import _plan_for_account, check_plan_feature, require_plan_feature
 from app.models import Subscription
 
 
@@ -27,6 +27,31 @@ class TestPlanForAccount:
 
 
 @pytest.mark.db
+class TestCheckPlanFeature:
+    """The rule on its own, which the routes (as a 402) and the assistant's tools (as a typed answer) share."""
+
+    def test_allows_and_returns_the_plan_when_it_has_the_feature(self, test_db_session, test_account):
+        allowed, plan = check_plan_feature(test_db_session, test_account.id, "forecast")
+        assert allowed is True
+        assert plan.id == "scale"
+
+    def test_denies_and_returns_the_plan_when_it_lacks_the_feature(self, test_db_session, test_account):
+        test_db_session.add(Subscription(account_id=test_account.id, plan_id="starter", status="active"))
+        test_db_session.commit()
+
+        allowed, plan = check_plan_feature(test_db_session, test_account.id, "forecast")
+        assert allowed is False
+        assert plan.id == "starter"
+
+    def test_a_feature_only_scale_has_is_denied_on_growth(self, test_db_session, test_account):
+        test_db_session.add(Subscription(account_id=test_account.id, plan_id="growth", status="active"))
+        test_db_session.commit()
+
+        assert check_plan_feature(test_db_session, test_account.id, "forecast")[0] is True
+        assert check_plan_feature(test_db_session, test_account.id, "creative_performance")[0] is False
+
+
+@pytest.mark.db
 class TestRequirePlanFeature:
     def test_allows_when_plan_has_the_feature(self, test_db_session, test_account, test_user):
         # test_user has no Subscription row -> defaults to scale, which has everything.
@@ -40,6 +65,8 @@ class TestRequirePlanFeature:
         with pytest.raises(Exception) as exc_info:
             require_plan_feature("forecast")(test_user, test_db_session)
         assert exc_info.value.status_code == status.HTTP_402_PAYMENT_REQUIRED
+        # The message still names the plan, now that the rule lives in check_plan_feature.
+        assert exc_info.value.detail == "Esta funcionalidad requiere un plan superior a Starter"
 
 
 @pytest.mark.db
@@ -47,7 +74,7 @@ class TestRegistrationCreatesSubscription:
     def test_register_creates_a_scale_subscription(self, client, test_db_session):
         response = client.post(
             "/auth/register",
-            json={"account_name": "New Co", "email": "newco@example.com", "password": "supersecret123"},
+            json={ "accept_terms": True, "account_name": "New Co", "email": "newco@example.com", "password": "supersecret123"},
         )
         assert response.status_code == status.HTTP_201_CREATED
 

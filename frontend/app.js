@@ -439,6 +439,7 @@ document.getElementById("register-form").addEventListener("submit", async (e) =>
         account_name: document.getElementById("register-account-name").value,
         email: document.getElementById("register-email").value,
         password: document.getElementById("register-password").value,
+        accept_terms: document.getElementById("register-accept").checked,
       },
     });
     setTokens(data.access_token, data.refresh_token);
@@ -508,7 +509,7 @@ document.getElementById("accept-invite-form").addEventListener("submit", async (
     const data = await api("/accounts/invites/accept", {
       auth: false,
       method: "POST",
-      body: { token: state.pendingInviteToken, password },
+      body: { token: state.pendingInviteToken, password, accept_terms: document.getElementById("invite-accept-terms").checked },
     });
     clearUrlToken();
     setTokens(data.access_token, data.refresh_token);
@@ -2395,6 +2396,7 @@ function renderActivityLog(entries) {
 }
 
 async function loadProfilePanel() {
+  setupPrivacyPanel();
   paintUserAgent(document.getElementById("profile-bust"), "agentBust");
   const { preferences } = await api("/notification-preferences");
   renderNotificationMatrix(preferences);
@@ -2413,6 +2415,86 @@ async function loadProfilePanel() {
     renderTeamSummary(members);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Privacidad y mis datos — backend/app/routes/privacy.py. Download everything kept about the
+// signed-in person, or delete their own user (or, for an owner, the whole account). Both deletions
+// ask for the password; deleting the account also asks for the word ELIMINAR typed in full.
+// ---------------------------------------------------------------------------
+
+const privacyModal = document.getElementById("privacy-modal");
+const privacyForm = document.getElementById("privacy-form");
+let privacyMode = "me";
+
+function setupPrivacyPanel() {
+  document.getElementById("privacy-panel").hidden = isDemoSession();
+  document.getElementById("privacy-delete-account-btn").hidden = !state.currentUser || state.currentUser.role !== "owner";
+}
+
+function showPrivacyMessage(text) {
+  const el = document.getElementById("privacy-message");
+  el.textContent = text;
+  el.hidden = false;
+}
+
+document.getElementById("privacy-export-btn").addEventListener("click", async () => {
+  try {
+    const data = await api("/privacy/export");
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "ross-mis-datos.json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showPrivacyMessage("Listo: se descargó el archivo con tus datos.");
+  } catch (err) {
+    showPrivacyMessage(err.message);
+  }
+});
+
+function openPrivacyModal(mode) {
+  privacyMode = mode;
+  privacyForm.reset();
+  document.getElementById("privacy-form-error").hidden = true;
+  const account = mode === "account";
+  document.getElementById("privacy-modal-title").textContent = account ? "Eliminar la cuenta completa" : "Eliminar mi usuario";
+  document.getElementById("privacy-modal-warning").textContent = account
+    ? "Se eliminan para siempre la cuenta, todos sus usuarios, sus tiendas y todos sus datos. No se puede deshacer. Si tenés una suscripción paga, cancelala antes."
+    : "Se elimina tu usuario. La cuenta y las demás personas siguen. No se puede deshacer.";
+  document.getElementById("privacy-confirm-label").hidden = !account;
+  document.getElementById("privacy-confirm").required = account;
+  document.getElementById("privacy-submit").textContent = account ? "Eliminar la cuenta" : "Eliminar mi usuario";
+  privacyModal.hidden = false;
+  document.getElementById("privacy-password").focus();
+}
+
+document.getElementById("privacy-delete-me-btn").addEventListener("click", () => openPrivacyModal("me"));
+document.getElementById("privacy-delete-account-btn").addEventListener("click", () => openPrivacyModal("account"));
+document.getElementById("privacy-cancel").addEventListener("click", () => (privacyModal.hidden = true));
+
+privacyForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById("privacy-form-error");
+  errorEl.hidden = true;
+  const account = privacyMode === "account";
+  const body = { password: document.getElementById("privacy-password").value };
+  if (account) body.confirm = document.getElementById("privacy-confirm").value;
+  try {
+    await api(account ? "/privacy/delete-account" : "/privacy/delete-me", { method: "POST", body });
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.hidden = false;
+    return;
+  }
+  privacyModal.hidden = true;
+  setTokens(null, null);
+  showLoggedOut();
+  authSuccess.textContent = account ? "Tu cuenta y todos sus datos fueron eliminados." : "Tu usuario fue eliminado.";
+  authSuccess.hidden = false;
+});
 
 // ---------------------------------------------------------------------------
 // Mi plan — Mercado Pago Suscripciones (backend/app/routes/billing.py).

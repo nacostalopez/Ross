@@ -18,8 +18,8 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import AlertLog, Store, StoreAlertPreference
-from app.routes.metrics import CAC_BY_CHANNEL_SQL, DAILY_SQL
 from app.schemas.alerts import AlertCheckResult
+from app.services.metrics.queries import CAC_BY_CHANNEL_SQL, DAILY_SQL
 from app.services.notifications import send_to_store
 
 logger = logging.getLogger("ross.alerts")

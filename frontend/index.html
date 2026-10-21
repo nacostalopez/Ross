@@ -210,6 +210,10 @@
                 <input type="password" id="invite-accept-password-confirm" required minlength="8" autocomplete="new-password" placeholder="Repetí la contraseña" />
               </span>
             </label>
+            <label class="consent">
+              <input type="checkbox" id="invite-accept-terms" required />
+              <span>Acepto los <a href="terminos.html" target="_blank" rel="noopener">términos de servicio</a> y la <a href="privacidad.html" target="_blank" rel="noopener">política de privacidad</a>.</span>
+            </label>
             <button type="submit" class="btn btn-primary">Aceptar invitación</button>
           </form>
 
@@ -235,6 +239,10 @@
                 <div class="pw-meter-bar"><span></span></div>
                 <span class="pw-meter-label"></span>
               </div>
+            </label>
+            <label class="consent">
+              <input type="checkbox" id="register-accept" required />
+              <span>Acepto los <a href="terminos.html" target="_blank" rel="noopener">términos de servicio</a> y la <a href="privacidad.html" target="_blank" rel="noopener">política de privacidad</a>.</span>
             </label>
             <button type="submit" class="btn btn-primary">Crear cuenta</button>
           </form>
@@ -400,6 +408,17 @@
             <p id="activity-log-empty" class="muted" hidden>Todavía no hay actividad para mostrar.</p>
             <div id="activity-log-list"></div>
           </div>
+
+          <div class="panel" id="privacy-panel">
+            <h3>Privacidad y mis datos</h3>
+            <p class="widget-info">Descargá todo lo que ROSS guarda sobre vos, o eliminá tu usuario. Más detalle en la <a href="privacidad.html" target="_blank" rel="noopener">política de privacidad</a> y en los <a href="terminos.html" target="_blank" rel="noopener">términos de servicio</a>.</p>
+            <div class="privacy-actions">
+              <button type="button" class="btn btn-ghost" id="privacy-export-btn">Descargar mis datos</button>
+              <button type="button" class="btn btn-danger" id="privacy-delete-me-btn">Eliminar mi usuario</button>
+              <button type="button" class="btn btn-danger" id="privacy-delete-account-btn" hidden>Eliminar la cuenta completa</button>
+            </div>
+            <p id="privacy-message" class="muted privacy-note" role="status" hidden></p>
+          </div>
         </div>
       </div>
     </section>
@@ -560,6 +579,26 @@
         <div class="modal-actions">
           <button type="button" id="invite-cancel" class="btn btn-ghost">Cancelar</button>
           <button type="submit" class="btn btn-primary">Enviar invitación</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="privacy-modal" class="modal" hidden>
+    <div class="modal-card">
+      <h3 id="privacy-modal-title">Eliminar</h3>
+      <p id="privacy-modal-warning" class="privacy-warning"></p>
+      <form id="privacy-form">
+        <label>Tu contraseña
+          <input type="password" id="privacy-password" required autocomplete="current-password" />
+        </label>
+        <label id="privacy-confirm-label" hidden>Escribí ELIMINAR para confirmar
+          <input type="text" id="privacy-confirm" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+        </label>
+        <p id="privacy-form-error" class="error-text" hidden></p>
+        <div class="modal-actions">
+          <button type="button" id="privacy-cancel" class="btn btn-ghost">Cancelar</button>
+          <button type="submit" id="privacy-submit" class="btn btn-danger">Eliminar</button>
         </div>
       </form>
     </div>

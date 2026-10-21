@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Empty = no demo: POST /auth/demo answers 404.
     demo_viewer_email: str = ""
 
+    # The longest window, in days, an assistant tool will read in one call (the dashboard's longest
+    # range is 90). See app/ai/tools.
+    assistant_max_window_days: int = 90
+
     # Fernet key for encrypting store_credentials at rest. Dev-only default —
     # generate a real one with:
     #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"

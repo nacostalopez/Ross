@@ -78,7 +78,7 @@ async function open(browser, tokens, path = "") {
   const browser = await chromium.launch();
   const tokens = await apiCall("/auth/register", {
     method: "POST",
-    body: { account_name: "Mercado QA", email: `mercado-qa-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7" },
+    body: { account_name: "Mercado QA", email: `mercado-qa-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7", accept_terms: true },
   });
   const store = await apiCall("/stores", {
     method: "POST",

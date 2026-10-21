@@ -6,7 +6,7 @@ from fastapi import status
 from app import email as email_module
 from app.models import DemoRequest
 
-VALID = {"name": "Ana Pérez", "email": "ana@tienda.com", "platform": "tiendanube"}
+VALID = {"name": "Ana Pérez", "email": "ana@tienda.com", "platform": "tiendanube", "accept_privacy": True}
 
 
 @pytest.mark.db

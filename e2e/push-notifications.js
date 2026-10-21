@@ -113,6 +113,7 @@ async function main() {
     await page.fill("#register-account-name", "Push E2E");
     await page.fill("#register-email", email);
     await page.fill("#register-password", "supersecret123");
+    await page.check("#register-accept");
     await page.click('#register-form button[type="submit"]');
     await page.waitForSelector("#dashboard-view:not([hidden])", { timeout: 15000 });
 

@@ -46,7 +46,7 @@ async function register() {
   const res = await fetch(`${API_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ account_name: "Menu QA", email: `menu-qa-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7" }),
+    body: JSON.stringify({ account_name: "Menu QA", email: `menu-qa-${Date.now()}@example.com`, password: "Ross-QA-2026!xQ7", accept_terms: true }),
   });
   if (!res.ok) throw new Error(`register -> ${res.status} ${await res.text()}`);
   return res.json();

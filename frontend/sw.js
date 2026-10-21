@@ -1,10 +1,12 @@
-const CACHE_NAME = "ross-shell-v11";
+const CACHE_NAME = "ross-shell-v12";
 
 // Agent scenes (agentes/escenas/*.json) are not listed on purpose: they are fetched on
 // demand and cached by the stale-while-revalidate handler below on first use.
 const SHELL_ASSETS = [
   "index.html",
   "landing.html",
+  "privacidad.html",
+  "terminos.html",
   "style.css",
   "app.js",
   "oficina.js",

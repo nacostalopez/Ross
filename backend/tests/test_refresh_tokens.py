@@ -102,7 +102,7 @@ class TestInviteAcceptIssuesRefreshToken:
 
         accept_response = client.post(
             "/accounts/invites/accept",
-            json={"token": token, "password": "inviteepassword123"},
+            json={ "accept_terms": True, "token": token, "password": "inviteepassword123"},
         )
         assert accept_response.status_code == status.HTTP_200_OK
         data = accept_response.json()

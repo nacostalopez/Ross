@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Store, WeeklyNarrative
-from app.routes.metrics import PNL_SQL
+from app.services.metrics.queries import PNL_SQL
 from app.services.narrative_validator import check_figures
 from app.services.narrative_writers import NarrativeRequest, NarrativeService, TemplateNarrativeWriter, build_writer
 
@@ -221,10 +221,15 @@ def narrative_service() -> NarrativeService:
 
 def get_or_build(db: Session, store: Store, now: Optional[datetime] = None) -> WeeklyNarrative:
     """Today's summary for the store, written once and reused until tomorrow."""
+    return get_or_build_with_outcome(db, store, now)[0]
+
+
+def get_or_build_with_outcome(db: Session, store: Store, now: Optional[datetime] = None) -> tuple[WeeklyNarrative, bool]:
+    """Same, and whether the figure validator rejected a model's text while building it now."""
     period_end = (now or datetime.now(timezone.utc)).date()
     cached = db.get(WeeklyNarrative, (store.id, period_end))
     if cached:
-        return cached
+        return cached, False
 
     facts = collect_facts(db, store, period_end)
     result = narrative_service().generate(
@@ -247,4 +252,4 @@ def get_or_build(db: Session, store: Store, now: Optional[datetime] = None) -> W
     if result.cacheable:
         db.merge(narrative)
         db.commit()
-    return narrative
+    return narrative, bool(result.reason and result.reason.startswith("rejected_"))
