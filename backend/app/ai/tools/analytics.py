@@ -22,7 +22,7 @@ from app.schemas.metrics import (
 )
 from app.schemas.narrative import NarrativeOut
 from app.services.metrics import service as metrics_service
-from app.services.weekly_narrative import get_or_build
+from app.services.weekly_narrative import get_or_build_with_outcome
 
 MODULE = "analytics"
 
@@ -57,7 +57,7 @@ def _forecast(ctx: ToolContext, params: ForecastParams) -> Output:
 
 
 def _weekly_narrative(ctx: ToolContext, params: NoParams) -> Output:
-    narrative = get_or_build(ctx.db, ctx.store, now=ctx.now)
+    narrative, rejected = get_or_build_with_outcome(ctx.db, ctx.store, now=ctx.now)
     data = {
         "text": narrative.text,
         "mood": narrative.mood,
@@ -65,7 +65,7 @@ def _weekly_narrative(ctx: ToolContext, params: NoParams) -> Output:
         "period_end": narrative.period_end,
         "facts": narrative.facts,
     }
-    return Output(data)
+    return Output(data, validator_rejected=rejected)
 
 
 register(Tool(

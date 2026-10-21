@@ -2,7 +2,7 @@
 
 Parte de la [etapa 4.1](fase-4-1-diseno.md), cerrada: las nueve herramientas de solo lectura, el registro y la política ya existen. Esta etapa les agrega **memoria**: qué se pidió, cómo se resolvió y qué tan útil resultó. Es lo único del roadmap que no se puede recuperar después, porque la independencia progresiva (4.6) se alimenta de lo registrado desde el principio.
 
-**Estado: borrador a confirmar. No hay código escrito.**
+**Estado: implementada. Se confirmaron los valores por defecto: 20 muestras, ventana de 30 días y `acted` reservado hasta la 4.3.**
 
 ## 1. Alcance
 

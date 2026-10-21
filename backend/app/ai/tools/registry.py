@@ -49,7 +49,7 @@ def run_tool(name: str, ctx: ToolContext, raw_params: Optional[dict] = None) -> 
     with a typed denial the assistant can explain. Every call, answered or denied, leaves one trace here
     and nowhere else; recording is observation and never changes the answer."""
     started = time.perf_counter()
-    result, validated = _execute(name, ctx, raw_params)
+    result, validated, rejected = _execute(name, ctx, raw_params)
     try:
         traces.record_trace(
             ctx.db,
@@ -60,27 +60,29 @@ def run_tool(name: str, ctx: ToolContext, raw_params: Optional[dict] = None) -> 
             latency_ms=round((time.perf_counter() - started) * 1000),
             role=ctx.role,
             params=validated,
+            validator_rejected=rejected,
         )
     except Exception:
         logger.warning("trace_not_recorded", extra={"tool": name}, exc_info=True)
     return result
 
 
-def _execute(name: str, ctx: ToolContext, raw_params: Optional[dict]) -> tuple[ToolResult, Optional[dict]]:
-    """The call itself. Also returns the validated parameters, or None when there are none to trust."""
+def _execute(name: str, ctx: ToolContext, raw_params: Optional[dict]) -> tuple[ToolResult, Optional[dict], bool]:
+    """The call itself. Also returns the validated parameters, or None when there are none to trust, and
+    whether the figure validator rejected a model's text on this call."""
     tool = _TOOLS.get(name)
     if tool is None:
-        return _denied(name, DenialReason.UNKNOWN_TOOL, "No existe esa herramienta"), None
+        return _denied(name, DenialReason.UNKNOWN_TOOL, "No existe esa herramienta"), None, False
 
     # Authorization first, so a call that isn't allowed learns nothing from how its parameters are checked.
     decision = authorize(ctx, tool)
     if not decision.allowed:
-        return _denied(name, decision.reason, decision.message), None
+        return _denied(name, decision.reason, decision.message), None, False
 
     try:
         params = tool.params.model_validate(raw_params or {})
     except ValidationError as error:
-        return _denied(name, DenialReason.INVALID_PARAMS, _describe_errors(error)), None
+        return _denied(name, DenialReason.INVALID_PARAMS, _describe_errors(error)), None, False
 
     output = tool.run(ctx, params)
 
@@ -99,4 +101,4 @@ def _execute(name: str, ctx: ToolContext, raw_params: Optional[dict]) -> tuple[T
         window=window,
         currency=ctx.store.currency,
     )
-    return result, validated
+    return result, validated, output.validator_rejected

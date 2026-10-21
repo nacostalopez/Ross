@@ -86,6 +86,8 @@ class Output:
 
     data: Any
     window: Optional[tuple[datetime, datetime]] = None
+    # True when the figure validator threw out a model's text on this call. Only goes into the trace.
+    validator_rejected: bool = False
 
 
 @dataclass(frozen=True)
