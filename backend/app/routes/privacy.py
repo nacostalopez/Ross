@@ -12,12 +12,13 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import effective_roles_for_stores, get_current_user, require_role
-from app.models import Account, AccountActivityLog, RefreshToken, Store, User
+from app.models import Account, AccountActivityLog, AssistantEvent, AssistantTrace, RefreshToken, Store, User
 from app.rate_limit import limiter
 from app.schemas.privacy import (
     DeleteAccountIn,
     DeleteMeIn,
     PrivacyActivityOut,
+    PrivacyAssistantEventOut,
     PrivacyExportOut,
     PrivacyMembershipOut,
     PrivacyUserOut,
@@ -53,6 +54,14 @@ def export_my_data(
         .all()
     )
 
+    events = (
+        db.query(AssistantTrace.tool, AssistantEvent.kind, AssistantEvent.created_at)
+        .join(AssistantTrace, AssistantTrace.id == AssistantEvent.trace_id)
+        .filter(AssistantEvent.user_id == current_user.id, AssistantEvent.account_id == current_user.account_id)
+        .order_by(AssistantEvent.created_at.desc())
+        .all()
+    )
+
     response.headers["Content-Disposition"] = 'attachment; filename="ross-mis-datos.json"'
     return PrivacyExportOut(
         generated_at=datetime.now(timezone.utc),
@@ -69,6 +78,7 @@ def export_my_data(
             PrivacyMembershipOut(store_id=store.id, store_name=store.name, role=roles[store.id]) for store in stores
         ],
         activity=[PrivacyActivityOut(action=a.action, detail=a.detail, created_at=a.created_at) for a in activity],
+        assistant_events=[PrivacyAssistantEventOut(tool=t, kind=k, created_at=c) for t, k, c in events],
     )
 
 

@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     Numeric,
     SmallInteger,
     String,
@@ -318,3 +319,43 @@ class DemoRequest(Base):
     # The privacy policy the prospect accepted when sending the form (app/legal.py).
     privacy_accepted_at = Column(DateTime(timezone=True))
     privacy_version = Column(String(40))
+
+
+class AssistantTrace(Base):
+    """One run of an assistant tool: its structure, never a figure or free text. See app/ai/traces.py."""
+
+    __tablename__ = "assistant_traces"
+    __table_args__ = (
+        Index("ix_assistant_traces_account_tool", "account_id", "tool", text("created_at DESC")),
+        Index("ix_assistant_traces_created", "created_at"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
+    store_id = Column(UUID(as_uuid=True), ForeignKey("stores.id", ondelete="CASCADE"), nullable=True)
+    tool = Column(String(60), nullable=False)
+    tier = Column(String(2), nullable=False, default="L0", server_default="L0")
+    provider = Column(String(40), nullable=False, default="template", server_default="template")
+    outcome = Column(String(40), nullable=False)
+    validator_rejected = Column(Boolean, nullable=False, default=False, server_default=text("false"))
+    param_shape = Column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
+    latency_ms = Column(Integer, nullable=False)
+    role = Column(String(20), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class AssistantEvent(Base):
+    """What a person did with the result of a trace. One per person, trace and kind."""
+
+    __tablename__ = "assistant_events"
+    __table_args__ = (
+        UniqueConstraint("trace_id", "user_id", "kind", name="uq_assistant_events_trace_user_kind"),
+        Index("ix_assistant_events_account", "account_id", "created_at"),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    trace_id = Column(UUID(as_uuid=True), ForeignKey("assistant_traces.id", ondelete="CASCADE"), nullable=False)
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    kind = Column(String(20), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

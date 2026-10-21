@@ -13,6 +13,8 @@ from app.models.hypertables import ad_spend, creative_performance, orders, pixel
 from app.models.relational import (
     Account,
     AccountInvite,
+    AssistantEvent,
+    AssistantTrace,
     CapiEvent,
     Customer,
     DashboardLayout,
@@ -35,6 +37,8 @@ __all__ = [
     "Account",
     "AccountActivityLog",
     "AccountInvite",
+    "AssistantEvent",
+    "AssistantTrace",
     "CapiEvent",
     "Customer",
     "DashboardLayout",

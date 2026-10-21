@@ -26,6 +26,12 @@ class PrivacyActivityOut(BaseModel):
     created_at: datetime | None = None
 
 
+class PrivacyAssistantEventOut(BaseModel):
+    tool: str
+    kind: str
+    created_at: datetime | None = None
+
+
 class PrivacyExportOut(BaseModel):
     """Everything ROSS keeps about the signed-in person, as the right of access asks for."""
 
@@ -34,6 +40,8 @@ class PrivacyExportOut(BaseModel):
     account_name: str | None = None
     store_memberships: list[PrivacyMembershipOut]
     activity: list[PrivacyActivityOut]
+    # What the person marked on the assistant's answers (useful, not useful...), without their content.
+    assistant_events: list[PrivacyAssistantEventOut] = []
 
 
 class DeleteAccountIn(BaseModel):
