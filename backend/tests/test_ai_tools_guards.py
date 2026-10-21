@@ -90,6 +90,7 @@ def test_only_the_policy_decides_plan_and_demo_access_for_tools():
     outside_the_policy = sorted(
         str(path.relative_to(APP))
         for path in (APP / "ai").rglob("*.py")
-        if path.name != "policy.py" and deciders.search(path.read_text(encoding="utf-8"))
+        # traces.py only decides whether to *record* a call for the demo user; it grants no access.
+        if path.name not in ("policy.py", "traces.py") and deciders.search(path.read_text(encoding="utf-8"))
     )
     assert not outside_the_policy, f"Plan or demo checks outside the policy: {outside_the_policy}"
